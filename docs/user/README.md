@@ -54,6 +54,8 @@ xcron plan
 xcron apply
 xcron status
 xcron inspect sync_docs
+xcron jobs list
+xcron jobs show sync_docs
 xcron prune
 ```
 
@@ -71,6 +73,45 @@ Default backend selection:
 
 - macOS: `launchd`
 - Linux: `cron`
+
+## Jobs
+
+`xcron jobs ...` manages individual job entries inside the selected manifest.
+
+Important boundary:
+
+- `xcron jobs ...` edits YAML only
+- `xcron apply` is still the step that reconciles scheduler state
+
+Available commands:
+
+```sh
+xcron jobs list
+xcron jobs show <job-id>
+xcron jobs add <job-id> --command <cmd> --cron "*/15 * * * *"
+xcron jobs add <job-id> --command <cmd> --every 1h
+xcron jobs update <job-id> --command <cmd>
+xcron jobs enable <job-id>
+xcron jobs disable <job-id>
+xcron jobs remove <job-id>
+```
+
+Examples:
+
+```sh
+xcron jobs add cleanup_tmp --command ./bin/cleanup-tmp --every 1h --disabled
+xcron jobs update cleanup_tmp --cron "0 * * * *" --clear-env
+xcron jobs enable cleanup_tmp
+xcron apply
+```
+
+The CLI exposes help at three levels:
+
+```sh
+xcron --help
+xcron jobs --help
+xcron jobs add --help
+```
 
 ## Status
 
@@ -121,6 +162,9 @@ deployed:
 raw_entry:
 */15 * * * * /tmp/state/projects/example-basic/wrappers/example-basic.sync_docs.sh
 ```
+
+`xcron jobs show <job-id>` is the manifest-side companion to `inspect`. It
+shows the job as defined in YAML without querying `launchd` or `cron`.
 
 ## Runtime Behavior
 

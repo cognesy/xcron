@@ -15,6 +15,7 @@ breaking change process.
   - `apply`
   - `status`
   - `inspect`
+  - `jobs list|show|add|update|enable|disable|remove`
   - `prune`
 - default backend selection by host platform
 - optional backend override via CLI
@@ -23,6 +24,9 @@ breaking change process.
   `ok`, `missing`, `drift`, `disabled`, `extra`, and `error`
 - `inspect` remains a detailed single-job view exposing normalized desired
   fields, deployed artifact/log paths, and backend-native raw detail
+- `jobs` commands remain manifest-editing operations; backend reconciliation
+  still happens through `apply`
+- help remains available at root, command-group, and leaf-command levels
 
 ## Stable Model Contract
 
@@ -31,6 +35,8 @@ breaking change process.
 - `cron` and constrained `every` schedule forms remain part of the public model
 - logs remain tool-managed by default rather than required in YAML
 - machine-local state remains derived only, never a source of truth
+- manifest-editing commands may rewrite YAML deterministically without
+  preserving comments or formatting exactly
 
 ## Architectural Contract
 

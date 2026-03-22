@@ -17,17 +17,26 @@ import structlog
 F = TypeVar("F", bound=Callable[..., Any])
 
 _CONFIGURED = False
+_CONFIGURED_STREAM_ID: int | None = None
+_CONFIGURED_LEVEL_NAME: str | None = None
+_CONFIGURED_FORMAT: str | None = None
 
 
 def configure_logging() -> None:
     """Configure process-wide structured logging once."""
-    global _CONFIGURED
-    if _CONFIGURED:
-        return
+    global _CONFIGURED, _CONFIGURED_FORMAT, _CONFIGURED_LEVEL_NAME, _CONFIGURED_STREAM_ID
 
     level_name = os.environ.get("XCRON_LOG_LEVEL", "INFO").upper()
     level = getattr(logging, level_name, logging.INFO)
     log_format = os.environ.get("XCRON_LOG_FORMAT", "auto").lower()
+    stream_id = id(sys.stderr)
+    if (
+        _CONFIGURED
+        and _CONFIGURED_LEVEL_NAME == level_name
+        and _CONFIGURED_FORMAT == log_format
+        and _CONFIGURED_STREAM_ID == stream_id
+    ):
+        return
 
     renderer: structlog.typing.Processor
     if log_format == "json" or (log_format == "auto" and not sys.stderr.isatty()):
@@ -47,13 +56,17 @@ def configure_logging() -> None:
         ],
         wrapper_class=structlog.make_filtering_bound_logger(level),
         logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
-        cache_logger_on_first_use=True,
+        cache_logger_on_first_use=False,
     )
     _CONFIGURED = True
+    _CONFIGURED_LEVEL_NAME = level_name
+    _CONFIGURED_FORMAT = log_format
+    _CONFIGURED_STREAM_ID = stream_id
 
 
 def get_logger(name: str) -> structlog.typing.FilteringBoundLogger:
     """Return a configured logger for one module or subsystem."""
+    configure_logging()
     return structlog.get_logger(name)
 
 
@@ -63,6 +76,7 @@ def instrument_action(action_name: str) -> Callable[[F], F]:
     def decorator(func: F) -> F:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
+            configure_logging()
             logger = get_logger("xcron.action").bind(action=action_name)
             started = time.perf_counter()
             logger.info("action_started")
@@ -97,6 +111,7 @@ def run_logged_subprocess(
     **kwargs: Any,
 ) -> subprocess.CompletedProcess[str]:
     """Run one subprocess and emit structured start/finish/failure logs."""
+    configure_logging()
     logger = get_logger("xcron.process").bind(process_event=event, command=list(command))
     started = time.perf_counter()
     logger.info("subprocess_started")
@@ -127,6 +142,7 @@ def run_logged_subprocess(
 
 def check_output_logged(command: Sequence[str], *, event: str, **kwargs: Any) -> str:
     """Run subprocess.check_output with structured logs."""
+    configure_logging()
     logger = get_logger("xcron.process").bind(process_event=event, command=list(command))
     started = time.perf_counter()
     logger.info("subprocess_started")

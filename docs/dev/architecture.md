@@ -32,12 +32,14 @@ Implemented prototype components:
 
 - validation, normalization, and stable hashing
 - planner and per-project derived local state
+- manifest editing service for job-level YAML updates
 - wrapper rendering with default logs and overlap control
 - `launchd` backend
 - `cron` backend
 - operator-facing `status` projection layered on top of planner diffing
 - richer `inspect` results that expose normalized desired data plus
   backend-native detail
+- nested `jobs` CLI group for manifest-side job management
 - CLI thin shells that call actions rather than embedding backend logic
 
 Verification model:

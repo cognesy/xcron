@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from typing import Callable, Sequence
 
-from apps.cli.commands import apply, inspect, plan, prune, status, validate
+from apps.cli.commands import apply, inspect, jobs, plan, prune, status, validate
 from libs.services import configure_logging
 
 def build_parser() -> argparse.ArgumentParser:
@@ -34,6 +34,7 @@ def build_parser() -> argparse.ArgumentParser:
         apply.register,
         status.register,
         inspect.register,
+        jobs.register,
         prune.register,
     )
     for register in register_commands:
