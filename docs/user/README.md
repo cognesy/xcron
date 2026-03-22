@@ -1,0 +1,168 @@
+# xcron User Guide
+
+`xcron` manages one project schedule manifest under `resources/schedules/`
+against a native OS scheduler.
+
+Core rules:
+
+- each project owns its own manifests under `resources/schedules/`
+- there is no central machine-wide schedule manifest
+- native schedulers remain the executors
+- `xcron` owns only the artifacts it generates
+
+## Manifest
+
+The prototype expects schedule manifests under:
+
+```text
+<project-root>/resources/schedules/<schedule-name>.yaml
+```
+
+If a project has exactly one manifest there, `xcron` can auto-select it.
+If a project has multiple manifests, use `--schedule <name>`.
+
+Example:
+
+```yaml
+version: 1
+project:
+  id: example-basic
+defaults:
+  working_dir: .
+  shell: /bin/sh
+jobs:
+  - id: sync_docs
+    schedule:
+      cron: "*/15 * * * *"
+    command: ./bin/sync-docs
+  - id: cleanup_tmp
+    enabled: false
+    schedule:
+      cron: "0 3 * * *"
+    command: ./bin/cleanup-tmp
+```
+
+Sample manifests live under `resources/examples/*/resources/schedules/`.
+
+## Commands
+
+Run inside the project or pass `--project /path/to/project`.
+
+```sh
+xcron validate
+xcron plan
+xcron apply
+xcron status
+xcron inspect sync_docs
+xcron prune
+```
+
+If the project has multiple schedule files:
+
+```sh
+xcron --schedule default validate
+xcron --schedule ops plan
+xcron --schedule ops apply
+```
+
+Use `--backend launchd` or `--backend cron` to override the platform default.
+
+Default backend selection:
+
+- macOS: `launchd`
+- Linux: `cron`
+
+## Status
+
+`xcron status` is an operator-facing desired-vs-actual view for the current
+project.
+
+Typical states:
+
+- `ok` - desired definition and deployed backend state match
+- `missing` - desired job is not currently installed in the backend
+- `drift` - the deployed job exists but differs from desired state
+- `disabled` - the job is intentionally disabled in the desired manifest
+- `extra` - a managed backend artifact exists without a matching desired job
+- `error` - backend inspection failed
+
+Example:
+
+```text
+backend: cron
+ok       example-basic.sync_docs    desired definition and actual backend state are aligned
+disabled example-basic.cleanup_tmp  job is disabled in desired state
+```
+
+## Inspect
+
+`xcron inspect <job-id>` shows one job in more depth. The current prototype
+surfaces:
+
+- normalized desired fields such as schedule, enabled state, command,
+  working directory, shell, and overlap policy
+- deployed backend fields such as artifact path, wrapper path, stdout/stderr
+  log paths, hashes, and backend-loaded/enabled state where applicable
+- backend-native raw detail:
+  - cron: managed raw entry
+  - launchd: raw plist content and `launchctl print` output when available
+
+Example:
+
+```text
+backend: cron
+desired:
+  qualified_id: example-basic.sync_docs
+  schedule: cron=*/15 * * * *
+  command: ./bin/sync-docs
+deployed:
+  artifact_path: /tmp/crontab.txt
+  wrapper_path: /tmp/state/projects/example-basic/wrappers/example-basic.sync_docs.sh
+raw_entry:
+*/15 * * * * /tmp/state/projects/example-basic/wrappers/example-basic.sync_docs.sh
+```
+
+## Runtime Behavior
+
+Managed derived state is stored machine-locally and partitioned by `project.id`.
+
+`xcron` manages:
+
+- wrapper scripts
+- stdout/stderr logs
+- per-project deployment metadata
+- backend-native artifacts such as plists or managed cron blocks
+
+Projects do not need to define log targets in YAML. The tool assigns default
+paths automatically.
+
+## Safe Overrides For Testing
+
+The CLI supports environment overrides that are useful for local testing:
+
+- `XCRON_STATE_ROOT`
+- `XCRON_LAUNCH_AGENTS_DIR`
+- `XCRON_LAUNCHCTL_DOMAIN`
+- `XCRON_CRONTAB_PATH`
+- `XCRON_MANAGE_LAUNCHCTL`
+- `XCRON_MANAGE_CRONTAB`
+
+These make it possible to exercise the prototype without touching normal system
+paths.
+
+## Explicit Integration Checks
+
+The default `uv run pytest` suite stays fast and safe. Real scheduler
+integration runs are explicit-only.
+
+macOS `launchd` on the host:
+
+```sh
+XCRON_RUN_LAUNCHD_IT=1 XCRON_LOG_FORMAT=json XCRON_LOG_LEVEL=INFO uv run pytest tests/integration/launchd_real_it.py -s
+```
+
+Linux `cron` in Docker/Colima:
+
+```sh
+./tests/integration/run_cron_it.sh
+```

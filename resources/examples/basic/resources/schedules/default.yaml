@@ -1,0 +1,15 @@
+version: 1
+project:
+  id: example-basic
+defaults:
+  working_dir: .
+  shell: /bin/sh
+jobs:
+  - id: sync_docs
+    schedule:
+      cron: "*/15 * * * *"
+    command: ./bin/sync-docs
+  - id: cleanup_tmp
+    schedule:
+      cron: "0 3 * * *"
+    command: ./bin/cleanup-tmp

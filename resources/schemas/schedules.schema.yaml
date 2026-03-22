@@ -1,0 +1,81 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: xcron schedules manifest
+type: object
+additionalProperties: false
+required:
+  - version
+  - project
+  - jobs
+properties:
+  version:
+    type: integer
+    const: 1
+  project:
+    type: object
+    additionalProperties: false
+    required:
+      - id
+    properties:
+      id:
+        type: string
+        pattern: "^[a-z0-9][a-z0-9._-]*$"
+        description: Stable project identifier used to partition local xcron state.
+  defaults:
+    type: object
+    additionalProperties: false
+    properties:
+      working_dir:
+        type: string
+      shell:
+        type: string
+      timezone:
+        type: string
+      env:
+        type: object
+        additionalProperties:
+          type: string
+  jobs:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - schedule
+        - command
+      properties:
+        id:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9._-]*$"
+        description:
+          type: string
+        enabled:
+          type: boolean
+          default: true
+        schedule:
+          type: object
+          additionalProperties: false
+          oneOf:
+            - required: [cron]
+            - required: [every]
+          properties:
+            cron:
+              type: string
+              description: Cron expression for backend-native recurring execution.
+            every:
+              type: string
+              pattern: "^[1-9][0-9]*[smhdw]$"
+              description: Portable interval string, for example 10m, 2h, or 1d.
+        command:
+          type: string
+        working_dir:
+          type: string
+        shell:
+          type: string
+        env:
+          type: object
+          additionalProperties:
+            type: string
+        overlap:
+          type: string
+          enum: [allow, forbid]

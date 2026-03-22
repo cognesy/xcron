@@ -1,0 +1,16 @@
+version: 1
+project:
+  id: example-disabled
+defaults:
+  working_dir: .
+  shell: /bin/sh
+jobs:
+  - id: enabled_job
+    schedule:
+      cron: "*/5 * * * *"
+    command: ./bin/enabled-job
+  - id: disabled_job
+    enabled: false
+    schedule:
+      cron: "0 * * * *"
+    command: ./bin/disabled-job
