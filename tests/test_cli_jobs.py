@@ -84,3 +84,82 @@ def test_jobs_cli_executes_representative_manifest_flow(tmp_path, capsys) -> Non
     assert main(["--project", str(project), "jobs", "remove", "cleanup_tmp"]) == 0
     remove_output = capsys.readouterr().out
     assert "removed_job: cleanup_tmp" in remove_output
+
+
+def test_jobs_cli_rejects_malformed_env_without_traceback(tmp_path, capsys) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "scripts").mkdir()
+    schedule_dir = project / "resources" / "schedules"
+    schedule_dir.mkdir(parents=True)
+    (schedule_dir / "default.yaml").write_text(
+        textwrap.dedent(
+            """\
+            version: 1
+            project:
+              id: demo-app
+            defaults:
+              working_dir: .
+              shell: /bin/sh
+            jobs:
+              - id: sync_docs
+                schedule:
+                  cron: "*/15 * * * *"
+                command: ./scripts/sync-docs
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    assert (
+        main(
+            [
+                "--project",
+                str(project),
+                "jobs",
+                "add",
+                "cleanup_tmp",
+                "--command",
+                "./scripts/cleanup-tmp",
+                "--every",
+                "1h",
+                "--env",
+                "BAD",
+            ]
+        )
+        == 2
+    )
+    output = capsys.readouterr()
+    assert "invalid env assignment, expected KEY=VALUE: BAD" in output.out
+    assert "Traceback" not in output.out
+    assert "Traceback" not in output.err
+
+
+def test_jobs_cli_rejects_no_op_update_without_rewriting_manifest(tmp_path, capsys) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "scripts").mkdir()
+    schedule_dir = project / "resources" / "schedules"
+    schedule_dir.mkdir(parents=True)
+    manifest_path = schedule_dir / "default.yaml"
+    original_text = textwrap.dedent(
+        """\
+        version: 1
+        project:
+          id: demo-app
+        defaults:
+          working_dir: .
+          shell: /bin/sh
+        jobs:
+          - id: sync_docs
+            schedule:
+              cron: "*/15 * * * *"
+            command: ./scripts/sync-docs
+        """
+    )
+    manifest_path.write_text(original_text, encoding="utf-8")
+
+    assert main(["--project", str(project), "jobs", "update", "sync_docs"]) == 2
+    output = capsys.readouterr()
+    assert "at least one update field or clear flag is required" in output.out
+    assert manifest_path.read_text(encoding="utf-8") == original_text

@@ -139,8 +139,13 @@ def handle_show(args: argparse.Namespace) -> int:
 
 
 def handle_add(args: argparse.Namespace) -> int:
+    try:
+        payload = _build_add_job_payload(args)
+    except ValueError as exc:
+        return _print_jobs_cli_error(str(exc))
+
     result = add_job(
-        _build_add_job_payload(args),
+        payload,
         resolve_project_path(getattr(args, "project", None)),
         schedule_name=getattr(args, "schedule", None),
     )
@@ -198,7 +203,13 @@ def handle_disable(args: argparse.Namespace) -> int:
 
 
 def handle_update(args: argparse.Namespace) -> int:
-    updates, clear_fields = _build_update_payload(args)
+    try:
+        updates, clear_fields = _build_update_payload(args)
+    except ValueError as exc:
+        return _print_jobs_cli_error(str(exc))
+    if not updates and not clear_fields:
+        return _print_jobs_cli_error("at least one update field or clear flag is required")
+
     result = update_job(
         args.job_id,
         resolve_project_path(getattr(args, "project", None)),
@@ -286,4 +297,10 @@ def _print_job_action_error(result: Any) -> int:
         print_validation_messages(warnings)
     if getattr(result, "error", None):
         print(result.error)
+    return 2
+
+
+def _print_jobs_cli_error(message: str) -> int:
+    """Print a deterministic CLI-shell error message."""
+    print(message)
     return 2
