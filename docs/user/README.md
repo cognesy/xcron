@@ -113,6 +113,37 @@ xcron jobs --help
 xcron jobs add --help
 ```
 
+## Plan vs Status
+
+`plan` and `status` answer different questions.
+
+**`plan`** compares your YAML against xcron's own local records — the
+`project-state.json` file written during the last `apply`. It shows what
+`apply` would do given those records. It is fast and works without touching
+the scheduler.
+
+**`status`** compares your YAML against actual deployed scheduler state —
+real plist files, real crontab entries. It reflects ground truth.
+
+If the scheduler is changed outside xcron (manual plist edit, `launchctl
+bootout`, external crontab edit), the two commands disagree:
+
+```
+# a plist was manually removed
+
+xcron plan    → noop    (xcron's records still show it as deployed)
+xcron status  → missing (the actual file is gone)
+```
+
+Running `apply` after `plan` shows noop would leave the scheduler broken.
+Running `apply` after `status` shows missing would reinstall the job.
+
+Practical rule:
+
+- `plan` — preview what `apply` will do given xcron's current records
+- `status` — check whether actual deployed state matches the manifest
+- `apply` — repair the backend after `status` reveals drift
+
 ## Status
 
 `xcron status` is an operator-facing desired-vs-actual view for the current

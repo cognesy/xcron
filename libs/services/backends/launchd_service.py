@@ -164,18 +164,44 @@ def parse_every_seconds(value: str) -> int:
     return amount * multiplier
 
 
+_CALENDAR_FIELD_BOUNDS: dict[str, tuple[int, int]] = {
+    "Minute": (0, 59),
+    "Hour": (0, 23),
+    "Day": (1, 31),
+    "Month": (1, 12),
+    "Weekday": (0, 7),  # launchd accepts 0-7; both 0 and 7 are Sunday
+}
+
+
 def parse_calendar_field(field: str, field_name: str) -> list[int] | None:
-    """Parse a launchd-compatible cron field into explicit values or wildcard."""
+    """Parse one cron field into explicit integer values for StartCalendarInterval.
+
+    Returns None for a wildcard (*).  Handles all standard cron syntax:
+    individual values, comma lists, ranges (M-N), steps (*/S, M/S, M-N/S),
+    and any combination of these joined by commas.
+    """
     if field == "*":
         return None
-    if "*/" in field or "-" in field:
-        raise ValueError(f"unsupported cron syntax for launchd {field_name}: {field}")
-    values = []
-    for chunk in field.split(","):
-        if not chunk.isdigit():
-            raise ValueError(f"unsupported cron token for launchd {field_name}: {chunk}")
-        values.append(int(chunk))
-    return values
+    min_val, max_val = _CALENDAR_FIELD_BOUNDS[field_name]
+    values: set[int] = set()
+    for part in field.split(","):
+        if "/" in part:
+            range_part, _, step_str = part.partition("/")
+            step = int(step_str)
+            if range_part == "*":
+                start, end = min_val, max_val
+            elif "-" in range_part:
+                lo, _, hi = range_part.partition("-")
+                start, end = int(lo), int(hi)
+            else:
+                start, end = int(range_part), max_val
+            values.update(range(start, end + 1, step))
+        elif "-" in part:
+            lo, _, hi = part.partition("-")
+            values.update(range(int(lo), int(hi) + 1))
+        else:
+            values.add(int(part))
+    return sorted(values)
 
 
 def write_launchd_job(rendered: LaunchdRenderedJob) -> LaunchdRenderedJob:

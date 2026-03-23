@@ -56,8 +56,7 @@ Two follow-up bugs remain open after review.
 
 ### 1. Invalid `--env` input crashes with a traceback
 
-In [jobs.py](/Users/ddebowczyk/projects/xcron/apps/cli/commands/jobs.py#L233)
-and [jobs.py](/Users/ddebowczyk/projects/xcron/apps/cli/commands/jobs.py#L269),
+In `apps/cli/commands/jobs.py` (around lines 233 and 269),
 the CLI raises `ValueError` directly from `_parse_env_assignments()`. Invalid
 input such as `--env BAD` currently escapes the shell boundary and produces a
 full traceback instead of a normal command failure.
@@ -66,10 +65,10 @@ Tracked in `bd` as `xcron-3ca`.
 
 ### 2. `jobs update` accepts a no-op mutation and rewrites the manifest
 
-In [jobs.py](/Users/ddebowczyk/projects/xcron/apps/cli/commands/jobs.py#L200)
-and [manifest_editor.py](/Users/ddebowczyk/projects/xcron/libs/services/manifest_editor.py#L124),
+In `apps/cli/commands/jobs.py` (around line 200)
+and `libs/services/manifest_editor.py` (around line 124),
 `xcron jobs update JOB_ID` succeeds even when no update or clear flags are
-provided. Because [manifest_editor.py](/Users/ddebowczyk/projects/xcron/libs/services/manifest_editor.py#L160)
+provided. Because `libs/services/manifest_editor.py` (around line 160)
 always validates and writes after mutation, the command reports success and
 rewrites the YAML file even though no semantic change was requested.
 

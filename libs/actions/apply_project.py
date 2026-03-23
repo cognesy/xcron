@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from libs.actions.plan_project import PlanProjectResult
+from libs.actions.plan_project import PlanProjectResult, collect_cron_schedule_errors
 from libs.actions.status_project import status_project
 from libs.domain import ProjectState
 from libs.services import get_logger, instrument_action
@@ -79,6 +79,17 @@ def apply_project(
         changes=status_result.plan.changes,
         plan=status_result.plan,
     )
+
+    if plan_result.backend == "cron" and plan_result.plan is not None:
+        cron_errors = collect_cron_schedule_errors(plan_result.plan.manifest.jobs)
+        if cron_errors:
+            LOGGER.error(
+                "apply_cron_incompatible_schedules",
+                project_id=plan_result.plan.manifest.project_id,
+                incompatible_jobs=[e.qualified_id for e in cron_errors],
+                reasons=[e.reason for e in cron_errors],
+            )
+            return ApplyProjectResult(valid=False, backend="cron", plan_result=plan_result)
 
     if plan_result.backend == "launchd":
         applied_state = apply_launchd_plan(

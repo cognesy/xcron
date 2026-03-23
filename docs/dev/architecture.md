@@ -1,7 +1,7 @@
 # xcron Architecture
 
 This prototype follows the repository and code-architecture rules defined in
-`/Users/ddebowczyk/projects/xcron/SPEC.md`.
+`SPEC.md`.
 
 Top-level layout:
 

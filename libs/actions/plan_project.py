@@ -6,7 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from libs.actions.validate_project import ValidateProjectResult, validate_project
-from libs.domain.diffing import PlanChange, ProjectPlan, build_project_plan
+from libs.domain.diffing import PlanChange, PlanChangeKind, ProjectPlan, build_project_plan
+from libs.domain.models import NormalizedJob, ScheduleKind
 from libs.services import get_logger, instrument_action
 from libs.services.state_store import (
     default_backend_for_current_platform,
@@ -15,6 +16,43 @@ from libs.services.state_store import (
 )
 
 LOGGER = get_logger(__name__)
+
+
+def cron_incompatible_reason(job: NormalizedJob) -> str | None:
+    """Return a reason string if this job's schedule cannot be expressed with cron, else None."""
+    if job.schedule.kind is not ScheduleKind.EVERY:
+        return None
+    value = job.schedule.value
+    suffix = value[-1]
+    amount = int(value[:-1])
+    if suffix == "s":
+        return (
+            f"cron cannot schedule sub-minute intervals (every={value}); "
+            "use a minute-or-longer interval or switch to the launchd backend"
+        )
+    if suffix == "w" and amount > 1:
+        return (
+            f"cron cannot express multi-week intervals (every={value}); "
+            "use a cron expression instead"
+        )
+    return None
+
+
+def collect_cron_schedule_errors(jobs: tuple[NormalizedJob, ...]) -> tuple[PlanChange, ...]:
+    """Return ERROR plan changes for any jobs whose schedules cannot be expressed with cron."""
+    errors = []
+    for job in jobs:
+        reason = cron_incompatible_reason(job)
+        if reason is not None:
+            errors.append(
+                PlanChange(
+                    kind=PlanChangeKind.ERROR,
+                    qualified_id=job.qualified_id,
+                    reason=reason,
+                    desired_job=job,
+                )
+            )
+    return tuple(errors)
 
 
 @dataclass(frozen=True)
@@ -73,6 +111,15 @@ def plan_project(
         validation.hashes.job_definition_hashes,
         state,
     )
+    if selected_backend == "cron":
+        cron_errors = collect_cron_schedule_errors(validation.normalized_manifest.jobs)
+        if cron_errors:
+            plan = ProjectPlan(
+                backend=plan.backend,
+                manifest=plan.manifest,
+                changes=plan.changes + cron_errors,
+                state=plan.state,
+            )
     LOGGER.info(
         "project_plan_built",
         project_id=validation.normalized_manifest.project_id,
