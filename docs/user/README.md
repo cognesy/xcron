@@ -10,6 +10,34 @@ Core rules:
 - native schedulers remain the executors
 - `xcron` owns only the artifacts it generates
 
+## qaman Pilot Workflow
+
+This repo now has a minimal `qaman` setup for deterministic core quality work.
+
+Use it for:
+
+- readiness checks: `qa doctor`
+- deterministic default verification: `qa profile run default`
+- baseline/current progress measurement: `qa snap store` and `qa progress`
+
+Current pilot scope:
+
+- `default` wraps the deterministic core lane in `./scripts/verify-core.sh`
+- explicit scheduler integration remains outside the default `qaman` lane
+
+Typical flow:
+
+```sh
+qa doctor
+qa profile run default --format json
+qa snap store --format json
+# make changes
+qa progress --against latest --format text
+```
+
+Use `qa doctor --profile default` when you want readiness diagnostics plus a
+real execution probe of the default profile.
+
 ## Manifest
 
 The prototype expects schedule manifests under:
@@ -227,8 +255,32 @@ paths.
 
 ## Explicit Integration Checks
 
-The default `uv run pytest` suite stays fast and safe. Real scheduler
-integration runs are explicit-only.
+## Deterministic Core Verification
+
+The deterministic core verification lane for `xcron` is:
+
+```sh
+./scripts/verify-core.sh
+```
+
+Today that wrapper runs the repo's safe default:
+
+```sh
+uv run pytest
+```
+
+This lane is intended for:
+
+- routine local verification
+- agent-safe default checks
+- future `qaman` default profile integration
+
+It stays fast and safe and does not mutate the host scheduler.
+
+## Explicit Integration Checks
+
+Real scheduler integration runs are explicit-only and outside the deterministic
+core lane.
 
 macOS `launchd` on the host:
 

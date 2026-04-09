@@ -44,7 +44,9 @@ Implemented prototype components:
 
 Verification model:
 
-- default `uv run pytest` stays safe and does not mutate the host scheduler
+- deterministic core lane is `./scripts/verify-core.sh`
+- today that core lane runs the safe default `uv run pytest`
+- default core verification stays safe and does not mutate the host scheduler
 - host-gated `launchd` integration exists for real macOS verification
 - Docker/Colima-gated cron integration exists for real Linux cron verification
 

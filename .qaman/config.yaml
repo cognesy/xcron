@@ -1,0 +1,28 @@
+project:
+  name: xcron
+
+tools:
+  pytest:
+    command: ./scripts/verify-core.sh
+    format: junit
+    format_args: --junitxml=.qaman/state/pytest-junit.xml
+    output_file: .qaman/state/pytest-junit.xml
+    category: correctness
+
+scopes: {}
+
+profiles:
+  default:
+    description: Deterministic core verification lane for xcron
+    tools:
+      - pytest
+  tests:
+    description: Deterministic core test lane
+    tools:
+      - pytest
+
+policy_packs: {}
+
+storage:
+  backend: sqlite
+  path: .qaman/state/qa.db

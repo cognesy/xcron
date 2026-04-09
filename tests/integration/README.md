@@ -1,7 +1,13 @@
 # Integration Harnesses
 
 These checks are explicit-only. They do not run as part of the default
-`uv run pytest` suite.
+deterministic core lane:
+
+```sh
+./scripts/verify-core.sh
+```
+
+Today that core lane runs the repo's safe default `uv run pytest` suite.
 
 ## macOS launchd
 
