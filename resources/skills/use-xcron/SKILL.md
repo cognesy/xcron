@@ -37,8 +37,10 @@ Important implications:
 
 - Bare `xcron` is a content-first home view, not a usage error.
 - List and mutation commands return structured TOON rather than ad-hoc text.
+- `--output json` is the supported machine-readable alternative to TOON.
 - `--fields` narrows output to selected fields when the command supports it.
 - `--full` expands detail-heavy views such as `xcron inspect`.
+- command/runtime errors are structured on stdout, not free-form stderr text.
 - Runtime `--help` is sourced from `resources/help/` and is the authoritative
   command reference.
 
@@ -207,6 +209,7 @@ xcron jobs show sync_reports
 
 ```sh
 xcron status
+xcron status --output json
 xcron status --fields backend,statuses
 ```
 
@@ -291,6 +294,13 @@ Use runtime help instead of relying on copied command references:
 xcron --help
 xcron jobs --help
 xcron jobs add --help
+```
+
+For pipelines or agent follow-up steps, prefer explicit machine output:
+
+```sh
+xcron jobs list --output json
+xcron inspect sync_reports --output json --fields backend,job,status
 ```
 
 xcron also provides repo-local hook commands for Codex and Claude Code:

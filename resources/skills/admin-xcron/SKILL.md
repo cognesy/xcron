@@ -42,6 +42,7 @@ For admin work, this changes how you should read command results:
 - bare `xcron` is a safe home/dashboard view
 - `status`, `plan`, and `jobs list` return tabular TOON arrays
 - `inspect` returns structured desired/deployed objects plus snippet payloads
+- `--output json` is the supported scripting/debugging format
 - `--fields` narrows noisy responses
 - `--full` disables truncation in detail-heavy inspect output
 
@@ -87,6 +88,7 @@ the scheduler.
 
 ```sh
 xcron status
+xcron status --output json
 xcron status --fields backend,statuses
 ```
 
@@ -107,6 +109,7 @@ statuses[2,]{kind,id,reason}:
 
 ```sh
 xcron inspect <job-id>
+xcron inspect <job-id> --output json
 xcron inspect <job-id> --fields backend,job,status,deployed.artifact_path,snippets
 xcron inspect <job-id> --full
 ```
@@ -304,6 +307,14 @@ xcron --help
 xcron status --help
 xcron inspect --help
 xcron hooks install
+```
+
+When capturing evidence for automation or follow-up analysis, prefer JSON plus
+field selection over screen-scraping TOON:
+
+```sh
+xcron status --output json --fields backend,statuses
+xcron inspect <job-id> --output json --fields backend,job,status,deployed.artifact_path
 ```
 
 xcron's agent hooks are installed repo-locally under:

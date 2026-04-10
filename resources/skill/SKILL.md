@@ -181,6 +181,13 @@ xcron inspect <job-id>
 Prefer `status` for project-wide drift or sync questions.
 Prefer `inspect` for one-job debugging.
 
+For machine-readable follow-up, prefer:
+
+```sh
+xcron status --output json
+xcron inspect <job-id> --output json --fields backend,job,status
+```
+
 ## Safety Rules
 
 - never invent a central service or central schedule registry
