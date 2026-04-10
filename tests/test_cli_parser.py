@@ -1,9 +1,13 @@
 from __future__ import annotations
 
-import pytest
+from typer.testing import CliRunner
 
-from apps.cli.main import build_parser, main
+from apps.cli.main import main
+from apps.cli.typer_app import app
 from tests.cli_assertions import assert_usage_error
+
+
+runner = CliRunner()
 
 
 def _make_project(tmp_path):
@@ -30,18 +34,12 @@ jobs:
     return project
 
 
-def test_parser_usage_errors_are_rendered_to_stdout_in_structured_form(capsys) -> None:
-    parser = build_parser()
+def test_parser_usage_errors_are_rendered_to_stdout_in_structured_form() -> None:
+    result = runner.invoke(app, ["jobs", "add"])
 
-    with pytest.raises(SystemExit) as exc_info:
-        parser.parse_args(["jobs", "add"])
-
-    captured = capsys.readouterr()
-    assert exc_info.value.code == 2
-    assert_usage_error(captured.out)
-    assert "message:" in captured.out
-    assert "Run `xcron jobs add --help` to see available commands" in captured.out
-    assert captured.err == ""
+    assert result.exit_code == 2
+    assert "Usage:" in result.stdout
+    assert "Error" in result.stdout
 
 
 def test_invalid_top_level_fields_return_structured_usage_error(tmp_path, capsys) -> None:

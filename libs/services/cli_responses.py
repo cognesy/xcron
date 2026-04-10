@@ -2,54 +2,50 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from typing import Any
+from typing import Any, Optional
+
+from pydantic import BaseModel, ConfigDict
 
 
-@dataclass(frozen=True)
-class PayloadConvertible:
-    """Mixin for response models that can become TOON payloads."""
+class PayloadConvertible(BaseModel):
+    """Base response model that can be rendered at the CLI edge."""
+
+    model_config = ConfigDict(extra="forbid")
 
     def to_payload(self) -> dict[str, Any]:
-        return asdict(self)
+        return self.model_dump()
 
 
-@dataclass(frozen=True)
 class ErrorDetail(PayloadConvertible):
     field: str
     issue: str
 
 
-@dataclass(frozen=True)
 class ErrorResponse(PayloadConvertible):
     kind: str
     code: str
     message: str
-    details: tuple[ErrorDetail, ...] = field(default_factory=tuple)
-    help: tuple[str, ...] = field(default_factory=tuple)
+    details: tuple[ErrorDetail, ...] = ()
+    help: tuple[str, ...] = ()
 
 
-@dataclass(frozen=True)
 class SummaryRow(PayloadConvertible):
     kind: str
     count: int
 
 
-@dataclass(frozen=True)
 class PlanChangeRow(PayloadConvertible):
     kind: str
     id: str
     reason: str
 
 
-@dataclass(frozen=True)
 class StatusRow(PayloadConvertible):
     kind: str
     id: str
     reason: str
 
 
-@dataclass(frozen=True)
 class JobListRow(PayloadConvertible):
     job_id: str
     enabled: bool
@@ -57,76 +53,68 @@ class JobListRow(PayloadConvertible):
     command: str
 
 
-@dataclass(frozen=True)
 class HomeJobsSummary(PayloadConvertible):
     total: int
 
 
-@dataclass(frozen=True)
 class HomeResponse(PayloadConvertible):
     bin: str
     description: str
     project: str
-    schedule: str | None
-    backend: str | None
-    manifest: str | None
+    schedule: Optional[str]
+    backend: Optional[str]
+    manifest: Optional[str]
     jobs: HomeJobsSummary
     plan_summary: tuple[SummaryRow, ...]
-    plan_changes: tuple[PlanChangeRow, ...] = field(default_factory=tuple)
-    help: tuple[str, ...] = field(default_factory=tuple)
+    plan_changes: tuple[PlanChangeRow, ...] = ()
+    help: tuple[str, ...] = ()
 
 
-@dataclass(frozen=True)
 class ValidationSummaryResponse(PayloadConvertible):
     project: str
-    manifest: str | None
+    manifest: Optional[str]
     valid: bool
     jobs: int
     manifest_hash: str
     errors: int
     warnings: int
-    warning_messages: tuple[str, ...] = field(default_factory=tuple)
+    warning_messages: tuple[str, ...] = ()
 
 
-@dataclass(frozen=True)
 class PlanResponse(PayloadConvertible):
-    backend: str | None
-    state: str | None
+    backend: Optional[str]
+    state: Optional[str]
     count: str
     changes: tuple[PlanChangeRow, ...]
-    help: tuple[str, ...] = field(default_factory=tuple)
+    help: tuple[str, ...] = ()
 
 
-@dataclass(frozen=True)
 class StatusResponse(PayloadConvertible):
-    backend: str | None
+    backend: Optional[str]
     count: str
     statuses: tuple[StatusRow, ...]
-    help: tuple[str, ...] = field(default_factory=tuple)
+    help: tuple[str, ...] = ()
 
 
-@dataclass(frozen=True)
 class InspectResponse(PayloadConvertible):
-    backend: str | None
+    backend: Optional[str]
     job: str
     status: str
     desired: dict[str, Any]
     deployed: dict[str, Any]
     snippets: dict[str, Any]
-    help: tuple[str, ...] = field(default_factory=tuple)
+    help: tuple[str, ...] = ()
 
 
-@dataclass(frozen=True)
 class JobsListResponse(PayloadConvertible):
-    manifest: str | None
+    manifest: Optional[str]
     count: str
     jobs: tuple[JobListRow, ...]
-    help: tuple[str, ...] = field(default_factory=tuple)
+    help: tuple[str, ...] = ()
 
 
-@dataclass(frozen=True)
 class JobsShowResponse(PayloadConvertible):
-    manifest: str | None
+    manifest: Optional[str]
     job: str
     enabled: bool
     schedule: str
@@ -134,32 +122,25 @@ class JobsShowResponse(PayloadConvertible):
     working_dir: str
     shell: str
     overlap: str
-    description: str | None = None
-    env: tuple[str, ...] = field(default_factory=tuple)
-    help: tuple[str, ...] = field(default_factory=tuple)
+    description: Optional[str] = None
+    env: tuple[str, ...] = ()
+    help: tuple[str, ...] = ()
 
     def to_payload(self) -> dict[str, Any]:
-        payload = asdict(self)
-        if payload["description"] is None:
-            payload.pop("description")
-        if not payload["env"]:
-            payload.pop("env")
-        return payload
+        return self.model_dump(exclude_none=True, exclude={"env"} if not self.env else None)
 
 
-@dataclass(frozen=True)
 class MutationResponse(PayloadConvertible):
     kind: str
-    target: str | None
+    target: Optional[str]
     outcome: str
-    backend: str | None = None
-    count: int | None = None
-    manifest: str | None = None
-    help: tuple[str, ...] = field(default_factory=tuple)
+    backend: Optional[str] = None
+    count: Optional[int] = None
+    manifest: Optional[str] = None
+    help: tuple[str, ...] = ()
 
     def to_payload(self) -> dict[str, Any]:
-        payload = asdict(self)
-        return {key: value for key, value in payload.items() if value is not None and value != ()}
+        return self.model_dump(exclude_none=True, exclude={"help"} if not self.help else None)
 
 
 __all__ = [

@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import argparse
 import textwrap
 
-from apps.cli.commands import inspect
+from apps.cli.main import main
 from libs.actions.apply_project import apply_project
 
 
@@ -45,17 +44,9 @@ def test_inspect_prints_artifact_wrapper_and_log_paths_for_cron(tmp_path, monkey
     assert result.valid is True
 
     monkeypatch.setenv("XCRON_CRONTAB_PATH", str(crontab_path))
-    exit_code = inspect.handle(
-        argparse.Namespace(
-            job_id="ping_job",
-            project=str(project),
-            schedule=None,
-            backend="cron",
-        )
-    )
+    assert main(["inspect", "ping_job", "--project", str(project), "--backend", "cron"]) == 0
     captured = capsys.readouterr()
 
-    assert exit_code == 0
     assert "desired:" in captured.out
     assert "  qualified_id: inspect-demo.ping_job" in captured.out
     assert "  command: echo ping" in captured.out

@@ -146,6 +146,18 @@ Treat runtime `--help` as the authoritative command reference.
 This user guide stays focused on workflow, concepts, and examples rather than
 duplicating the full command reference surface.
 
+## Shell Stack
+
+xcron now uses:
+
+- **Typer** for command declaration and command grouping
+- **Rich** for human-facing help rendering
+- **Pydantic** for typed CLI response models
+- **TOON** for machine-facing command output
+
+This means the user-facing `xcron` entrypoint is no longer driven by the older
+custom `argparse` shell stack.
+
 ## Output Model
 
 The CLI now follows an AXI-style agent-facing contract.

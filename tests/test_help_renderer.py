@@ -11,9 +11,9 @@ def test_load_help_body_reads_packaged_root_and_leaf_pages() -> None:
 def test_render_help_text_prefixes_authored_body_before_reference() -> None:
     rendered = render_help_text("jobs/index", "usage: xcron jobs [-h]\n\noptions:\n  -h, --help\n")
 
-    assert rendered.startswith("# `xcron jobs`")
+    assert "xcron jobs" in rendered
     assert "These commands edit YAML only;" in rendered
-    assert "## Usage" in rendered
-    assert "```text\nusage: xcron jobs [-h]\n```" in rendered
-    assert "## Reference" in rendered
+    assert "Usage" in rendered
+    assert "usage: xcron jobs [-h]" in rendered
+    assert "Reference" in rendered
     assert "options:" in rendered

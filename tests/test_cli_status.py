@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import argparse
 import textwrap
 
-from apps.cli.commands import status
+from apps.cli.main import main
 from libs.actions.apply_project import apply_project
 from tests.cli_assertions import assert_list_output
 
@@ -51,16 +50,9 @@ def test_status_prints_operator_facing_states_for_cron(tmp_path, monkeypatch, ca
     assert result.valid is True
 
     monkeypatch.setenv("XCRON_CRONTAB_PATH", str(crontab_path))
-    exit_code = status.handle(
-        argparse.Namespace(
-            project=str(project),
-            schedule=None,
-            backend="cron",
-        )
-    )
+    assert main(["status", "--project", str(project), "--backend", "cron"]) == 0
     captured = capsys.readouterr()
 
-    assert exit_code == 0
     assert "backend: cron" in captured.out
     assert_list_output(captured.out, count="2 of 2", header="statuses[2,]{kind,id,reason}:")
     assert "ok,status-demo.ping_job,desired definition and actual backend state are aligned" in captured.out

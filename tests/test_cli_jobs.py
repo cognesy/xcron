@@ -2,35 +2,28 @@ from __future__ import annotations
 
 import textwrap
 
-import pytest
+from typer.testing import CliRunner
 
-from apps.cli.main import build_parser, main
+from apps.cli.main import main
+from apps.cli.typer_app import app
+
+
+runner = CliRunner()
 
 
 def test_cli_help_covers_root_group_and_leaf_commands(capsys) -> None:
-    parser = build_parser()
-
-    with pytest.raises(SystemExit) as root_exit:
-        parser.parse_args(["--help"])
-    assert root_exit.value.code == 0
-    root_help = capsys.readouterr().out
+    root_help = runner.invoke(app, ["--help"]).stdout
     assert "jobs" in root_help
-    assert "edit jobs inside one schedule manifest" in root_help
-    assert "Authoritative runtime help for xcron lives under `resources/help/`." in root_help
+    assert "Inspect and edit jobs inside one schedule manifest." in root_help
+    assert "Authoritative runtime help for xcron lives under resources/help/." in root_help
 
-    with pytest.raises(SystemExit) as group_exit:
-        parser.parse_args(["jobs", "--help"])
-    assert group_exit.value.code == 0
-    group_help = capsys.readouterr().out
+    group_help = runner.invoke(app, ["jobs", "--help"]).stdout
     assert "add" in group_help
     assert "update" in group_help
     assert "edit YAML only" in group_help
-    assert "These commands edit YAML only; use `xcron apply`" in group_help
+    assert "These commands edit YAML only; use xcron apply" in group_help
 
-    with pytest.raises(SystemExit) as leaf_exit:
-        parser.parse_args(["jobs", "add", "--help"])
-    assert leaf_exit.value.code == 0
-    leaf_help = capsys.readouterr().out
+    leaf_help = runner.invoke(app, ["jobs", "add", "--help"]).stdout
     assert "--command" in leaf_help
     assert "--cron" in leaf_help
     assert "--every" in leaf_help

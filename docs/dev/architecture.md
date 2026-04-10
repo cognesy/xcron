@@ -41,8 +41,11 @@ Implemented prototype components:
   backend-native detail
 - nested `jobs` CLI group for manifest-side job management
 - CLI thin shells that call actions rather than embedding backend logic
-- declarative CLI contract metadata for AXI-facing command behavior
-- typed CLI response envelopes plus mapper helpers at the CLI edge
+- Typer-based command declaration and command grouping
+- Pydantic response envelopes plus mapper helpers at the CLI edge
+- unified machine/human output rendering:
+  - TOON for machine-facing output
+  - Rich-backed help and human-facing presentation paths
 - resource-backed runtime help under `resources/help/`
 - repo-local Codex and Claude hook adapters plus install/status/repair flows
 

@@ -112,6 +112,12 @@ from libs.services.cli_contracts import (
 )
 from libs.services.codex_hooks import CodexHookStatus, ensure_codex_hooks, inspect_codex_hooks
 from libs.services.help_renderer import HELP_PACKAGE, load_help_body, render_help_text
+from libs.services.output_renderer import (
+    render_collection_response_toon,
+    render_list_response_toon,
+    render_nested_response_toon,
+    render_response_toon,
+)
 from libs.services.toon_renderer import TOON_OPTIONS, normalize_for_toon, render_toon
 from libs.services.wrapper_renderer import RenderedWrapper, render_wrapper, write_wrapper
 
@@ -199,6 +205,10 @@ __all__ = [
     "select_collection_fields",
     "render_wrapper",
     "render_help_text",
+    "render_collection_response_toon",
+    "render_list_response_toon",
+    "render_nested_response_toon",
+    "render_response_toon",
     "select_fields",
     "select_list_fields",
     "select_nested_fields",

@@ -15,8 +15,11 @@ authors = [
 dependencies = [
   "PyYAML>=6.0,<7.0",
   "jsonschema>=4.23,<5.0",
+  "pydantic>=2.12.5",
   "python-toon>=0.1.3",
+  "rich>=14.3.3",
   "structlog>=24.0,<26.0",
+  "typer>=0.23.2",
 ]
 
 [project.optional-dependencies]
@@ -25,7 +28,8 @@ dev = [
 ]
 
 [project.scripts]
-xcron = "apps.cli.main:main"
+xcron = "apps.cli.typer_app:run"
+xcron-typer = "apps.cli.typer_app:run"
 
 [tool.setuptools]
 include-package-data = true
