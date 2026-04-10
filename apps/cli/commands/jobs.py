@@ -5,37 +5,68 @@ from __future__ import annotations
 import argparse
 from typing import Any, Sequence
 
-from apps.cli.commands._common import print_validation_messages, resolve_project_path
+from apps.cli.commands._common import (
+    add_fields_argument,
+    add_full_argument,
+    emit_error,
+    emit_payload,
+    resolve_project_path,
+    selected_fields,
+    validation_details,
+)
+from apps.cli.parser import set_help_key
 from libs.actions import add_job, disable_job, enable_job, list_jobs, remove_job, show_job, update_job
+from libs.services import render_toon, select_list_fields
+
+
+JOBS_LIST_FIELDS = ("manifest", "count", "jobs", "help")
+JOBS_LIST_ROW_FIELDS = ("job_id", "enabled", "schedule", "command")
+JOB_SHOW_FIELDS = ("manifest", "job", "enabled", "schedule", "command", "working_dir", "shell", "overlap", "description", "env", "help")
+JOB_MUTATION_FIELDS = ("kind", "target", "outcome", "manifest", "help")
 
 
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    parser = subparsers.add_parser(
-        "jobs",
-        help="Inspect and edit jobs inside one schedule manifest. These commands change YAML only.",
-        description="Inspect and edit jobs inside one selected schedule manifest. These commands edit YAML only; use apply to reconcile backend state.",
+    parser = set_help_key(
+        subparsers.add_parser(
+            "jobs",
+            help="Inspect and edit jobs inside one schedule manifest. These commands change YAML only.",
+            description="Inspect and edit jobs inside one selected schedule manifest. These commands edit YAML only; use apply to reconcile backend state.",
+        ),
+        "jobs/index",
     )
     jobs_subparsers = parser.add_subparsers(dest="jobs_command", required=True)
 
-    list_parser = jobs_subparsers.add_parser(
-        "list",
-        help="List jobs from the selected manifest.",
-        description="List jobs from the selected manifest without touching the scheduler backend.",
+    list_parser = set_help_key(
+        jobs_subparsers.add_parser(
+            "list",
+            help="List jobs from the selected manifest.",
+            description="List jobs from the selected manifest without touching the scheduler backend.",
+        ),
+        "jobs/list",
     )
+    add_fields_argument(list_parser)
     list_parser.set_defaults(handler=handle_list)
 
-    show_parser = jobs_subparsers.add_parser(
-        "show",
-        help="Show one job from the selected manifest.",
-        description="Show one manifest job by local or qualified id without touching the scheduler backend.",
+    show_parser = set_help_key(
+        jobs_subparsers.add_parser(
+            "show",
+            help="Show one job from the selected manifest.",
+            description="Show one manifest job by local or qualified id without touching the scheduler backend.",
+        ),
+        "jobs/show",
     )
     show_parser.add_argument("job_id", help="Project-local or qualified job identifier.")
+    add_fields_argument(show_parser)
+    add_full_argument(show_parser)
     show_parser.set_defaults(handler=handle_show)
 
-    add_parser = jobs_subparsers.add_parser(
-        "add",
-        help="Add one job to the selected manifest.",
-        description="Add one job to the selected manifest. This edits YAML only; run apply separately to reconcile backend state.",
+    add_parser = set_help_key(
+        jobs_subparsers.add_parser(
+            "add",
+            help="Add one job to the selected manifest.",
+            description="Add one job to the selected manifest. This edits YAML only; run apply separately to reconcile backend state.",
+        ),
+        "jobs/add",
     )
     add_parser.add_argument("job_id", help="Project-local job identifier to add.")
     add_parser.add_argument("--command", required=True, help="Shell command for the new job.")
@@ -48,36 +79,52 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
     add_parser.add_argument("--overlap", choices=("allow", "forbid"), help="Optional overlap policy override.")
     add_parser.add_argument("--env", action="append", default=[], metavar="KEY=VALUE", help="Environment variable assignment. Repeatable.")
     add_parser.add_argument("--disabled", action="store_true", help="Create the job as disabled in YAML.")
+    add_fields_argument(add_parser)
     add_parser.set_defaults(handler=handle_add)
 
-    remove_parser = jobs_subparsers.add_parser(
-        "remove",
-        help="Remove one job from the selected manifest.",
-        description="Remove one job from the selected manifest. This edits YAML only; it does not prune the scheduler backend.",
+    remove_parser = set_help_key(
+        jobs_subparsers.add_parser(
+            "remove",
+            help="Remove one job from the selected manifest.",
+            description="Remove one job from the selected manifest. This edits YAML only; it does not prune the scheduler backend.",
+        ),
+        "jobs/remove",
     )
     remove_parser.add_argument("job_id", help="Project-local or qualified job identifier.")
+    add_fields_argument(remove_parser)
     remove_parser.set_defaults(handler=handle_remove)
 
-    enable_parser = jobs_subparsers.add_parser(
-        "enable",
-        help="Enable one job in the selected manifest.",
-        description="Enable one manifest job in YAML only. Use apply separately to reconcile backend state.",
+    enable_parser = set_help_key(
+        jobs_subparsers.add_parser(
+            "enable",
+            help="Enable one job in the selected manifest.",
+            description="Enable one manifest job in YAML only. Use apply separately to reconcile backend state.",
+        ),
+        "jobs/enable",
     )
     enable_parser.add_argument("job_id", help="Project-local or qualified job identifier.")
+    add_fields_argument(enable_parser)
     enable_parser.set_defaults(handler=handle_enable)
 
-    disable_parser = jobs_subparsers.add_parser(
-        "disable",
-        help="Disable one job in the selected manifest.",
-        description="Disable one manifest job in YAML only. Use apply separately to reconcile backend state.",
+    disable_parser = set_help_key(
+        jobs_subparsers.add_parser(
+            "disable",
+            help="Disable one job in the selected manifest.",
+            description="Disable one manifest job in YAML only. Use apply separately to reconcile backend state.",
+        ),
+        "jobs/disable",
     )
     disable_parser.add_argument("job_id", help="Project-local or qualified job identifier.")
+    add_fields_argument(disable_parser)
     disable_parser.set_defaults(handler=handle_disable)
 
-    update_parser = jobs_subparsers.add_parser(
-        "update",
-        help="Update selected fields for one job in the selected manifest.",
-        description="Update selected manifest fields for one job. This edits YAML only; use apply separately to reconcile backend state.",
+    update_parser = set_help_key(
+        jobs_subparsers.add_parser(
+            "update",
+            help="Update selected fields for one job in the selected manifest.",
+            description="Update selected manifest fields for one job. This edits YAML only; use apply separately to reconcile backend state.",
+        ),
+        "jobs/update",
     )
     update_parser.add_argument("job_id", help="Project-local or qualified job identifier.")
     update_parser.add_argument("--command", help="Replace the job command.")
@@ -93,6 +140,7 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
     update_parser.add_argument("--overlap", choices=("allow", "forbid"), help="Replace the overlap policy.")
     update_parser.add_argument("--env", action="append", default=[], metavar="KEY=VALUE", help="Replace env with the provided assignments. Repeatable.")
     update_parser.add_argument("--clear-env", action="store_true", help="Remove the job-specific env mapping.")
+    add_fields_argument(update_parser)
     update_parser.set_defaults(handler=handle_update)
 
 
@@ -103,11 +151,35 @@ def handle_list(args: argparse.Namespace) -> int:
     )
     if not result.valid:
         return _print_job_action_error(result)
-    if result.manifest_path is not None:
-        print(f"manifest: {result.manifest_path}")
-    for job in result.jobs:
-        schedule = f"{job.schedule.kind.value}={job.schedule.value}"
-        print(f"{job.job_id:<16} enabled={job.enabled} schedule={schedule} command={job.execution.command}")
+
+    payload = {
+        "manifest": result.manifest_path,
+        "count": f"{len(result.jobs)} of {len(result.jobs)}",
+        "jobs": [
+            {
+                "job_id": job.job_id,
+                "enabled": job.enabled,
+                "schedule": f"{job.schedule.kind.value}={job.schedule.value}",
+                "command": job.execution.command,
+            }
+            for job in result.jobs
+        ],
+        "help": [
+            "Run `xcron jobs show <job-id>` to inspect one manifest job",
+            "Run `xcron apply` to reconcile manifest changes into backend state",
+        ],
+    }
+    print(
+        render_toon(
+            select_list_fields(
+                payload,
+                top_level_fields=JOBS_LIST_FIELDS,
+                list_key="jobs",
+                row_fields=JOBS_LIST_ROW_FIELDS,
+                requested_fields=selected_fields(getattr(args, "fields", None)),
+            )
+        )
+    )
     return 0
 
 
@@ -119,23 +191,29 @@ def handle_show(args: argparse.Namespace) -> int:
     )
     if not result.valid:
         return _print_job_action_error(result)
-    if result.manifest_path is not None:
-        print(f"manifest: {result.manifest_path}")
-    if result.job is not None:
-        print(f"job: {result.job.qualified_id}")
-        print(f"enabled: {result.job.enabled}")
-        print(f"schedule: {result.job.schedule.kind.value}={result.job.schedule.value}")
-        print(f"command: {result.job.execution.command}")
-        print(f"working_dir: {result.job.execution.working_dir}")
-        print(f"shell: {result.job.execution.shell}")
-        print(f"overlap: {result.job.execution.overlap.value}")
-        if result.job.description:
-            print(f"description: {result.job.description}")
-        if result.job.execution.env:
-            print("env:")
-            for key, value in result.job.execution.env:
-                print(f"  {key}={value}")
-    return 0
+    if result.job is None:
+        return emit_error("job not found in manifest", help_items=("Run `xcron jobs list` to inspect available jobs",))
+
+    payload: dict[str, object] = {
+        "manifest": result.manifest_path,
+        "job": result.job.qualified_id,
+        "enabled": result.job.enabled,
+        "schedule": f"{result.job.schedule.kind.value}={result.job.schedule.value}",
+        "command": result.job.execution.command,
+        "working_dir": result.job.execution.working_dir,
+        "shell": result.job.execution.shell,
+        "overlap": result.job.execution.overlap.value,
+        "help": ["Run `xcron inspect <job-id>` for backend-side detail"],
+    }
+    if result.job.description:
+        payload["description"] = result.job.description
+    if result.job.execution.env:
+        payload["env"] = [f"{key}={value}" for key, value in result.job.execution.env]
+    return emit_payload(
+        payload,
+        allowed_fields=JOB_SHOW_FIELDS,
+        requested_fields=selected_fields(getattr(args, "fields", None)),
+    )
 
 
 def handle_add(args: argparse.Namespace) -> int:
@@ -151,11 +229,12 @@ def handle_add(args: argparse.Namespace) -> int:
     )
     if not result.valid:
         return _print_job_action_error(result)
-    if result.manifest_path is not None:
-        print(f"manifest: {result.manifest_path}")
-    if result.job is not None:
-        print(f"added_job: {result.job.qualified_id}")
-    return 0
+    return _emit_job_mutation_payload(
+        "jobs.add",
+        result,
+        requested_fields=selected_fields(getattr(args, "fields", None)),
+        changed_outcome="added",
+    )
 
 
 def handle_remove(args: argparse.Namespace) -> int:
@@ -166,10 +245,12 @@ def handle_remove(args: argparse.Namespace) -> int:
     )
     if not result.valid:
         return _print_job_action_error(result)
-    if result.manifest_path is not None:
-        print(f"manifest: {result.manifest_path}")
-    print(f"removed_job: {result.removed_job_identifier}")
-    return 0
+    return _emit_job_mutation_payload(
+        "jobs.remove",
+        result,
+        requested_fields=selected_fields(getattr(args, "fields", None)),
+        changed_outcome="removed",
+    )
 
 
 def handle_enable(args: argparse.Namespace) -> int:
@@ -180,11 +261,12 @@ def handle_enable(args: argparse.Namespace) -> int:
     )
     if not result.valid:
         return _print_job_action_error(result)
-    if result.manifest_path is not None:
-        print(f"manifest: {result.manifest_path}")
-    if result.job is not None:
-        print(f"enabled_job: {result.job.qualified_id}")
-    return 0
+    return _emit_job_mutation_payload(
+        "jobs.enable",
+        result,
+        requested_fields=selected_fields(getattr(args, "fields", None)),
+        changed_outcome="enabled",
+    )
 
 
 def handle_disable(args: argparse.Namespace) -> int:
@@ -195,11 +277,12 @@ def handle_disable(args: argparse.Namespace) -> int:
     )
     if not result.valid:
         return _print_job_action_error(result)
-    if result.manifest_path is not None:
-        print(f"manifest: {result.manifest_path}")
-    if result.job is not None:
-        print(f"disabled_job: {result.job.qualified_id}")
-    return 0
+    return _emit_job_mutation_payload(
+        "jobs.disable",
+        result,
+        requested_fields=selected_fields(getattr(args, "fields", None)),
+        changed_outcome="disabled",
+    )
 
 
 def handle_update(args: argparse.Namespace) -> int:
@@ -219,11 +302,12 @@ def handle_update(args: argparse.Namespace) -> int:
     )
     if not result.valid:
         return _print_job_action_error(result)
-    if result.manifest_path is not None:
-        print(f"manifest: {result.manifest_path}")
-    if result.job is not None:
-        print(f"updated_job: {result.job.qualified_id}")
-    return 0
+    return _emit_job_mutation_payload(
+        "jobs.update",
+        result,
+        requested_fields=selected_fields(getattr(args, "fields", None)),
+        changed_outcome="updated",
+    )
 
 
 def _build_add_job_payload(args: argparse.Namespace) -> dict[str, Any]:
@@ -289,18 +373,56 @@ def _parse_env_assignments(values: Sequence[str]) -> dict[str, str]:
 
 def _print_job_action_error(result: Any) -> int:
     validation = getattr(result, "validation", None)
+    details: list[dict[str, str]] = []
     if validation is not None:
-        print_validation_messages(validation.errors)
-        print_validation_messages(validation.warnings)
+        details.extend(validation_details(validation.errors + validation.warnings))
     warnings = getattr(result, "warnings", ())
     if warnings:
-        print_validation_messages(warnings)
-    if getattr(result, "error", None):
-        print(result.error)
-    return 2
+        details.extend(validation_details(warnings))
+    return emit_error(
+        getattr(result, "error", None) or "job action failed",
+        details=details,
+        help_items=("Run `xcron jobs --help` to review available manifest job commands",),
+    )
 
 
 def _print_jobs_cli_error(message: str) -> int:
     """Print a deterministic CLI-shell error message."""
-    print(message)
-    return 2
+    return emit_error(
+        message,
+        code="usage_error",
+        exit_code=2,
+        help_items=("Run `xcron jobs add --help` or `xcron jobs update --help` to review command usage",),
+    )
+
+
+def _emit_job_mutation_payload(
+    kind: str,
+    result: Any,
+    *,
+    requested_fields: Sequence[str],
+    changed_outcome: str,
+) -> int:
+    """Render one AXI mutation payload for jobs commands."""
+
+    target = None
+    if getattr(result, "job", None) is not None:
+        target = result.job.qualified_id
+    elif getattr(result, "removed_job_identifier", None) is not None:
+        target = result.removed_job_identifier
+
+    payload = {
+        "kind": kind,
+        "target": target,
+        "outcome": changed_outcome if getattr(result, "changed", True) else "noop",
+        "manifest": result.manifest_path,
+        "help": [
+            "Run `xcron jobs show <job-id>` to inspect the manifest-side result",
+            "Run `xcron apply` to reconcile backend state after manifest edits",
+        ],
+    }
+    return emit_payload(
+        payload,
+        allowed_fields=JOB_MUTATION_FIELDS,
+        requested_fields=requested_fields,
+    )

@@ -39,6 +39,7 @@ class JobActionResult:
     job: NormalizedJob | None = None
     raw_job: Mapping[str, Any] | None = None
     removed_job_identifier: str | None = None
+    changed: bool = True
     warnings: tuple[ValidationMessage, ...] = field(default_factory=tuple)
     error: str | None = None
 
@@ -248,6 +249,7 @@ def _mutate_job_manifest(
         jobs=normalized_manifest.jobs,
         job=job,
         raw_job=mutation_result.job_data,
+        changed=mutation_result.changed,
         warnings=mutation_result.warnings,
         removed_job_identifier=removed_job_identifier,
     )

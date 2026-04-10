@@ -7,7 +7,13 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 from libs.domain import PlanChange, StatusEntry
-from libs.services import ValidationMessage
+from libs.services import (
+    ValidationMessage,
+    build_error_payload,
+    parse_fields_csv,
+    render_payload,
+    render_toon,
+)
 
 
 def resolve_project_path(value: str | None) -> Path:
@@ -37,6 +43,78 @@ def env_flag(name: str, default: bool = True) -> bool:
     if value is None:
         return default
     return value not in {"0", "false", "False", "no", "NO"}
+
+
+def add_fields_argument(parser: object) -> None:
+    """Add the standard AXI field-selection flag to one parser."""
+
+    parser.add_argument(
+        "--fields",
+        help="Comma-separated list of response fields to include.",
+    )
+
+
+def add_full_argument(parser: object) -> None:
+    """Add the standard AXI full-content flag to one parser."""
+
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Show full response content instead of truncated previews.",
+    )
+
+
+def selected_fields(value: str | None) -> tuple[str, ...]:
+    """Parse one optional --fields value into a tuple."""
+
+    return parse_fields_csv(value)
+
+
+def validation_details(messages: Sequence[ValidationMessage]) -> list[dict[str, str]]:
+    """Convert validation messages into AXI error details."""
+
+    return [{"field": message.path, "issue": message.message} for message in messages]
+
+
+def emit_payload(
+    payload: dict[str, object],
+    *,
+    allowed_fields: Sequence[str],
+    requested_fields: Sequence[str] = (),
+) -> int:
+    """Render one structured payload to stdout."""
+
+    print(
+        render_payload(
+            payload,
+            allowed_fields=allowed_fields,
+            requested_fields=requested_fields,
+        )
+    )
+    return 0
+
+
+def emit_error(
+    message: str,
+    *,
+    details: Sequence[dict[str, str]] = (),
+    help_items: Sequence[str] = (),
+    code: str = "runtime_error",
+    exit_code: int = 1,
+) -> int:
+    """Render one structured error envelope to stdout."""
+
+    print(
+        render_toon(
+            build_error_payload(
+                message,
+                code=code,
+                details=details,
+                help_items=help_items,
+            )
+        )
+    )
+    return exit_code
 
 
 def print_validation_messages(messages: Sequence[ValidationMessage]) -> None:

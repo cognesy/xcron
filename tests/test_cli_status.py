@@ -61,5 +61,7 @@ def test_status_prints_operator_facing_states_for_cron(tmp_path, monkeypatch, ca
 
     assert exit_code == 0
     assert "backend: cron" in captured.out
-    assert "ok       status-demo.ping_job" in captured.out
-    assert "disabled status-demo.paused_job" in captured.out
+    assert "count: 2 of 2" in captured.out
+    assert "statuses[2,]{kind,id,reason}:" in captured.out
+    assert "ok,status-demo.ping_job,desired definition and actual backend state are aligned" in captured.out
+    assert "disabled,status-demo.paused_job,job is disabled in desired state" in captured.out

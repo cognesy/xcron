@@ -56,6 +56,7 @@ class ManifestMutationResult:
     manifest: ProjectManifest
     raw_data: Mapping[str, Any]
     job_data: Mapping[str, Any] | None = None
+    changed: bool = True
     warnings: tuple[ValidationMessage, ...] = field(default_factory=tuple)
 
 
@@ -166,21 +167,32 @@ def mutate_manifest(
     """Load, mutate, validate, and atomically rewrite one selected manifest."""
     document = load_project_manifest(project_path, schedule_name=schedule_name)
     raw_data = _editable_raw_data(document)
+    original_raw_data = deepcopy(raw_data)
     job_data = mutation(raw_data)
     manifest, warnings = _validated_manifest(raw_data, document.project_root, document.manifest_path)
-    _write_manifest_atomically(document.manifest_path, raw_data)
-    LOGGER.info(
-        "manifest_written",
-        manifest_path=str(document.manifest_path),
-        project_root=str(document.project_root),
-        warning_count=len(warnings),
-    )
+    changed = raw_data != original_raw_data
+    if changed:
+        _write_manifest_atomically(document.manifest_path, raw_data)
+        LOGGER.info(
+            "manifest_written",
+            manifest_path=str(document.manifest_path),
+            project_root=str(document.project_root),
+            warning_count=len(warnings),
+        )
+    else:
+        LOGGER.info(
+            "manifest_unchanged",
+            manifest_path=str(document.manifest_path),
+            project_root=str(document.project_root),
+            warning_count=len(warnings),
+        )
     return ManifestMutationResult(
         project_root=document.project_root,
         manifest_path=document.manifest_path,
         manifest=manifest,
         raw_data=raw_data,
         job_data=deepcopy(job_data) if job_data is not None else None,
+        changed=changed,
         warnings=warnings,
     )
 

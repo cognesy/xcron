@@ -266,6 +266,296 @@ Each command should have a documented output shape and affordances:
   - action outcome or no-op
   - follow-up hints when useful
 
+## Concrete Contract Decisions
+
+This section turns the plan into the implementation contract for the remaining
+tasks.
+
+### Output Modes
+
+- Normal command execution uses TOON on stdout by default.
+- Structured errors also use TOON on stdout.
+- Explicit `--help` output is rendered from `resources/help/` and emitted as
+  authored Markdown-derived text rather than TOON. This is the one deliberate
+  exception because the user explicitly asked for Markdown/Jinja help pages and
+  AXI treats help as reference content rather than live data.
+- No alternate `text` mode is added in the initial compliance pass. If a human
+  oriented fallback becomes necessary later, it should be introduced as a
+  separate issue without weakening the TOON-first default.
+
+### Global Flags
+
+The initial implementation should add these global or command-family flags:
+
+- `--fields <csv>` on home, list, detail, and mutation responses that expose
+  structured fields. The presenter should silently order/filter against a
+  command-specific allowlist.
+- `--full` on detail commands only:
+  - bare `xcron`
+  - `inspect`
+  - `jobs show`
+- No `--full` on list or mutation commands.
+- Existing selector flags remain stable:
+  - `--project`
+  - `--schedule`
+  - `--backend`
+
+### Exit Codes
+
+- `0`: success, including definitive empty states and acknowledged no-ops
+- `1`: command/runtime errors where the requested intent could not be satisfied
+- `2`: usage errors such as missing required arguments or mutually invalid flag
+  combinations
+
+### Error Envelope
+
+Usage and runtime errors should use a common root-object shape:
+
+```text
+kind: error
+code: usage_error | runtime_error
+message: <short actionable summary>
+details[0|N]{field,issue}:
+help[0|N]:
+```
+
+Rules:
+
+- `message` is always present.
+- `details` is included only when there are structured field/path level errors.
+- `help` contains complete suggested commands, not prose fragments.
+- Dependency/library names should not leak into the user-facing error text.
+
+### Home View Contract
+
+Bare `xcron` must return a safe, project-scoped dashboard without mutating the
+backend.
+
+Default fields:
+
+- `bin`
+- `description`
+- `project`
+- `schedule`
+- `backend`
+- `manifest`
+- `jobs`
+- `plan_summary`
+
+Behavior:
+
+- Resolve the current project exactly as other commands do.
+- Run validation and planning only; do not call backend inspection by default.
+- If validation succeeds, include compact counts:
+  - total jobs
+  - count by plan change kind
+- If validation fails, return a structured error envelope instead of parser
+  usage text.
+- Include 2-3 next-step hints derived from the current context.
+
+### Command Family Contracts
+
+#### `validate`
+
+Family: detail/summary
+
+Default fields:
+
+- `project`
+- `manifest`
+- `valid`
+- `jobs`
+- `manifest_hash`
+- `errors`
+- `warnings`
+
+Rules:
+
+- Always include counts for `errors` and `warnings`.
+- Include validation message arrays only when non-empty.
+- `--fields` may request the message arrays explicitly if the compact default is
+  later reduced.
+
+#### `plan`
+
+Family: list
+
+Default fields:
+
+- `backend`
+- `state`
+- `count`
+- `changes`
+
+`changes` default row schema:
+
+- `kind`
+- `id`
+- `reason`
+
+Rules:
+
+- Include `count` as `<shown> of <total>`.
+- `--fields` expands row fields from a command-specific allowlist.
+- Empty change sets must return a definitive zero-state message plus `count: 0
+  of 0`.
+
+#### `status`
+
+Family: list
+
+Default fields:
+
+- `backend`
+- `count`
+- `statuses`
+
+`statuses` default row schema:
+
+- `kind`
+- `id`
+- `reason`
+
+Rules:
+
+- Include total row count.
+- `--fields` expands row fields from a command-specific allowlist.
+- Empty status sets must still report success explicitly.
+
+#### `inspect`
+
+Family: detail
+
+Default fields:
+
+- `backend`
+- `job`
+- `status`
+- `desired`
+- `deployed`
+- `snippets`
+
+Rules:
+
+- `desired` and `deployed` are structured objects filtered by field allowlists.
+- Raw backend snippets are truncated to 1000 characters by default.
+- Truncated snippets must include total-size metadata and a hint to rerun with
+  `--full`.
+- `--fields` filters top-level fields and nested desired/deployed field sets as
+  defined by the presenter.
+- `--full` disables snippet truncation.
+
+#### `jobs list`
+
+Family: list
+
+Default fields:
+
+- `manifest`
+- `count`
+- `jobs`
+
+`jobs` default row schema:
+
+- `job_id`
+- `enabled`
+- `schedule`
+- `command`
+
+Rules:
+
+- Include total job count.
+- Empty manifests return a definitive zero-state success response.
+
+#### `jobs show`
+
+Family: detail
+
+Default fields:
+
+- `manifest`
+- `job`
+- `enabled`
+- `schedule`
+- `command`
+- `working_dir`
+- `shell`
+- `overlap`
+- `description`
+- `env`
+
+Rules:
+
+- `env` is omitted when empty unless requested through `--fields`.
+- No large raw snippets exist here, so `--full` should behave as a no-op alias
+  for future compatibility rather than a special mode.
+
+#### Mutations: `apply`, `prune`, `jobs add`, `jobs update`, `jobs enable`,
+#### `jobs disable`, `jobs remove`
+
+Family: mutation
+
+Default fields:
+
+- `kind`
+- `target`
+- `outcome`
+- `backend`
+- `count`
+
+Rules:
+
+- `kind` identifies the command or mutation family.
+- `target` is the project id or qualified job id being changed.
+- `outcome` is one of `applied`, `pruned`, `updated`, `removed`, `enabled`,
+  `disabled`, or `noop`.
+- `count` is included when the mutation affects multiple artifacts/jobs.
+- Include follow-up hints only when the next action is genuinely ambiguous.
+- Idempotent state-setting operations must prefer `noop` success over error when
+  the requested state is already true.
+
+### Truncation Policy
+
+- Default string truncation threshold for large detail fields: 1000 characters
+- Truncation applies only to high-volume fields such as backend-native snippets,
+  rendered plist text, `launchctl print`, or future large help previews
+- Truncated fields must preserve:
+  - preview text
+  - total source length
+  - a rerun hint using `--full`
+
+### Help Contract
+
+- Root, group, and leaf help must be explicitly authored and tested.
+- The help renderer should merge:
+  - authored body content from `resources/help/*.md` or `*.j2`
+  - generated flag/argument reference derived from the parser
+  - 2-3 examples per command
+- Help pages must stay scoped:
+  - root help covers only top-level command discovery
+  - `jobs` help covers the group surface
+  - leaf help covers only the selected command
+
+### Planned Write Set
+
+The remaining implementation work should stay within this concrete file/module
+shape unless a later task discovers a strong reason to adjust it:
+
+- update `apps/cli/main.py`
+- add `apps/cli/parser.py`
+- update `apps/cli/commands/_common.py`
+- update the individual command shells under `apps/cli/commands/`
+- add `libs/services/axi_presenter.py`
+- add `libs/services/toon_renderer.py`
+- add `libs/services/help_renderer.py`
+- add `libs/services/hook_installer.py`
+- update `libs/services/__init__.py` exports as needed
+- update `pyproject.toml`
+- add `resources/help/` content files
+- update CLI-facing tests under `tests/`
+- update `docs/user/README.md` to remain an overview rather than the runtime
+  help source
+
 ### 4. Move detailed help to `resources/help/`
 
 Create a runtime help content tree such as:

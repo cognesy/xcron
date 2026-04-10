@@ -141,6 +141,10 @@ xcron jobs --help
 xcron jobs add --help
 ```
 
+Treat runtime `--help` as the authoritative command reference.
+This user guide stays focused on workflow, concepts, and examples rather than
+duplicating the full command reference surface.
+
 ## Plan vs Status
 
 `plan` and `status` answer different questions.

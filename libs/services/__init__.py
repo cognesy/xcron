@@ -16,6 +16,15 @@ from libs.services.config_loader import (
     resolve_project_root,
 )
 from libs.services.hash_service import ManifestHashes, build_manifest_hashes
+from libs.services.hook_installer import (
+    CODEX_CONFIG_RELATIVE_PATH,
+    CODEX_HOOKS_RELATIVE_PATH,
+    CLAUDE_SETTINGS_RELATIVE_PATH,
+    HookInstallResult,
+    capture_session_end,
+    ensure_agent_hooks,
+    resolve_xcron_executable,
+)
 from libs.services.logging_paths import RuntimePaths, ensure_runtime_dirs, resolve_runtime_paths, runtime_log_paths_for_wrapper
 from libs.services.manifest_editor import (
     ManifestEditError,
@@ -48,6 +57,18 @@ from libs.services.state_store import (
     resolve_state_root,
     save_project_state,
 )
+from libs.services.axi_presenter import (
+    build_error_payload,
+    collapse_home_path,
+    parse_fields_csv,
+    render_payload,
+    select_fields,
+    select_list_fields,
+    select_nested_fields,
+    truncate_text,
+)
+from libs.services.help_renderer import HELP_PACKAGE, load_help_body, render_help_text
+from libs.services.toon_renderer import TOON_OPTIONS, normalize_for_toon, render_toon
 from libs.services.wrapper_renderer import RenderedWrapper, render_wrapper, write_wrapper
 
 __all__ = [
@@ -71,19 +92,35 @@ __all__ = [
     "ValidationMessage",
     "add_manifest_job",
     "attach_parsed_manifest",
+    "build_error_payload",
     "build_manifest_hashes",
     "check_output_logged",
+    "collapse_home_path",
+    "CODEX_CONFIG_RELATIVE_PATH",
+    "CODEX_HOOKS_RELATIVE_PATH",
+    "CLAUDE_SETTINGS_RELATIVE_PATH",
     "configure_logging",
+    "capture_session_end",
     "get_manifest_job",
     "default_backend_for_current_platform",
     "delete_project_state",
+    "ensure_agent_hooks",
     "ensure_runtime_dirs",
     "get_logger",
+    "HELP_PACKAGE",
+    "HookInstallResult",
     "instrument_action",
     "list_manifest_jobs",
+    "load_help_body",
     "load_project_manifest",
     "load_project_state",
+    "parse_fields_csv",
+    "render_payload",
     "render_wrapper",
+    "render_help_text",
+    "select_fields",
+    "select_list_fields",
+    "select_nested_fields",
     "resolve_manifest_path",
     "resolve_project_root",
     "resolve_project_state_dir",
@@ -91,10 +128,15 @@ __all__ = [
     "resolve_state_root",
     "resolve_runtime_paths",
     "runtime_log_paths_for_wrapper",
+    "resolve_xcron_executable",
     "remove_manifest_job",
     "run_logged_subprocess",
     "set_manifest_job_enabled",
     "save_project_state",
+    "TOON_OPTIONS",
+    "truncate_text",
+    "normalize_for_toon",
+    "render_toon",
     "update_manifest_job",
     "validate_schema",
     "validate_semantics",

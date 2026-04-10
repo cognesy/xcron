@@ -4,12 +4,20 @@ from __future__ import annotations
 
 import argparse
 
-from apps.cli.commands._common import env_flag, env_path, env_string, resolve_project_path
+from apps.cli.commands._common import add_fields_argument, emit_error, emit_payload, env_flag, env_path, env_string, resolve_project_path, selected_fields
+from apps.cli.parser import set_help_key
 from libs.actions import prune_project
 
 
+PRUNE_FIELDS = ("kind", "target", "outcome", "backend", "count", "help")
+
+
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    parser = subparsers.add_parser("prune", help="Remove managed artifacts for one selected schedule manifest.")
+    parser = set_help_key(
+        subparsers.add_parser("prune", help="Remove managed artifacts for one selected schedule manifest."),
+        "prune",
+    )
+    add_fields_argument(parser)
     parser.set_defaults(handler=handle)
 
 
@@ -26,9 +34,23 @@ def handle(args: argparse.Namespace) -> int:
         manage_crontab=env_flag("XCRON_MANAGE_CRONTAB", default=True),
     )
     if not result.valid:
-        if result.error:
-            print(result.error)
-        return 2
-    print(f"backend: {result.backend}")
-    print(f"removed: {len(result.removed)}")
-    return 0
+        return emit_error(
+            result.error or "project prune failed",
+            help_items=("Run `xcron prune --help` to review prune usage",),
+        )
+
+    payload = {
+        "kind": "prune",
+        "target": result.project_id,
+        "outcome": "noop" if not result.removed else "pruned",
+        "backend": result.backend,
+        "count": len(result.removed),
+        "help": [
+            "Run `xcron apply` to recreate managed backend state from the manifest",
+        ],
+    }
+    return emit_payload(
+        payload,
+        allowed_fields=PRUNE_FIELDS,
+        requested_fields=selected_fields(getattr(args, "fields", None)),
+    )
