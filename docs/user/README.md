@@ -77,6 +77,7 @@ Sample manifests live under `resources/examples/*/resources/schedules/`.
 Run inside the project or pass `--project /path/to/project`.
 
 ```sh
+xcron
 xcron validate
 xcron plan
 xcron apply
@@ -145,6 +146,68 @@ Treat runtime `--help` as the authoritative command reference.
 This user guide stays focused on workflow, concepts, and examples rather than
 duplicating the full command reference surface.
 
+## Output Model
+
+The CLI now follows an AXI-style agent-facing contract.
+
+Normal command execution writes TOON on stdout by default rather than the older
+plain-text line format. That applies to:
+
+- bare `xcron`
+- `validate`
+- `plan`
+- `apply`
+- `status`
+- `inspect`
+- `jobs ...`
+- `prune`
+
+Common affordances:
+
+- `--fields kind,id,reason` narrows the returned fields when a command supports
+  field filtering
+- `--full` expands detail output for commands that support truncation-aware
+  detail views, especially `xcron inspect`
+- structured command and usage errors are written to stdout
+- invalid `--fields` requests now return structured usage errors instead of
+  being silently ignored
+
+Example list-style output:
+
+```text
+backend: cron
+count: 2 of 2
+statuses[2,]{kind,id,reason}:
+  ok,example-basic.sync_docs,desired definition and actual backend state are aligned
+  disabled,example-basic.cleanup_tmp,job is disabled in desired state
+```
+
+Example mutation output:
+
+```text
+kind: jobs.add
+target: example-basic.cleanup_tmp
+outcome: added
+manifest: /path/to/project/resources/schedules/default.yaml
+```
+
+Idempotent mutations report `outcome: noop` instead of failing when the desired
+state already exists.
+
+## Home View
+
+Running bare `xcron` now returns a content-first home view for the current
+project instead of `argparse` usage text.
+
+The home view is safe: it uses validation and planning only, does not mutate
+backend state, and includes compact next-step hints.
+
+```sh
+xcron
+xcron --fields bin,backend,plan_summary
+xcron --full
+```
+
 ## Plan vs Status
 
 `plan` and `status` answer different questions.
@@ -194,13 +257,15 @@ Example:
 
 ```text
 backend: cron
-ok       example-basic.sync_docs    desired definition and actual backend state are aligned
-disabled example-basic.cleanup_tmp  job is disabled in desired state
+count: 2 of 2
+statuses[2,]{kind,id,reason}:
+  ok,example-basic.sync_docs,desired definition and actual backend state are aligned
+  disabled,example-basic.cleanup_tmp,job is disabled in desired state
 ```
 
 ## Inspect
 
-`xcron inspect <job-id>` shows one job in more depth. The current prototype
+`xcron inspect <job-id>` shows one job in more depth. The current CLI
 surfaces:
 
 - normalized desired fields such as schedule, enabled state, command,
@@ -211,10 +276,17 @@ surfaces:
   - cron: managed raw entry
   - launchd: raw plist content and `launchctl print` output when available
 
+Detail output now supports:
+
+- `--fields backend,job,status,desired.command,deployed.artifact_path`
+- `--full` to disable snippet truncation for large backend-native fields
+
 Example:
 
 ```text
 backend: cron
+job: example-basic.sync_docs
+status: ok
 desired:
   qualified_id: example-basic.sync_docs
   schedule: cron=*/15 * * * *
@@ -222,12 +294,38 @@ desired:
 deployed:
   artifact_path: /tmp/crontab.txt
   wrapper_path: /tmp/state/projects/example-basic/wrappers/example-basic.sync_docs.sh
-raw_entry:
-*/15 * * * * /tmp/state/projects/example-basic/wrappers/example-basic.sync_docs.sh
+snippets:
+  raw_entry:
+    preview: */15 * * * * /tmp/state/projects/example-basic/wrappers/example-basic.sync_docs.sh
 ```
 
 `xcron jobs show <job-id>` is the manifest-side companion to `inspect`. It
 shows the job as defined in YAML without querying `launchd` or `cron`.
+
+## Runtime Help And Hooks
+
+Detailed command help now lives under `resources/help/` and is packaged with
+the installed CLI.
+
+The CLI also supports repo-local agent hook installation and repair:
+
+```sh
+xcron hooks install
+xcron hooks status
+xcron hooks repair
+xcron hooks session-start
+xcron hooks session-end
+```
+
+Normal interactive use does a best-effort repo-local hook install when xcron is
+run inside a project. The generated files live under:
+
+- `.codex/config.toml`
+- `.codex/hooks.json`
+- `.claude/settings.json`
+
+The hook commands use the absolute path of the current `xcron` executable so
+reinstalls or relocations can be repaired automatically.
 
 ## Runtime Behavior
 

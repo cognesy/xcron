@@ -5,6 +5,7 @@ import textwrap
 
 from apps.cli.commands import status
 from libs.actions.apply_project import apply_project
+from tests.cli_assertions import assert_list_output
 
 
 def test_status_prints_operator_facing_states_for_cron(tmp_path, monkeypatch, capsys) -> None:
@@ -61,7 +62,6 @@ def test_status_prints_operator_facing_states_for_cron(tmp_path, monkeypatch, ca
 
     assert exit_code == 0
     assert "backend: cron" in captured.out
-    assert "count: 2 of 2" in captured.out
-    assert "statuses[2,]{kind,id,reason}:" in captured.out
+    assert_list_output(captured.out, count="2 of 2", header="statuses[2,]{kind,id,reason}:")
     assert "ok,status-demo.ping_job,desired definition and actual backend state are aligned" in captured.out
     assert "disabled,status-demo.paused_job,job is disabled in desired state" in captured.out

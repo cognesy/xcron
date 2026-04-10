@@ -9,6 +9,7 @@ from libs.services.hook_installer import (
     CLAUDE_SETTINGS_RELATIVE_PATH,
     capture_session_end,
     ensure_agent_hooks,
+    inspect_agent_hooks,
 )
 
 
@@ -59,3 +60,21 @@ def test_capture_session_end_appends_jsonl_record(tmp_path) -> None:
     payload = json.loads(lines[0])
     assert payload["cwd"] == str(Path(tmp_path).resolve())
     assert "timestamp" in payload
+
+
+def test_inspect_agent_hooks_reports_repo_local_status_and_path_health(tmp_path) -> None:
+    executable = tmp_path / "bin" / "xcron"
+    executable.parent.mkdir(parents=True)
+    executable.write_text("", encoding="utf-8")
+
+    ensure_agent_hooks(tmp_path, executable_path=executable)
+    status = inspect_agent_hooks(tmp_path, executable_path=executable)
+
+    assert status.codex.config_exists is True
+    assert status.codex.hooks_exists is True
+    assert status.codex.feature_enabled is True
+    assert status.codex.session_start_matches is True
+    assert status.codex.session_end_matches is True
+    assert status.claude.settings_exists is True
+    assert status.claude.session_start_matches is True
+    assert status.claude.stop_matches is True

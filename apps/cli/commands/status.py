@@ -7,25 +7,25 @@ import argparse
 from apps.cli.commands._common import (
     add_fields_argument,
     emit_error,
+    emit_list_response,
     env_path,
     env_string,
     resolve_project_path,
-    selected_fields,
+    selected_contract_fields,
     validation_details,
 )
 from apps.cli.parser import set_help_key
 from libs.actions import status_project
-from libs.services import render_toon, select_list_fields
+from libs.services import get_command_contract, map_status_response
 
 
-STATUS_FIELDS = ("backend", "count", "statuses", "help")
-STATUS_ROW_FIELDS = ("kind", "id", "reason")
+CONTRACT = get_command_contract("status")
 
 
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     parser = set_help_key(
         subparsers.add_parser("status", help="Show deployed status for one selected schedule manifest."),
-        "status",
+        CONTRACT.help_key,
     )
     add_fields_argument(parser)
     parser.set_defaults(handler=handle)
@@ -44,34 +44,18 @@ def handle(args: argparse.Namespace) -> int:
         return emit_error(
             "project status inspection failed",
             details=validation_details(result.validation.errors + result.validation.warnings),
-            help_items=("Run `xcron validate` to resolve manifest issues",),
+            help_items=CONTRACT.default_hints,
         )
 
-    payload = {
-        "backend": result.backend,
-        "count": f"{len(result.statuses)} of {len(result.statuses)}",
-        "statuses": [
-            {
-                "kind": entry.kind.value,
-                "id": entry.qualified_id,
-                "reason": entry.reason,
-            }
-            for entry in result.statuses
-        ],
-        "help": [
-            "Run `xcron inspect <job-id>` for one detailed job view",
-            "Run `xcron apply` to reconcile drift or missing jobs",
-        ],
-    }
-    print(
-        render_toon(
-            select_list_fields(
-                payload,
-                top_level_fields=STATUS_FIELDS,
-                list_key="statuses",
-                row_fields=STATUS_ROW_FIELDS,
-                requested_fields=selected_fields(getattr(args, "fields", None)),
-            )
-        )
+    try:
+        requested_fields = selected_contract_fields(CONTRACT, getattr(args, "fields", None))
+    except ValueError as exc:
+        return emit_error(str(exc), code="usage_error", exit_code=2, help_items=CONTRACT.default_hints)
+
+    return emit_list_response(
+        map_status_response(result, contract=CONTRACT),
+        allowed_fields=CONTRACT.allowed_fields,
+        list_key=CONTRACT.list_key or "statuses",
+        row_fields=CONTRACT.list_row_fields,
+        requested_fields=requested_fields,
     )
-    return 0

@@ -4,21 +4,19 @@ from __future__ import annotations
 
 import argparse
 
-from apps.cli.commands._common import add_fields_argument, add_full_argument, emit_error, env_path, env_string, resolve_project_path, selected_fields, validation_details
+from apps.cli.commands._common import add_fields_argument, add_full_argument, emit_error, emit_nested_response, env_path, env_string, resolve_project_path, selected_contract_fields, validation_details
 from apps.cli.parser import set_help_key
 from libs.actions import inspect_job
-from libs.services import render_toon, select_nested_fields, truncate_text
+from libs.services import get_command_contract, map_inspect_response
 
 
-INSPECT_FIELDS = ("backend", "job", "status", "desired", "deployed", "snippets", "help")
-DESIRED_FIELDS = ("qualified_id", "job_id", "status", "schedule", "enabled", "command", "working_dir", "shell", "overlap", "description", "timezone", "env")
-DEPLOYED_FIELDS = ("qualified_id", "backend_enabled", "desired_hash", "definition_hash", "label", "artifact_path", "wrapper_path", "stdout_log", "stderr_log", "loaded")
+CONTRACT = get_command_contract("inspect")
 
 
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     parser = set_help_key(
         subparsers.add_parser("inspect", help="Inspect one managed job."),
-        "inspect",
+        CONTRACT.help_key,
     )
     parser.add_argument("job_id", help="Project-local or qualified job identifier.")
     add_fields_argument(parser)
@@ -43,39 +41,22 @@ def handle(args: argparse.Namespace) -> int:
         return emit_error(
             result.error or "job inspection failed",
             details=details,
-            help_items=("Run `xcron inspect --help` to review inspect usage",),
+            help_items=CONTRACT.default_hints,
         )
 
-    payload = {
-        "backend": result.backend,
-        "job": result.desired_job.qualified_id if result.desired_job is not None else args.job_id,
-        "status": result.status_entry.kind.value if result.status_entry is not None else "unknown",
-        "desired": {field.name: field.value for field in result.desired_fields},
-        "deployed": {field.name: field.value for field in result.deployed_fields},
-        "snippets": {
-            snippet.name: (
-                snippet.content
-                if getattr(args, "full", False)
-                else truncate_text(
-                    snippet.content,
-                    full_hint=f"Run `xcron inspect {args.job_id} --full` to see complete content",
-                )
-            )
-            for snippet in result.snippets
-        },
-        "help": ["Run `xcron status` to compare the full project against backend state"],
-    }
-    print(
-        render_toon(
-            select_nested_fields(
-                payload,
-                top_level_fields=INSPECT_FIELDS,
-                nested_fields={
-                    "desired": DESIRED_FIELDS,
-                    "deployed": DEPLOYED_FIELDS,
-                },
-                requested_fields=selected_fields(getattr(args, "fields", None)),
-            )
-        )
+    try:
+        requested_fields = selected_contract_fields(CONTRACT, getattr(args, "fields", None))
+    except ValueError as exc:
+        return emit_error(str(exc), code="usage_error", exit_code=2, help_items=CONTRACT.default_hints)
+
+    return emit_nested_response(
+        map_inspect_response(
+            result,
+            contract=CONTRACT,
+            job_id=args.job_id,
+            full=getattr(args, "full", False),
+        ),
+        allowed_fields=CONTRACT.allowed_fields,
+        nested_fields=CONTRACT.nested_fields,
+        requested_fields=requested_fields,
     )
-    return 0

@@ -4,18 +4,19 @@ from __future__ import annotations
 
 import argparse
 
-from apps.cli.commands._common import add_fields_argument, emit_error, emit_payload, env_flag, env_path, env_string, resolve_project_path, selected_fields, validation_details
+from apps.cli.commands._common import add_fields_argument, emit_error, emit_response, env_flag, env_path, env_string, resolve_project_path, selected_contract_fields, validation_details
 from apps.cli.parser import set_help_key
 from libs.actions import apply_project
+from libs.services import get_command_contract, map_apply_response
 
 
-APPLY_FIELDS = ("kind", "target", "outcome", "backend", "count", "manifest", "help")
+CONTRACT = get_command_contract("apply")
 
 
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     parser = set_help_key(
         subparsers.add_parser("apply", help="Apply one selected schedule manifest."),
-        "apply",
+        CONTRACT.help_key,
     )
     add_fields_argument(parser)
     parser.set_defaults(handler=handle)
@@ -37,24 +38,16 @@ def handle(args: argparse.Namespace) -> int:
         return emit_error(
             "project apply failed",
             details=validation_details(result.plan_result.validation.errors + result.plan_result.validation.warnings),
-            help_items=("Run `xcron plan` to inspect the current change set",),
+            help_items=CONTRACT.default_hints,
         )
 
-    non_noop_changes = [change for change in result.plan_result.changes if change.kind.value != "noop"]
-    payload = {
-        "kind": "apply",
-        "target": result.plan_result.validation.normalized_manifest.project_id,
-        "outcome": "noop" if not non_noop_changes else "applied",
-        "backend": result.backend,
-        "count": len(non_noop_changes),
-        "manifest": result.plan_result.validation.manifest_path,
-        "help": [
-            "Run `xcron status` to confirm deployed backend state",
-            "Run `xcron inspect <job-id>` for one detailed post-apply view",
-        ],
-    }
-    return emit_payload(
-        payload,
-        allowed_fields=APPLY_FIELDS,
-        requested_fields=selected_fields(getattr(args, "fields", None)),
+    try:
+        requested_fields = selected_contract_fields(CONTRACT, getattr(args, "fields", None))
+    except ValueError as exc:
+        return emit_error(str(exc), code="usage_error", exit_code=2, help_items=CONTRACT.default_hints)
+
+    return emit_response(
+        map_apply_response(result, contract=CONTRACT),
+        allowed_fields=CONTRACT.allowed_fields,
+        requested_fields=requested_fields,
     )

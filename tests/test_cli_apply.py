@@ -3,6 +3,7 @@ from __future__ import annotations
 import textwrap
 
 from apps.cli.main import main
+from tests.cli_assertions import assert_mutation_output
 
 
 def test_apply_reports_noop_when_backend_is_already_converged(tmp_path, monkeypatch, capsys) -> None:
@@ -41,5 +42,4 @@ def test_apply_reports_noop_when_backend_is_already_converged(tmp_path, monkeypa
     assert main(["--project", str(project), "--backend", "cron", "apply"]) == 0
     output = capsys.readouterr().out
 
-    assert "kind: apply" in output
-    assert "outcome: noop" in output
+    assert_mutation_output(output, kind="apply", outcome="noop")

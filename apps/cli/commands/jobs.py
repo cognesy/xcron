@@ -9,20 +9,24 @@ from apps.cli.commands._common import (
     add_fields_argument,
     add_full_argument,
     emit_error,
-    emit_payload,
+    emit_list_response,
+    emit_response,
     resolve_project_path,
-    selected_fields,
+    selected_contract_fields,
     validation_details,
 )
 from apps.cli.parser import set_help_key
 from libs.actions import add_job, disable_job, enable_job, list_jobs, remove_job, show_job, update_job
-from libs.services import render_toon, select_list_fields
+from libs.services import get_command_contract, map_jobs_list_response, map_jobs_mutation_response, map_jobs_show_response
 
 
-JOBS_LIST_FIELDS = ("manifest", "count", "jobs", "help")
-JOBS_LIST_ROW_FIELDS = ("job_id", "enabled", "schedule", "command")
-JOB_SHOW_FIELDS = ("manifest", "job", "enabled", "schedule", "command", "working_dir", "shell", "overlap", "description", "env", "help")
-JOB_MUTATION_FIELDS = ("kind", "target", "outcome", "manifest", "help")
+LIST_CONTRACT = get_command_contract("jobs.list")
+SHOW_CONTRACT = get_command_contract("jobs.show")
+ADD_CONTRACT = get_command_contract("jobs.add")
+REMOVE_CONTRACT = get_command_contract("jobs.remove")
+ENABLE_CONTRACT = get_command_contract("jobs.enable")
+DISABLE_CONTRACT = get_command_contract("jobs.disable")
+UPDATE_CONTRACT = get_command_contract("jobs.update")
 
 
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -42,7 +46,7 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
             help="List jobs from the selected manifest.",
             description="List jobs from the selected manifest without touching the scheduler backend.",
         ),
-        "jobs/list",
+        LIST_CONTRACT.help_key,
     )
     add_fields_argument(list_parser)
     list_parser.set_defaults(handler=handle_list)
@@ -53,7 +57,7 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
             help="Show one job from the selected manifest.",
             description="Show one manifest job by local or qualified id without touching the scheduler backend.",
         ),
-        "jobs/show",
+        SHOW_CONTRACT.help_key,
     )
     show_parser.add_argument("job_id", help="Project-local or qualified job identifier.")
     add_fields_argument(show_parser)
@@ -66,7 +70,7 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
             help="Add one job to the selected manifest.",
             description="Add one job to the selected manifest. This edits YAML only; run apply separately to reconcile backend state.",
         ),
-        "jobs/add",
+        ADD_CONTRACT.help_key,
     )
     add_parser.add_argument("job_id", help="Project-local job identifier to add.")
     add_parser.add_argument("--command", required=True, help="Shell command for the new job.")
@@ -88,7 +92,7 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
             help="Remove one job from the selected manifest.",
             description="Remove one job from the selected manifest. This edits YAML only; it does not prune the scheduler backend.",
         ),
-        "jobs/remove",
+        REMOVE_CONTRACT.help_key,
     )
     remove_parser.add_argument("job_id", help="Project-local or qualified job identifier.")
     add_fields_argument(remove_parser)
@@ -100,7 +104,7 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
             help="Enable one job in the selected manifest.",
             description="Enable one manifest job in YAML only. Use apply separately to reconcile backend state.",
         ),
-        "jobs/enable",
+        ENABLE_CONTRACT.help_key,
     )
     enable_parser.add_argument("job_id", help="Project-local or qualified job identifier.")
     add_fields_argument(enable_parser)
@@ -112,7 +116,7 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
             help="Disable one job in the selected manifest.",
             description="Disable one manifest job in YAML only. Use apply separately to reconcile backend state.",
         ),
-        "jobs/disable",
+        DISABLE_CONTRACT.help_key,
     )
     disable_parser.add_argument("job_id", help="Project-local or qualified job identifier.")
     add_fields_argument(disable_parser)
@@ -124,7 +128,7 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
             help="Update selected fields for one job in the selected manifest.",
             description="Update selected manifest fields for one job. This edits YAML only; use apply separately to reconcile backend state.",
         ),
-        "jobs/update",
+        UPDATE_CONTRACT.help_key,
     )
     update_parser.add_argument("job_id", help="Project-local or qualified job identifier.")
     update_parser.add_argument("--command", help="Replace the job command.")
@@ -152,35 +156,18 @@ def handle_list(args: argparse.Namespace) -> int:
     if not result.valid:
         return _print_job_action_error(result)
 
-    payload = {
-        "manifest": result.manifest_path,
-        "count": f"{len(result.jobs)} of {len(result.jobs)}",
-        "jobs": [
-            {
-                "job_id": job.job_id,
-                "enabled": job.enabled,
-                "schedule": f"{job.schedule.kind.value}={job.schedule.value}",
-                "command": job.execution.command,
-            }
-            for job in result.jobs
-        ],
-        "help": [
-            "Run `xcron jobs show <job-id>` to inspect one manifest job",
-            "Run `xcron apply` to reconcile manifest changes into backend state",
-        ],
-    }
-    print(
-        render_toon(
-            select_list_fields(
-                payload,
-                top_level_fields=JOBS_LIST_FIELDS,
-                list_key="jobs",
-                row_fields=JOBS_LIST_ROW_FIELDS,
-                requested_fields=selected_fields(getattr(args, "fields", None)),
-            )
-        )
+    try:
+        requested_fields = selected_contract_fields(LIST_CONTRACT, getattr(args, "fields", None))
+    except ValueError as exc:
+        return emit_error(str(exc), code="usage_error", exit_code=2, help_items=LIST_CONTRACT.default_hints)
+
+    return emit_list_response(
+        map_jobs_list_response(result, contract=LIST_CONTRACT),
+        allowed_fields=LIST_CONTRACT.allowed_fields,
+        list_key=LIST_CONTRACT.list_key or "jobs",
+        row_fields=LIST_CONTRACT.list_row_fields,
+        requested_fields=requested_fields,
     )
-    return 0
 
 
 def handle_show(args: argparse.Namespace) -> int:
@@ -194,25 +181,15 @@ def handle_show(args: argparse.Namespace) -> int:
     if result.job is None:
         return emit_error("job not found in manifest", help_items=("Run `xcron jobs list` to inspect available jobs",))
 
-    payload: dict[str, object] = {
-        "manifest": result.manifest_path,
-        "job": result.job.qualified_id,
-        "enabled": result.job.enabled,
-        "schedule": f"{result.job.schedule.kind.value}={result.job.schedule.value}",
-        "command": result.job.execution.command,
-        "working_dir": result.job.execution.working_dir,
-        "shell": result.job.execution.shell,
-        "overlap": result.job.execution.overlap.value,
-        "help": ["Run `xcron inspect <job-id>` for backend-side detail"],
-    }
-    if result.job.description:
-        payload["description"] = result.job.description
-    if result.job.execution.env:
-        payload["env"] = [f"{key}={value}" for key, value in result.job.execution.env]
-    return emit_payload(
-        payload,
-        allowed_fields=JOB_SHOW_FIELDS,
-        requested_fields=selected_fields(getattr(args, "fields", None)),
+    try:
+        requested_fields = selected_contract_fields(SHOW_CONTRACT, getattr(args, "fields", None))
+    except ValueError as exc:
+        return emit_error(str(exc), code="usage_error", exit_code=2, help_items=SHOW_CONTRACT.default_hints)
+
+    return emit_response(
+        map_jobs_show_response(result, contract=SHOW_CONTRACT),
+        allowed_fields=SHOW_CONTRACT.allowed_fields,
+        requested_fields=requested_fields,
     )
 
 
@@ -229,10 +206,14 @@ def handle_add(args: argparse.Namespace) -> int:
     )
     if not result.valid:
         return _print_job_action_error(result)
+    try:
+        requested_fields = _selected_mutation_fields(ADD_CONTRACT, args)
+    except ValueError as exc:
+        return emit_error(str(exc), code="usage_error", exit_code=2, help_items=ADD_CONTRACT.default_hints)
     return _emit_job_mutation_payload(
-        "jobs.add",
+        ADD_CONTRACT,
         result,
-        requested_fields=selected_fields(getattr(args, "fields", None)),
+        requested_fields=requested_fields,
         changed_outcome="added",
     )
 
@@ -245,10 +226,14 @@ def handle_remove(args: argparse.Namespace) -> int:
     )
     if not result.valid:
         return _print_job_action_error(result)
+    try:
+        requested_fields = _selected_mutation_fields(REMOVE_CONTRACT, args)
+    except ValueError as exc:
+        return emit_error(str(exc), code="usage_error", exit_code=2, help_items=REMOVE_CONTRACT.default_hints)
     return _emit_job_mutation_payload(
-        "jobs.remove",
+        REMOVE_CONTRACT,
         result,
-        requested_fields=selected_fields(getattr(args, "fields", None)),
+        requested_fields=requested_fields,
         changed_outcome="removed",
     )
 
@@ -261,10 +246,14 @@ def handle_enable(args: argparse.Namespace) -> int:
     )
     if not result.valid:
         return _print_job_action_error(result)
+    try:
+        requested_fields = _selected_mutation_fields(ENABLE_CONTRACT, args)
+    except ValueError as exc:
+        return emit_error(str(exc), code="usage_error", exit_code=2, help_items=ENABLE_CONTRACT.default_hints)
     return _emit_job_mutation_payload(
-        "jobs.enable",
+        ENABLE_CONTRACT,
         result,
-        requested_fields=selected_fields(getattr(args, "fields", None)),
+        requested_fields=requested_fields,
         changed_outcome="enabled",
     )
 
@@ -277,10 +266,14 @@ def handle_disable(args: argparse.Namespace) -> int:
     )
     if not result.valid:
         return _print_job_action_error(result)
+    try:
+        requested_fields = _selected_mutation_fields(DISABLE_CONTRACT, args)
+    except ValueError as exc:
+        return emit_error(str(exc), code="usage_error", exit_code=2, help_items=DISABLE_CONTRACT.default_hints)
     return _emit_job_mutation_payload(
-        "jobs.disable",
+        DISABLE_CONTRACT,
         result,
-        requested_fields=selected_fields(getattr(args, "fields", None)),
+        requested_fields=requested_fields,
         changed_outcome="disabled",
     )
 
@@ -302,10 +295,14 @@ def handle_update(args: argparse.Namespace) -> int:
     )
     if not result.valid:
         return _print_job_action_error(result)
+    try:
+        requested_fields = _selected_mutation_fields(UPDATE_CONTRACT, args)
+    except ValueError as exc:
+        return emit_error(str(exc), code="usage_error", exit_code=2, help_items=UPDATE_CONTRACT.default_hints)
     return _emit_job_mutation_payload(
-        "jobs.update",
+        UPDATE_CONTRACT,
         result,
-        requested_fields=selected_fields(getattr(args, "fields", None)),
+        requested_fields=requested_fields,
         changed_outcome="updated",
     )
 
@@ -397,7 +394,7 @@ def _print_jobs_cli_error(message: str) -> int:
 
 
 def _emit_job_mutation_payload(
-    kind: str,
+    contract: Any,
     result: Any,
     *,
     requested_fields: Sequence[str],
@@ -405,24 +402,18 @@ def _emit_job_mutation_payload(
 ) -> int:
     """Render one AXI mutation payload for jobs commands."""
 
-    target = None
-    if getattr(result, "job", None) is not None:
-        target = result.job.qualified_id
-    elif getattr(result, "removed_job_identifier", None) is not None:
-        target = result.removed_job_identifier
-
-    payload = {
-        "kind": kind,
-        "target": target,
-        "outcome": changed_outcome if getattr(result, "changed", True) else "noop",
-        "manifest": result.manifest_path,
-        "help": [
-            "Run `xcron jobs show <job-id>` to inspect the manifest-side result",
-            "Run `xcron apply` to reconcile backend state after manifest edits",
-        ],
-    }
-    return emit_payload(
-        payload,
-        allowed_fields=JOB_MUTATION_FIELDS,
+    return emit_response(
+        map_jobs_mutation_response(
+            result,
+            contract=contract,
+            changed_outcome=changed_outcome,
+        ),
+        allowed_fields=contract.allowed_fields,
         requested_fields=requested_fields,
     )
+
+
+def _selected_mutation_fields(contract: Any, args: argparse.Namespace) -> tuple[str, ...]:
+    """Parse and validate mutation-field selections."""
+
+    return selected_contract_fields(contract, getattr(args, "fields", None))

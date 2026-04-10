@@ -16,9 +16,16 @@ def load_help_body(help_key: str) -> str:
 
 
 def render_help_text(help_key: str, parser_help: str) -> str:
-    """Combine authored help content with parser-generated reference text."""
+    """Combine authored help content with structured parser-derived sections."""
 
-    return f"{load_help_body(help_key)}\n\n{parser_help}"
+    parser_help = parser_help.strip()
+    usage_block, _, remainder = parser_help.partition("\n\n")
+    sections = [load_help_body(help_key)]
+    if usage_block:
+        sections.append("## Usage\n\n```text\n" + usage_block + "\n```")
+    if remainder.strip():
+        sections.append("## Reference\n\n" + remainder.strip())
+    return "\n\n".join(sections) + "\n"
 
 
 __all__ = ["HELP_PACKAGE", "load_help_body", "render_help_text"]

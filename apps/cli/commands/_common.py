@@ -8,11 +8,18 @@ from typing import Iterable, Sequence
 
 from libs.domain import PlanChange, StatusEntry
 from libs.services import (
+    CommandContract,
     ValidationMessage,
-    build_error_payload,
+    PayloadConvertible,
+    allowed_request_fields,
     parse_fields_csv,
+    map_error_response,
     render_payload,
     render_toon,
+    select_collection_fields,
+    select_list_fields,
+    select_nested_fields,
+    validate_requested_fields,
 )
 
 
@@ -70,6 +77,12 @@ def selected_fields(value: str | None) -> tuple[str, ...]:
     return parse_fields_csv(value)
 
 
+def selected_contract_fields(contract: CommandContract, value: str | None) -> tuple[str, ...]:
+    """Parse and validate one optional --fields value for a command contract."""
+
+    return validate_requested_fields(contract, parse_fields_csv(value))
+
+
 def validation_details(messages: Sequence[ValidationMessage]) -> list[dict[str, str]]:
     """Convert validation messages into AXI error details."""
 
@@ -104,17 +117,91 @@ def emit_error(
 ) -> int:
     """Render one structured error envelope to stdout."""
 
+    print(render_toon(map_error_response(message, code=code, details=details, help_items=help_items).to_payload()))
+    return exit_code
+
+
+def emit_response(
+    response: PayloadConvertible,
+    *,
+    allowed_fields: Sequence[str],
+    requested_fields: Sequence[str] = (),
+) -> int:
+    """Render one typed response envelope to stdout."""
+
+    return emit_payload(
+        response.to_payload(),
+        allowed_fields=allowed_fields,
+        requested_fields=requested_fields,
+    )
+
+
+def emit_list_response(
+    response: PayloadConvertible,
+    *,
+    allowed_fields: Sequence[str],
+    list_key: str,
+    row_fields: Sequence[str],
+    requested_fields: Sequence[str] = (),
+) -> int:
+    """Render one typed list response envelope to stdout."""
+
     print(
         render_toon(
-            build_error_payload(
-                message,
-                code=code,
-                details=details,
-                help_items=help_items,
+            select_list_fields(
+                response.to_payload(),
+                top_level_fields=allowed_fields,
+                list_key=list_key,
+                row_fields=row_fields,
+                requested_fields=requested_fields,
             )
         )
     )
-    return exit_code
+    return 0
+
+
+def emit_nested_response(
+    response: PayloadConvertible,
+    *,
+    allowed_fields: Sequence[str],
+    nested_fields: dict[str, Sequence[str]],
+    requested_fields: Sequence[str] = (),
+) -> int:
+    """Render one typed response envelope with nested object filtering."""
+
+    print(
+        render_toon(
+            select_nested_fields(
+                response.to_payload(),
+                top_level_fields=allowed_fields,
+                nested_fields=nested_fields,
+                requested_fields=requested_fields,
+            )
+        )
+    )
+    return 0
+
+
+def emit_collection_response(
+    response: PayloadConvertible,
+    *,
+    allowed_fields: Sequence[str],
+    collection_fields: dict[str, Sequence[str]],
+    requested_fields: Sequence[str] = (),
+) -> int:
+    """Render one typed response envelope with multiple collection-valued fields."""
+
+    print(
+        render_toon(
+            select_collection_fields(
+                response.to_payload(),
+                top_level_fields=allowed_fields,
+                collection_fields=collection_fields,
+                requested_fields=requested_fields,
+            )
+        )
+    )
+    return 0
 
 
 def print_validation_messages(messages: Sequence[ValidationMessage]) -> None:

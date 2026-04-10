@@ -33,6 +33,18 @@ xcron has three distinct state layers:
 These differ whenever anything touches the scheduler outside xcron. Always
 use `status` for ground-truth diagnostics.
 
+## CLI Shape
+
+xcron now emits TOON-first structured stdout for normal command execution.
+
+For admin work, this changes how you should read command results:
+
+- bare `xcron` is a safe home/dashboard view
+- `status`, `plan`, and `jobs list` return tabular TOON arrays
+- `inspect` returns structured desired/deployed objects plus snippet payloads
+- `--fields` narrows noisy responses
+- `--full` disables truncation in detail-heavy inspect output
+
 ## State Storage Layout
 
 ```
@@ -75,15 +87,28 @@ the scheduler.
 
 ```sh
 xcron status
+xcron status --fields backend,statuses
 ```
 
 Status reflects the real scheduler, not xcron's local records. If a job shows
 `missing`, `drift`, or `extra`, the scheduler and the manifest are out of sync.
 
+Representative output:
+
+```text
+backend: cron
+count: 2 of 2
+statuses[2,]{kind,id,reason}:
+  missing,myapp.sync_docs,job is not currently installed in the backend
+  drift,myapp.cleanup_tmp,deployed state differs from desired definition
+```
+
 ### 3. Inspect one job in depth
 
 ```sh
 xcron inspect <job-id>
+xcron inspect <job-id> --fields backend,job,status,deployed.artifact_path,snippets
+xcron inspect <job-id> --full
 ```
 
 Shows:
@@ -97,6 +122,9 @@ Shows:
 
 Hash mismatch means the deployed artifact does not match what xcron last wrote.
 This is the drift signal.
+
+Large raw snippet fields are truncated by default. Use `--full` when you need
+the complete plist, cron entry, or `launchctl print` output.
 
 ### 4. Reconcile
 
@@ -265,6 +293,27 @@ XCRON_LAUNCH_AGENTS_DIR=/tmp/xcron-test/agents \
 XCRON_MANAGE_LAUNCHCTL=0 \
 xcron apply
 ```
+
+## Runtime Help And Hooks
+
+Admin sessions should prefer runtime help and repo-local hooks over stale copied
+examples:
+
+```sh
+xcron --help
+xcron status --help
+xcron inspect --help
+xcron hooks install
+```
+
+xcron's agent hooks are installed repo-locally under:
+
+- `.codex/config.toml`
+- `.codex/hooks.json`
+- `.claude/settings.json`
+
+The generated hook commands use the absolute path of the current `xcron`
+executable and are designed to self-repair when that path changes.
 
 ## Backend-Specific Notes
 

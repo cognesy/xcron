@@ -29,6 +29,19 @@ layer and the artifacts it generates.
 - Never edit plists, crontab entries, or wrapper scripts directly. xcron owns
   those artifacts and will overwrite them.
 
+## CLI Shape
+
+xcron now uses AXI-style, TOON-first stdout for normal command execution.
+
+Important implications:
+
+- Bare `xcron` is a content-first home view, not a usage error.
+- List and mutation commands return structured TOON rather than ad-hoc text.
+- `--fields` narrows output to selected fields when the command supports it.
+- `--full` expands detail-heavy views such as `xcron inspect`.
+- Runtime `--help` is sourced from `resources/help/` and is the authoritative
+  command reference.
+
 ## Standard Workflow
 
 For any change to a project's schedule:
@@ -194,6 +207,7 @@ xcron jobs show sync_reports
 
 ```sh
 xcron status
+xcron status --fields backend,statuses
 ```
 
 Status values:
@@ -209,6 +223,28 @@ Status values:
 
 If status shows anything other than `ok` or `disabled`, run `xcron apply`
 to reconcile.
+
+Representative status output now looks like:
+
+```text
+backend: cron
+count: 2 of 2
+statuses[2,]{kind,id,reason}:
+  ok,myapp.sync_invoices,desired definition and actual backend state are aligned
+  disabled,myapp.refresh_cache,job is disabled in desired state
+```
+
+## Inspecting One Job
+
+```sh
+xcron inspect sync_reports
+xcron inspect sync_reports --fields backend,job,status,desired.command,deployed.artifact_path
+xcron inspect sync_reports --full
+```
+
+`inspect` returns structured desired/deployed field sets plus backend-native
+snippets. Large snippet content is truncated by default and expanded by
+`--full`.
 
 ## plan vs status
 
@@ -246,3 +282,23 @@ Does not touch any user-managed scheduler entries outside xcron's ownership.
 - `prune` only removes what xcron owns. Unmanaged entries are preserved.
 - `enabled: false` keeps the job defined in YAML but removes it from active
   scheduling. Prefer this over deleting a job you may want to restore later.
+
+## Runtime Help And Hooks
+
+Use runtime help instead of relying on copied command references:
+
+```sh
+xcron --help
+xcron jobs --help
+xcron jobs add --help
+```
+
+xcron also provides repo-local hook commands for Codex and Claude Code:
+
+```sh
+xcron hooks install
+```
+
+Those hooks are mainly for agent/session startup context and are not part of
+normal day-to-day schedule editing, but they are expected to exist in projects
+that use xcron heavily with coding agents.

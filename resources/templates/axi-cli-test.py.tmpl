@@ -1,0 +1,16 @@
+from __future__ import annotations
+
+from apps.cli.main import main
+from tests.cli_assertions import assert_mutation_output
+
+
+def test_<command_name>_<behavior>(tmp_path, capsys) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+
+    # Arrange project manifest / state here
+
+    assert main(["--project", str(project), "<command>"]) == 0
+    output = capsys.readouterr().out
+
+    assert_mutation_output(output, kind="<kind>", outcome="<outcome>")

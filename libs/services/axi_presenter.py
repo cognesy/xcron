@@ -66,6 +66,38 @@ def select_list_fields(
     return selected
 
 
+def select_collection_fields(
+    payload: Mapping[str, Any],
+    *,
+    top_level_fields: Sequence[str],
+    collection_fields: Mapping[str, Sequence[str]],
+    requested_fields: Sequence[str] = (),
+) -> dict[str, Any]:
+    """Filter one payload across multiple collection-valued top-level fields."""
+
+    requested = tuple(requested_fields)
+    requested_top_level = [field for field in requested if field in top_level_fields]
+
+    for collection_key in collection_fields:
+        row_allowed = tuple(collection_fields[collection_key])
+        if any(field in row_allowed for field in requested) and collection_key not in requested_top_level:
+            requested_top_level.append(collection_key)
+
+    selected = select_fields(
+        payload,
+        allowed_fields=top_level_fields,
+        requested_fields=tuple(requested_top_level),
+    )
+    for collection_key, allowed_fields_for_rows in collection_fields.items():
+        if collection_key in selected:
+            row_requested = tuple(field for field in requested if field in allowed_fields_for_rows)
+            selected[collection_key] = [
+                select_fields(row, allowed_fields=allowed_fields_for_rows, requested_fields=row_requested)
+                for row in payload.get(collection_key, ())
+            ]
+    return selected
+
+
 def select_nested_fields(
     payload: Mapping[str, Any],
     *,
@@ -183,6 +215,7 @@ __all__ = [
     "collapse_home_path",
     "parse_fields_csv",
     "render_payload",
+    "select_collection_fields",
     "select_fields",
     "select_list_fields",
     "select_nested_fields",

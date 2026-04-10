@@ -3,24 +3,20 @@
 from __future__ import annotations
 
 import argparse
-from collections import Counter
 import os
-import shutil
-import sys
 from pathlib import Path
+import shutil
 from typing import Callable, Sequence
 
 from apps.cli.commands import apply, hooks, inspect, jobs, plan, prune, status, validate
-from apps.cli.commands._common import emit_error, env_path, resolve_project_path, selected_fields, validation_details
+from apps.cli.commands._common import emit_collection_response, emit_error, env_path, resolve_project_path, selected_contract_fields, validation_details
 from apps.cli.parser import AxiArgumentParser, set_help_key
 from libs.actions import plan_project
-from libs.services import collapse_home_path, ensure_agent_hooks, render_toon, select_fields
+from libs.services import ensure_agent_hooks, get_command_contract, map_home_response
 
 from libs.services import configure_logging
 
-
-HOME_FIELDS = ("bin", "description", "project", "schedule", "backend", "manifest", "jobs", "plan_summary", "plan_changes", "help")
-PLAN_CHANGE_FIELDS = ("kind", "id", "reason")
+HOME_CONTRACT = get_command_contract("home")
 
 def build_parser() -> argparse.ArgumentParser:
     parser = set_help_key(
@@ -28,7 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
             prog="xcron",
             description="Manage one project schedule under resources/schedules/ against native OS schedulers.",
         ),
-        "root",
+        HOME_CONTRACT.help_key,
     )
     parser.add_argument(
         "--project",
@@ -96,47 +92,24 @@ def handle_home(args: argparse.Namespace) -> int:
             help_items=("Run `xcron validate` to inspect manifest issues",),
         )
 
-    executable = shutil.which("xcron") or sys.argv[0]
-    counts = Counter(change.kind.value for change in result.changes)
-    payload: dict[str, object] = {
-        "bin": collapse_home_path(executable),
-        "description": "Manage project-local schedules against native OS schedulers",
-        "project": result.validation.project_root,
-        "schedule": Path(result.validation.manifest_path).stem if result.validation.manifest_path else None,
-        "backend": result.backend,
-        "manifest": result.validation.manifest_path,
-        "jobs": {"total": len(result.validation.normalized_manifest.jobs)},
-        "plan_summary": [{"kind": kind, "count": count} for kind, count in sorted(counts.items())],
-        "help": [
-            "Run `xcron validate` to confirm manifest validity",
-            "Run `xcron plan` to preview scheduler changes",
-            "Run `xcron status` to inspect actual backend state",
-        ],
-    }
-    if getattr(args, "full", False):
-        payload["plan_changes"] = [
-            {"kind": change.kind.value, "id": change.qualified_id, "reason": change.reason}
-            for change in result.changes
-        ]
-
-    requested = selected_fields(getattr(args, "fields", None))
-    selected_payload = select_fields(
-        payload,
-        allowed_fields=HOME_FIELDS,
-        requested_fields=requested,
+    response = map_home_response(
+        result,
+        executable=shutil.which("xcron") or "xcron",
+        contract=HOME_CONTRACT,
+        include_plan_changes=getattr(args, "full", False),
     )
-    if "plan_changes" in selected_payload:
-        selected_payload["plan_changes"] = [
-            select_fields(row, allowed_fields=PLAN_CHANGE_FIELDS)
-            for row in payload["plan_changes"]  # type: ignore[index]
-        ]
-    if "plan_summary" in selected_payload:
-        selected_payload["plan_summary"] = [
-            select_fields(row, allowed_fields=("kind", "count"))
-            for row in payload["plan_summary"]  # type: ignore[index]
-        ]
-    print(render_toon(selected_payload))
-    return 0
+
+    try:
+        requested_fields = selected_contract_fields(HOME_CONTRACT, getattr(args, "fields", None))
+    except ValueError as exc:
+        return emit_error(str(exc), code="usage_error", exit_code=2, help_items=HOME_CONTRACT.default_hints)
+
+    return emit_collection_response(
+        response,
+        allowed_fields=HOME_CONTRACT.allowed_fields,
+        collection_fields=HOME_CONTRACT.collection_fields,
+        requested_fields=requested_fields,
+    )
 
 
 def _auto_install_hooks_if_supported() -> None:
