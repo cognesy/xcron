@@ -7,7 +7,15 @@ from typing import List, Optional
 
 import typer
 
-from apps.cli.common import env_flag, env_path, env_string, resolve_project_path, selected_contract_fields, validation_details
+from apps.cli.common import (
+    env_flag,
+    env_path,
+    env_string,
+    resolve_project_path,
+    selected_contract_fields,
+    selected_output_format,
+    validation_details,
+)
 from libs.actions import (
     add_job,
     apply_project,
@@ -41,11 +49,11 @@ from libs.services import (
     map_status_response,
     map_validation_response,
     inspect_agent_hooks,
-    render_collection_response_toon,
-    render_list_response_toon,
-    render_nested_response_toon,
-    render_response_toon,
-    render_toon,
+    render_collection_response,
+    render_list_response,
+    render_nested_response,
+    render_output,
+    render_response,
     resolve_xcron_executable,
 )
 
@@ -67,15 +75,24 @@ def _emit_output(text: str) -> None:
     typer.echo(text)
 
 
-def _emit_error(message: str, *, details: list[dict[str, str]] | None = None, help_items: tuple[str, ...] = (), code: str = "runtime_error", exit_code: int = 1) -> None:
+def _emit_error(
+    message: str,
+    *,
+    output_format: str = "toon",
+    details: list[dict[str, str]] | None = None,
+    help_items: tuple[str, ...] = (),
+    code: str = "runtime_error",
+    exit_code: int = 1,
+) -> None:
     _emit_output(
-        render_toon(
+        render_output(
             map_error_response(
                 message,
                 code=code,
                 details=details or (),
                 help_items=help_items,
-            ).to_payload()
+            ).to_payload(),
+            output_format=output_format,
         )
     )
     raise typer.Exit(code=exit_code)
@@ -92,6 +109,14 @@ def _shared_option(ctx: typer.Context, key: str, value):
     return value
 
 
+def _resolve_output_format(ctx: typer.Context, output_format: str | None) -> str:
+    try:
+        return selected_output_format(_shared_option(ctx, "output_format", output_format))
+    except ValueError as exc:
+        _emit_error(str(exc), code="usage_error", exit_code=2)
+        raise AssertionError("unreachable")
+
+
 @app.callback()
 def main_callback(
     ctx: typer.Context,
@@ -100,10 +125,12 @@ def main_callback(
     backend: Optional[str] = typer.Option(None, help="Override the backend instead of using the platform default."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
     full: bool = typer.Option(False, help="Show full response content instead of truncated previews."),
+    output_format: Optional[str] = typer.Option(None, "--format", help="Render command output as json or toon. Defaults to toon."),
 ) -> None:
     if ctx.invoked_subcommand is not None:
         return
 
+    output_format = _resolve_output_format(ctx, output_format)
     contract = get_command_contract("home")
     result = plan_project(
         resolve_project_path(project),
@@ -114,13 +141,14 @@ def main_callback(
     if not result.valid or result.plan is None or result.validation.normalized_manifest is None:
         _emit_error(
             "project home view unavailable because validation failed",
+            output_format=output_format,
             details=validation_details(result.validation.errors + result.validation.warnings),
             help_items=contract.default_hints,
         )
     try:
         requested_fields = selected_contract_fields(contract, fields)
     except ValueError as exc:
-        _emit_error(str(exc), help_items=contract.default_hints, code="usage_error", exit_code=2)
+        _emit_error(str(exc), output_format=output_format, help_items=contract.default_hints, code="usage_error", exit_code=2)
 
     try:
         executable = str(resolve_xcron_executable())
@@ -128,7 +156,7 @@ def main_callback(
         executable = "xcron"
 
     _emit_output(
-        render_collection_response_toon(
+        render_collection_response(
             map_home_response(
                 result,
                 executable=executable,
@@ -138,6 +166,7 @@ def main_callback(
             allowed_fields=contract.allowed_fields,
             collection_fields=contract.collection_fields,
             requested_fields=requested_fields,
+            output_format=output_format,
         )
     )
 
@@ -158,28 +187,32 @@ def validate_command(
     project: Optional[str] = typer.Option(None, help="Path to the project root containing resources/schedules/."),
     schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    output_format: Optional[str] = typer.Option(None, "--format", help="Render command output as json or toon. Defaults to toon."),
 ) -> None:
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     fields = _shared_option(ctx, "fields", fields)
+    output_format = _resolve_output_format(ctx, output_format)
     contract = get_command_contract("validate")
     result = validate_project(resolve_project_path(project), schedule_name=schedule)
     if not result.valid or result.hashes is None or result.normalized_manifest is None:
         _emit_error(
             "project validation failed",
+            output_format=output_format,
             details=validation_details(result.errors + result.warnings),
             help_items=contract.default_hints,
         )
     try:
         requested_fields = selected_contract_fields(contract, fields)
     except ValueError as exc:
-        _emit_error(str(exc), help_items=contract.default_hints, code="usage_error", exit_code=2)
+        _emit_error(str(exc), output_format=output_format, help_items=contract.default_hints, code="usage_error", exit_code=2)
 
     _emit_output(
-        render_response_toon(
+        render_response(
             map_validation_response(result).to_payload(),
             allowed_fields=contract.allowed_fields,
             requested_fields=requested_fields,
+            output_format=output_format,
         )
     )
 
@@ -194,11 +227,13 @@ def plan_command(
     schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
     backend: Optional[str] = typer.Option(None, help="Override the backend instead of using the platform default."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    output_format: Optional[str] = typer.Option(None, "--format", help="Render command output as json or toon. Defaults to toon."),
 ) -> None:
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     backend = _shared_option(ctx, "backend", backend)
     fields = _shared_option(ctx, "fields", fields)
+    output_format = _resolve_output_format(ctx, output_format)
     contract = get_command_contract("plan")
     result = plan_project(
         resolve_project_path(project),
@@ -209,21 +244,23 @@ def plan_command(
     if not result.valid:
         _emit_error(
             "project planning failed",
+            output_format=output_format,
             details=validation_details(result.validation.errors + result.validation.warnings),
             help_items=contract.default_hints,
         )
     try:
         requested_fields = selected_contract_fields(contract, fields)
     except ValueError as exc:
-        _emit_error(str(exc), help_items=contract.default_hints, code="usage_error", exit_code=2)
+        _emit_error(str(exc), output_format=output_format, help_items=contract.default_hints, code="usage_error", exit_code=2)
 
     _emit_output(
-        render_list_response_toon(
+        render_list_response(
             map_plan_response(result, contract=contract).to_payload(),
             allowed_fields=contract.allowed_fields,
             list_key=contract.list_key or "changes",
             row_fields=contract.list_row_fields,
             requested_fields=requested_fields,
+            output_format=output_format,
         )
     )
 
@@ -238,11 +275,13 @@ def status_command(
     schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
     backend: Optional[str] = typer.Option(None, help="Override the backend instead of using the platform default."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    output_format: Optional[str] = typer.Option(None, "--format", help="Render command output as json or toon. Defaults to toon."),
 ) -> None:
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     backend = _shared_option(ctx, "backend", backend)
     fields = _shared_option(ctx, "fields", fields)
+    output_format = _resolve_output_format(ctx, output_format)
     contract = get_command_contract("status")
     result = status_project(
         resolve_project_path(project),
@@ -255,21 +294,23 @@ def status_command(
     if not result.valid or result.plan is None:
         _emit_error(
             "project status inspection failed",
+            output_format=output_format,
             details=validation_details(result.validation.errors + result.validation.warnings),
             help_items=contract.default_hints,
         )
     try:
         requested_fields = selected_contract_fields(contract, fields)
     except ValueError as exc:
-        _emit_error(str(exc), help_items=contract.default_hints, code="usage_error", exit_code=2)
+        _emit_error(str(exc), output_format=output_format, help_items=contract.default_hints, code="usage_error", exit_code=2)
 
     _emit_output(
-        render_list_response_toon(
+        render_list_response(
             map_status_response(result, contract=contract).to_payload(),
             allowed_fields=contract.allowed_fields,
             list_key=contract.list_key or "statuses",
             row_fields=contract.list_row_fields,
             requested_fields=requested_fields,
+            output_format=output_format,
         )
     )
 
@@ -286,12 +327,14 @@ def inspect_command(
     backend: Optional[str] = typer.Option(None, help="Override the backend instead of using the platform default."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
     full: bool = typer.Option(False, help="Show full response content instead of truncated previews."),
+    output_format: Optional[str] = typer.Option(None, "--format", help="Render command output as json or toon. Defaults to toon."),
 ) -> None:
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     backend = _shared_option(ctx, "backend", backend)
     fields = _shared_option(ctx, "fields", fields)
     full = _shared_option(ctx, "full", full)
+    output_format = _resolve_output_format(ctx, output_format)
     contract = get_command_contract("inspect")
     result = inspect_job(
         job_id,
@@ -306,18 +349,19 @@ def inspect_command(
         details = validation_details(result.status.validation.errors + result.status.validation.warnings)
         if result.error and not details:
             details = [{"field": "job_id", "issue": result.error}]
-        _emit_error(result.error or "job inspection failed", details=details, help_items=contract.default_hints)
+        _emit_error(result.error or "job inspection failed", output_format=output_format, details=details, help_items=contract.default_hints)
     try:
         requested_fields = selected_contract_fields(contract, fields)
     except ValueError as exc:
-        _emit_error(str(exc), help_items=contract.default_hints, code="usage_error", exit_code=2)
+        _emit_error(str(exc), output_format=output_format, help_items=contract.default_hints, code="usage_error", exit_code=2)
 
     _emit_output(
-        render_nested_response_toon(
+        render_nested_response(
             map_inspect_response(result, contract=contract, job_id=job_id, full=full).to_payload(),
             allowed_fields=contract.allowed_fields,
             nested_fields=contract.nested_fields,
             requested_fields=requested_fields,
+            output_format=output_format,
         )
     )
 
@@ -332,11 +376,13 @@ def apply_command(
     schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
     backend: Optional[str] = typer.Option(None, help="Override the backend instead of using the platform default."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    output_format: Optional[str] = typer.Option(None, "--format", help="Render command output as json or toon. Defaults to toon."),
 ) -> None:
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     backend = _shared_option(ctx, "backend", backend)
     fields = _shared_option(ctx, "fields", fields)
+    output_format = _resolve_output_format(ctx, output_format)
     contract = get_command_contract("apply")
     result = apply_project(
         resolve_project_path(project),
@@ -352,19 +398,21 @@ def apply_command(
     if not result.valid:
         _emit_error(
             "project apply failed",
+            output_format=output_format,
             details=validation_details(result.plan_result.validation.errors + result.plan_result.validation.warnings),
             help_items=contract.default_hints,
         )
     try:
         requested_fields = selected_contract_fields(contract, fields)
     except ValueError as exc:
-        _emit_error(str(exc), help_items=contract.default_hints, code="usage_error", exit_code=2)
+        _emit_error(str(exc), output_format=output_format, help_items=contract.default_hints, code="usage_error", exit_code=2)
 
     _emit_output(
-        render_response_toon(
+        render_response(
             map_apply_response(result, contract=contract).to_payload(),
             allowed_fields=contract.allowed_fields,
             requested_fields=requested_fields,
+            output_format=output_format,
         )
     )
 
@@ -379,11 +427,13 @@ def prune_command(
     schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
     backend: Optional[str] = typer.Option(None, help="Override the backend instead of using the platform default."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    output_format: Optional[str] = typer.Option(None, "--format", help="Render command output as json or toon. Defaults to toon."),
 ) -> None:
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     backend = _shared_option(ctx, "backend", backend)
     fields = _shared_option(ctx, "fields", fields)
+    output_format = _resolve_output_format(ctx, output_format)
     contract = get_command_contract("prune")
     result = prune_project(
         resolve_project_path(project),
@@ -397,17 +447,18 @@ def prune_command(
         manage_crontab=env_flag("XCRON_MANAGE_CRONTAB", default=True),
     )
     if not result.valid:
-        _emit_error(result.error or "project prune failed", help_items=contract.default_hints)
+        _emit_error(result.error or "project prune failed", output_format=output_format, help_items=contract.default_hints)
     try:
         requested_fields = selected_contract_fields(contract, fields)
     except ValueError as exc:
-        _emit_error(str(exc), help_items=contract.default_hints, code="usage_error", exit_code=2)
+        _emit_error(str(exc), output_format=output_format, help_items=contract.default_hints, code="usage_error", exit_code=2)
 
     _emit_output(
-        render_response_toon(
+        render_response(
             map_prune_response(result, contract=contract).to_payload(),
             allowed_fields=contract.allowed_fields,
             requested_fields=requested_fields,
+            output_format=output_format,
         )
     )
 
@@ -421,10 +472,12 @@ def jobs_list_command(
     project: Optional[str] = typer.Option(None, help="Path to the project root containing resources/schedules/."),
     schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    output_format: Optional[str] = typer.Option(None, "--format", help="Render command output as json or toon. Defaults to toon."),
 ) -> None:
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     fields = _shared_option(ctx, "fields", fields)
+    output_format = _resolve_output_format(ctx, output_format)
     contract = get_command_contract("jobs.list")
     result = list_jobs(resolve_project_path(project), schedule_name=schedule)
     if not result.valid:
@@ -433,19 +486,20 @@ def jobs_list_command(
             details.extend(validation_details(result.validation.errors + result.validation.warnings))
         if result.warnings:
             details.extend(validation_details(result.warnings))
-        _emit_error(result.error or "job action failed", details=details, help_items=contract.default_hints)
+        _emit_error(result.error or "job action failed", output_format=output_format, details=details, help_items=contract.default_hints)
     try:
         requested_fields = selected_contract_fields(contract, fields)
     except ValueError as exc:
-        _emit_error(str(exc), help_items=contract.default_hints, code="usage_error", exit_code=2)
+        _emit_error(str(exc), output_format=output_format, help_items=contract.default_hints, code="usage_error", exit_code=2)
 
     _emit_output(
-        render_list_response_toon(
+        render_list_response(
             map_jobs_list_response(result, contract=contract).to_payload(),
             allowed_fields=contract.allowed_fields,
             list_key=contract.list_key or "jobs",
             row_fields=contract.list_row_fields,
             requested_fields=requested_fields,
+            output_format=output_format,
         )
     )
 
@@ -460,10 +514,12 @@ def jobs_show_command(
     project: Optional[str] = typer.Option(None, help="Path to the project root containing resources/schedules/."),
     schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    output_format: Optional[str] = typer.Option(None, "--format", help="Render command output as json or toon. Defaults to toon."),
 ) -> None:
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     fields = _shared_option(ctx, "fields", fields)
+    output_format = _resolve_output_format(ctx, output_format)
     contract = get_command_contract("jobs.show")
     result = show_job(job_id, resolve_project_path(project), schedule_name=schedule)
     if not result.valid:
@@ -472,18 +528,19 @@ def jobs_show_command(
             details.extend(validation_details(result.validation.errors + result.validation.warnings))
         if result.warnings:
             details.extend(validation_details(result.warnings))
-        _emit_error(result.error or "job action failed", details=details, help_items=contract.default_hints)
+        _emit_error(result.error or "job action failed", output_format=output_format, details=details, help_items=contract.default_hints)
     if result.job is None:
-        _emit_error("job not found in manifest", help_items=("Run `xcron jobs list` to inspect available jobs",))
+        _emit_error("job not found in manifest", output_format=output_format, help_items=("Run `xcron jobs list` to inspect available jobs",))
     try:
         requested_fields = selected_contract_fields(contract, fields)
     except ValueError as exc:
-        _emit_error(str(exc), help_items=contract.default_hints, code="usage_error", exit_code=2)
+        _emit_error(str(exc), output_format=output_format, help_items=contract.default_hints, code="usage_error", exit_code=2)
     _emit_output(
-        render_response_toon(
+        render_response(
             map_jobs_show_response(result, contract=contract).to_payload(),
             allowed_fields=contract.allowed_fields,
             requested_fields=requested_fields,
+            output_format=output_format,
         )
     )
 
@@ -507,12 +564,14 @@ def jobs_add_command(
     project: Optional[str] = typer.Option(None, help="Path to the project root containing resources/schedules/."),
     schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    output_format: Optional[str] = typer.Option(None, "--format", help="Render command output as json or toon. Defaults to toon."),
 ) -> None:
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     fields = _shared_option(ctx, "fields", fields)
+    output_format = _resolve_output_format(ctx, output_format)
     if bool(cron) == bool(every):
-        _emit_error("exactly one of --cron or --every is required", code="usage_error", exit_code=2)
+        _emit_error("exactly one of --cron or --every is required", output_format=output_format, code="usage_error", exit_code=2)
     try:
         payload = {
             "id": job_id,
@@ -532,7 +591,7 @@ def jobs_add_command(
         if parsed_env:
             payload["env"] = parsed_env
     except ValueError as exc:
-        _emit_error(str(exc), code="usage_error", exit_code=2)
+        _emit_error(str(exc), output_format=output_format, code="usage_error", exit_code=2)
     contract = get_command_contract("jobs.add")
     result = add_job(payload, resolve_project_path(project), schedule_name=schedule)
     if not result.valid:
@@ -541,16 +600,17 @@ def jobs_add_command(
             details.extend(validation_details(result.validation.errors + result.validation.warnings))
         if result.warnings:
             details.extend(validation_details(result.warnings))
-        _emit_error(result.error or "job action failed", details=details, help_items=contract.default_hints)
+        _emit_error(result.error or "job action failed", output_format=output_format, details=details, help_items=contract.default_hints)
     try:
         requested_fields = selected_contract_fields(contract, fields)
     except ValueError as exc:
-        _emit_error(str(exc), help_items=contract.default_hints, code="usage_error", exit_code=2)
+        _emit_error(str(exc), output_format=output_format, help_items=contract.default_hints, code="usage_error", exit_code=2)
     _emit_output(
-        render_response_toon(
+        render_response(
             map_jobs_mutation_response(result, contract=contract, changed_outcome="added").to_payload(),
             allowed_fields=contract.allowed_fields,
             requested_fields=requested_fields,
+            output_format=output_format,
         )
     )
 
@@ -567,6 +627,7 @@ def _run_jobs_mutation(
     project: Optional[str],
     schedule: Optional[str],
     fields: Optional[str],
+    output_format: str,
 ) -> None:
     contract = get_command_contract(contract_name)
     result = fn(job_id, resolve_project_path(project), schedule_name=schedule)
@@ -576,16 +637,17 @@ def _run_jobs_mutation(
             details.extend(validation_details(result.validation.errors + result.validation.warnings))
         if result.warnings:
             details.extend(validation_details(result.warnings))
-        _emit_error(result.error or "job action failed", details=details, help_items=contract.default_hints)
+        _emit_error(result.error or "job action failed", output_format=output_format, details=details, help_items=contract.default_hints)
     try:
         requested_fields = selected_contract_fields(contract, fields)
     except ValueError as exc:
-        _emit_error(str(exc), help_items=contract.default_hints, code="usage_error", exit_code=2)
+        _emit_error(str(exc), output_format=output_format, help_items=contract.default_hints, code="usage_error", exit_code=2)
     _emit_output(
-        render_response_toon(
+        render_response(
             map_jobs_mutation_response(result, contract=contract, changed_outcome=changed_outcome).to_payload(),
             allowed_fields=contract.allowed_fields,
             requested_fields=requested_fields,
+            output_format=output_format,
         )
     )
 
@@ -597,11 +659,13 @@ def jobs_remove_command(
     project: Optional[str] = typer.Option(None),
     schedule: Optional[str] = typer.Option(None),
     fields: Optional[str] = typer.Option(None),
+    output_format: Optional[str] = typer.Option(None, "--format"),
 ) -> None:
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     fields = _shared_option(ctx, "fields", fields)
-    _run_jobs_mutation("jobs.remove", "removed", remove_job, job_id=job_id, project=project, schedule=schedule, fields=fields)
+    output_format = _resolve_output_format(ctx, output_format)
+    _run_jobs_mutation("jobs.remove", "removed", remove_job, job_id=job_id, project=project, schedule=schedule, fields=fields, output_format=output_format)
 
 
 jobs_remove_command.__doc__ = load_help_body("jobs/remove")
@@ -614,11 +678,13 @@ def jobs_enable_command(
     project: Optional[str] = typer.Option(None),
     schedule: Optional[str] = typer.Option(None),
     fields: Optional[str] = typer.Option(None),
+    output_format: Optional[str] = typer.Option(None, "--format"),
 ) -> None:
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     fields = _shared_option(ctx, "fields", fields)
-    _run_jobs_mutation("jobs.enable", "enabled", enable_job, job_id=job_id, project=project, schedule=schedule, fields=fields)
+    output_format = _resolve_output_format(ctx, output_format)
+    _run_jobs_mutation("jobs.enable", "enabled", enable_job, job_id=job_id, project=project, schedule=schedule, fields=fields, output_format=output_format)
 
 
 jobs_enable_command.__doc__ = load_help_body("jobs/enable")
@@ -631,11 +697,13 @@ def jobs_disable_command(
     project: Optional[str] = typer.Option(None),
     schedule: Optional[str] = typer.Option(None),
     fields: Optional[str] = typer.Option(None),
+    output_format: Optional[str] = typer.Option(None, "--format"),
 ) -> None:
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     fields = _shared_option(ctx, "fields", fields)
-    _run_jobs_mutation("jobs.disable", "disabled", disable_job, job_id=job_id, project=project, schedule=schedule, fields=fields)
+    output_format = _resolve_output_format(ctx, output_format)
+    _run_jobs_mutation("jobs.disable", "disabled", disable_job, job_id=job_id, project=project, schedule=schedule, fields=fields, output_format=output_format)
 
 
 jobs_disable_command.__doc__ = load_help_body("jobs/disable")
@@ -660,10 +728,12 @@ def jobs_update_command(
     project: Optional[str] = typer.Option(None),
     schedule: Optional[str] = typer.Option(None),
     fields: Optional[str] = typer.Option(None),
+    output_format: Optional[str] = typer.Option(None, "--format", help="Render command output as json or toon. Defaults to toon."),
 ) -> None:
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     fields = _shared_option(ctx, "fields", fields)
+    output_format = _resolve_output_format(ctx, output_format)
     updates: dict[str, object] = {}
     clear_fields: list[str] = []
     if command is not None:
@@ -691,7 +761,7 @@ def jobs_update_command(
     if clear_env:
         clear_fields.append("env")
     if not updates and not clear_fields:
-        _emit_error("at least one update field or clear flag is required", code="usage_error", exit_code=2)
+        _emit_error("at least one update field or clear flag is required", output_format=output_format, code="usage_error", exit_code=2)
 
     contract = get_command_contract("jobs.update")
     result = update_job(
@@ -707,16 +777,17 @@ def jobs_update_command(
             details.extend(validation_details(result.validation.errors + result.validation.warnings))
         if result.warnings:
             details.extend(validation_details(result.warnings))
-        _emit_error(result.error or "job action failed", details=details, help_items=contract.default_hints)
+        _emit_error(result.error or "job action failed", output_format=output_format, details=details, help_items=contract.default_hints)
     try:
         requested_fields = selected_contract_fields(contract, fields)
     except ValueError as exc:
-        _emit_error(str(exc), help_items=contract.default_hints, code="usage_error", exit_code=2)
+        _emit_error(str(exc), output_format=output_format, help_items=contract.default_hints, code="usage_error", exit_code=2)
     _emit_output(
-        render_response_toon(
+        render_response(
             map_jobs_mutation_response(result, contract=contract, changed_outcome="updated").to_payload(),
             allowed_fields=contract.allowed_fields,
             requested_fields=requested_fields,
+            output_format=output_format,
         )
     )
 
@@ -725,16 +796,18 @@ jobs_update_command.__doc__ = load_help_body("jobs/update")
 
 
 @hooks_app.command("install")
-def hooks_install_command() -> None:
+def hooks_install_command(ctx: typer.Context, output_format: Optional[str] = typer.Option(None, "--format")) -> None:
+    output_format = _resolve_output_format(ctx, output_format)
     result = ensure_agent_hooks(Path.cwd())
-    _emit_output(render_toon({"kind": "hooks.install", "changed": len(result.changed_files), "files": result.changed_files}))
+    _emit_output(render_output({"kind": "hooks.install", "changed": len(result.changed_files), "files": result.changed_files}, output_format=output_format))
 
 
 @hooks_app.command("status")
-def hooks_status_command() -> None:
+def hooks_status_command(ctx: typer.Context, output_format: Optional[str] = typer.Option(None, "--format")) -> None:
+    output_format = _resolve_output_format(ctx, output_format)
     result = inspect_agent_hooks(Path.cwd())
     _emit_output(
-        render_toon(
+        render_output(
             {
                 "kind": "hooks.status",
                 "executable": result.executable_path,
@@ -753,21 +826,23 @@ def hooks_status_command() -> None:
                     "session_start_matches": result.claude.session_start_matches,
                     "stop_matches": result.claude.stop_matches,
                 },
-            }
+            },
+            output_format=output_format,
         )
     )
 
 
 @hooks_app.command("repair")
-def hooks_repair_command() -> None:
-    hooks_install_command()
+def hooks_repair_command(ctx: typer.Context, output_format: Optional[str] = typer.Option(None, "--format")) -> None:
+    hooks_install_command(ctx, output_format)
 
 
 @hooks_app.command("session-start", hidden=True)
-def hooks_session_start_command() -> None:
+def hooks_session_start_command(ctx: typer.Context, output_format: Optional[str] = typer.Option(None, "--format")) -> None:
+    output_format = _resolve_output_format(ctx, output_format)
     result = plan_project(Path.cwd(), state_root=None)
     if not result.valid or result.plan is None or result.validation.normalized_manifest is None:
-        _emit_error("session-start context unavailable", help_items=("Run `xcron validate` in this project",))
+        _emit_error("session-start context unavailable", output_format=output_format, help_items=("Run `xcron validate` in this project",))
     payload = map_home_response(
         result,
         executable=str(resolve_xcron_executable()),
@@ -775,18 +850,20 @@ def hooks_session_start_command() -> None:
         include_plan_changes=False,
     ).to_payload()
     _emit_output(
-        render_collection_response_toon(
+        render_collection_response(
             payload,
             allowed_fields=get_command_contract("hooks.session-start").allowed_fields,
             collection_fields=get_command_contract("hooks.session-start").collection_fields,
+            output_format=output_format,
         )
     )
 
 
 @hooks_app.command("session-end", hidden=True)
-def hooks_session_end_command() -> None:
+def hooks_session_end_command(ctx: typer.Context, output_format: Optional[str] = typer.Option(None, "--format")) -> None:
+    output_format = _resolve_output_format(ctx, output_format)
     log_path = capture_session_end(Path.cwd())
-    _emit_output(render_toon({"kind": "hooks.session_end", "log": str(log_path)}))
+    _emit_output(render_output({"kind": "hooks.session_end", "log": str(log_path)}, output_format=output_format))
 
 
 app.add_typer(jobs_app, name="jobs")

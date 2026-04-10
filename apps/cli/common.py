@@ -8,6 +8,8 @@ from typing import Sequence
 
 from libs.services import CommandContract, ValidationMessage, parse_fields_csv, validate_requested_fields
 
+VALID_OUTPUT_FORMATS = ("json", "toon")
+
 
 def resolve_project_path(value: str | None) -> Path:
     if value:
@@ -36,6 +38,14 @@ def env_flag(name: str, default: bool = True) -> bool:
 
 def selected_contract_fields(contract: CommandContract, value: str | None) -> tuple[str, ...]:
     return validate_requested_fields(contract, parse_fields_csv(value))
+
+
+def selected_output_format(value: str | None) -> str:
+    normalized = (value or "toon").strip().lower()
+    if normalized not in VALID_OUTPUT_FORMATS:
+        allowed = ", ".join(VALID_OUTPUT_FORMATS)
+        raise ValueError(f"unsupported output format: {value!r}; expected one of {allowed}")
+    return normalized
 
 
 def validation_details(messages: Sequence[ValidationMessage]) -> list[dict[str, str]]:

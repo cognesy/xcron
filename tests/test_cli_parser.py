@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from typer.testing import CliRunner
 
 from apps.cli.main import main
@@ -60,3 +62,14 @@ def test_invalid_nested_fields_return_structured_usage_error(tmp_path, capsys) -
 
     assert_usage_error(captured.out)
     assert "desired.fake_field" in captured.out
+
+
+def test_invalid_field_selection_respects_json_output_format(tmp_path, capsys) -> None:
+    project = _make_project(tmp_path)
+
+    assert main(["--project", str(project), "status", "--format", "json", "--fields", "backend,missing_field"]) == 2
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["kind"] == "error"
+    assert payload["code"] == "usage_error"
+    assert "missing_field" in payload["message"]

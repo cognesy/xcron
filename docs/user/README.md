@@ -176,6 +176,8 @@ plain-text line format. That applies to:
 
 Common affordances:
 
+- `--format toon|json` selects the stdout payload format; `toon` remains the
+  default and `json` is suitable for `jq` and similar tooling
 - `--fields kind,id,reason` narrows the returned fields when a command supports
   field filtering
 - `--full` expands detail output for commands that support truncation-aware
@@ -205,6 +207,12 @@ manifest: /path/to/project/resources/schedules/default.yaml
 
 Idempotent mutations report `outcome: noop` instead of failing when the desired
 state already exists.
+
+Example JSON output for pipelines:
+
+```sh
+xcron status --format json | jq '.statuses[].id'
+```
 
 ## Home View
 
