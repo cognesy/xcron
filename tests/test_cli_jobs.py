@@ -14,7 +14,7 @@ runner = CliRunner()
 def test_cli_help_covers_root_group_and_leaf_commands(capsys) -> None:
     root_help = runner.invoke(app, ["--help"]).stdout
     assert "jobs" in root_help
-    assert "--format" in root_help
+    assert "--output" in root_help
     assert "Inspect and edit jobs inside one schedule manifest." in root_help
     assert "Authoritative runtime help for xcron lives under resources/help/." in root_help
 

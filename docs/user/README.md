@@ -29,10 +29,10 @@ Typical flow:
 
 ```sh
 qa doctor
-qa profile run default --format json
-qa snap store --format json
+qa profile run default --output json
+qa snap store --output json
 # make changes
-qa progress --against latest --format text
+qa progress --against latest --output text
 ```
 
 Use `qa doctor --profile default` when you want readiness diagnostics plus a
@@ -176,7 +176,7 @@ plain-text line format. That applies to:
 
 Common affordances:
 
-- `--format toon|json` selects the stdout payload format; `toon` remains the
+- `--output toon|json` selects the stdout payload format; `toon` remains the
   default and `json` is suitable for `jq` and similar tooling
 - `--fields kind,id,reason` narrows the returned fields when a command supports
   field filtering
@@ -211,7 +211,7 @@ state already exists.
 Example JSON output for pipelines:
 
 ```sh
-xcron status --format json | jq '.statuses[].id'
+xcron status --output json | jq '.statuses[].id'
 ```
 
 ## Home View

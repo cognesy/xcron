@@ -67,7 +67,7 @@ def test_invalid_nested_fields_return_structured_usage_error(tmp_path, capsys) -
 def test_invalid_field_selection_respects_json_output_format(tmp_path, capsys) -> None:
     project = _make_project(tmp_path)
 
-    assert main(["--project", str(project), "status", "--format", "json", "--fields", "backend,missing_field"]) == 2
+    assert main(["--project", str(project), "status", "--output", "json", "--fields", "backend,missing_field"]) == 2
     payload = json.loads(capsys.readouterr().out)
 
     assert payload["kind"] == "error"

@@ -159,6 +159,29 @@ HOOKS_INSTALL_CONTRACT = CommandContract(
     allowed_fields=("kind", "changed", "files"),
 )
 
+HOOKS_STATUS_CONTRACT = CommandContract(
+    name="hooks.status",
+    default_fields=("kind", "executable", "codex", "claude"),
+    allowed_fields=("kind", "executable", "codex", "claude"),
+    nested_fields={
+        "codex": (
+            "config_path",
+            "hooks_path",
+            "config_exists",
+            "hooks_exists",
+            "feature_enabled",
+            "session_start_matches",
+            "session_end_matches",
+        ),
+        "claude": (
+            "settings_path",
+            "settings_exists",
+            "session_start_matches",
+            "stop_matches",
+        ),
+    },
+)
+
 HOOKS_SESSION_START_CONTRACT = CommandContract(
     name="hooks.session-start",
     default_fields=("bin", "project", "manifest", "backend", "jobs", "plan_summary"),
@@ -190,6 +213,7 @@ COMMAND_CONTRACTS: dict[str, CommandContract] = {
         JOBS_UPDATE_CONTRACT,
         PRUNE_CONTRACT,
         HOOKS_INSTALL_CONTRACT,
+        HOOKS_STATUS_CONTRACT,
         HOOKS_SESSION_START_CONTRACT,
         HOOKS_SESSION_END_CONTRACT,
     )

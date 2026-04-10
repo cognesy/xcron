@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from importlib.resources import files
+from io import StringIO
 
-from libs.services.output_renderer import render_help_markdown
+from rich.console import Console
+from rich.markdown import Markdown
 
 
 HELP_PACKAGE = "resources.help"
@@ -22,5 +24,22 @@ def render_help_text(help_key: str, parser_help: str) -> str:
 
     return render_help_markdown(load_help_body(help_key), parser_help)
 
+def render_help_markdown(help_body: str, parser_help: str) -> str:
+    """Render authored help through Rich markdown plus structured reference text."""
 
-__all__ = ["HELP_PACKAGE", "load_help_body", "render_help_text"]
+    parser_help = parser_help.strip()
+    usage_block, _, remainder = parser_help.partition("\n\n")
+
+    buffer = StringIO()
+    console = Console(file=buffer, force_terminal=False, color_system=None, width=100)
+    console.print(Markdown(help_body))
+    if usage_block:
+        console.print("\nUsage\n")
+        console.print(usage_block)
+    if remainder.strip():
+        console.print("\nReference\n")
+        console.print(remainder.strip())
+    return buffer.getvalue().rstrip() + "\n"
+
+
+__all__ = ["HELP_PACKAGE", "load_help_body", "render_help_markdown", "render_help_text"]

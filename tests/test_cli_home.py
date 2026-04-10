@@ -64,7 +64,7 @@ def test_bare_xcron_supports_json_output_format(tmp_path, capsys) -> None:
         encoding="utf-8",
     )
 
-    assert main(["--project", str(project), "--format", "json"]) == 0
+    assert main(["--project", str(project), "--output", "json"]) == 0
     payload = json.loads(capsys.readouterr().out)
 
     assert payload["backend"] in {"cron", "launchd"}

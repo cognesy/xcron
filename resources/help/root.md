@@ -11,4 +11,4 @@ Use the top-level command when you need to discover the current CLI surface:
 - `xcron status` compares desired state to actual deployed backend state.
 - `xcron jobs ...` edits YAML only; `xcron apply` is the step that reconciles backend state.
 
-Use `--format json` when you need command results on stdout for tools like `jq`.
+Use `--output json` when you need command results on stdout for tools like `jq`.

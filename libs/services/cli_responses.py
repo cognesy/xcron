@@ -143,11 +143,51 @@ class MutationResponse(PayloadConvertible):
         return self.model_dump(exclude_none=True, exclude={"help"} if not self.help else None)
 
 
+class HookInstallResponse(PayloadConvertible):
+    kind: str
+    changed: int
+    files: tuple[str, ...] = ()
+
+
+class CodexHookStatusResponse(PayloadConvertible):
+    config_path: str
+    hooks_path: str
+    config_exists: bool
+    hooks_exists: bool
+    feature_enabled: bool
+    session_start_matches: bool
+    session_end_matches: bool
+
+
+class ClaudeHookStatusResponse(PayloadConvertible):
+    settings_path: str
+    settings_exists: bool
+    session_start_matches: bool
+    stop_matches: bool
+
+
+class HookStatusResponse(PayloadConvertible):
+    kind: str
+    executable: str
+    codex: CodexHookStatusResponse
+    claude: ClaudeHookStatusResponse
+
+
+class HookSessionEndResponse(PayloadConvertible):
+    kind: str
+    log: str
+
+
 __all__ = [
+    "ClaudeHookStatusResponse",
+    "CodexHookStatusResponse",
     "ErrorDetail",
     "ErrorResponse",
     "HomeJobsSummary",
     "HomeResponse",
+    "HookInstallResponse",
+    "HookSessionEndResponse",
+    "HookStatusResponse",
     "InspectResponse",
     "JobListRow",
     "JobsListResponse",

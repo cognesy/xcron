@@ -98,7 +98,7 @@ def test_status_supports_json_output_format_for_jq_style_consumers(tmp_path, mon
     assert result.valid is True
 
     monkeypatch.setenv("XCRON_CRONTAB_PATH", str(crontab_path))
-    assert main(["status", "--project", str(project), "--backend", "cron", "--format", "json"]) == 0
+    assert main(["status", "--project", str(project), "--backend", "cron", "--output", "json"]) == 0
     payload = json.loads(capsys.readouterr().out)
 
     assert payload["backend"] == "cron"

@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Sequence
 
-from libs.services import CommandContract, ValidationMessage, parse_fields_csv, validate_requested_fields
+from libs.services import ValidationMessage
 
 VALID_OUTPUT_FORMATS = ("json", "toon")
 
@@ -34,12 +34,6 @@ def env_flag(name: str, default: bool = True) -> bool:
     if value is None:
         return default
     return value not in {"0", "false", "False", "no", "NO"}
-
-
-def selected_contract_fields(contract: CommandContract, value: str | None) -> tuple[str, ...]:
-    return validate_requested_fields(contract, parse_fields_csv(value))
-
-
 def selected_output_format(value: str | None) -> str:
     normalized = (value or "toon").strip().lower()
     if normalized not in VALID_OUTPUT_FORMATS:
