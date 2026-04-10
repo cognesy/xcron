@@ -5,17 +5,22 @@ from __future__ import annotations
 import sys
 from typing import Sequence
 
-from typer.testing import CliRunner
+from click import ClickException
+from click.exceptions import Exit as ClickExit
+from typer.main import get_command
 
 from apps.cli.typer_app import app
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run the Typer app for programmatic callers and tests."""
+    """Run the Typer app for programmatic callers without test helpers."""
 
-    result = CliRunner(mix_stderr=False).invoke(app, list(argv or []), prog_name="xcron")
-    if result.stdout:
-        sys.stdout.write(result.stdout)
-    if result.stderr:
-        sys.stderr.write(result.stderr)
-    return result.exit_code
+    command = get_command(app)
+    try:
+        result = command.main(args=list(argv or []), prog_name="xcron", standalone_mode=False)
+        return int(result or 0)
+    except ClickException as exc:
+        exc.show(file=sys.stdout)
+        return exc.exit_code
+    except ClickExit as exc:
+        return exc.exit_code

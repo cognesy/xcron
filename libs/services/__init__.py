@@ -105,7 +105,6 @@ from libs.services.cli_responses import (
 from libs.services.cli_contracts import (
     COMMAND_CONTRACTS,
     CommandContract,
-    CommandKind,
     allowed_request_fields,
     get_command_contract,
     validate_requested_fields,
@@ -147,7 +146,6 @@ __all__ = [
     "check_output_logged",
     "COMMAND_CONTRACTS",
     "CommandContract",
-    "CommandKind",
     "allowed_request_fields",
     "collapse_home_path",
     "CODEX_CONFIG_RELATIVE_PATH",

@@ -29,7 +29,6 @@ dev = [
 
 [project.scripts]
 xcron = "apps.cli.typer_app:run"
-xcron-typer = "apps.cli.typer_app:run"
 
 [tool.setuptools]
 include-package-data = true

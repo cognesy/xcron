@@ -1,12 +1,8 @@
-"""Central AXI contract metadata for xcron CLI commands."""
+"""Central machine-output policy metadata for xcron CLI commands."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
-
-
-CommandKind = Literal["home", "list", "detail", "mutation", "help"]
 
 
 @dataclass(frozen=True)
@@ -14,24 +10,18 @@ class CommandContract:
     """Declarative CLI-edge contract for one command or command family."""
 
     name: str
-    kind: CommandKind
-    help_key: str
     default_fields: tuple[str, ...]
     allowed_fields: tuple[str, ...]
     nested_fields: dict[str, tuple[str, ...]] = field(default_factory=dict)
     collection_fields: dict[str, tuple[str, ...]] = field(default_factory=dict)
     list_key: str | None = None
     list_row_fields: tuple[str, ...] = field(default_factory=tuple)
-    supports_fields: bool = True
-    supports_full: bool = False
     truncation_limit: int | None = None
     default_hints: tuple[str, ...] = field(default_factory=tuple)
 
 
 HOME_CONTRACT = CommandContract(
     name="home",
-    kind="home",
-    help_key="root",
     default_fields=("bin", "description", "project", "schedule", "backend", "manifest", "jobs", "plan_summary", "help"),
     allowed_fields=("bin", "description", "project", "schedule", "backend", "manifest", "jobs", "plan_summary", "plan_changes", "help"),
     nested_fields={"jobs": ("total",)},
@@ -39,7 +29,6 @@ HOME_CONTRACT = CommandContract(
         "plan_summary": ("kind", "count"),
         "plan_changes": ("kind", "id", "reason"),
     },
-    supports_full=True,
     default_hints=(
         "Run `xcron validate` to confirm manifest validity",
         "Run `xcron plan` to preview scheduler changes",
@@ -49,8 +38,6 @@ HOME_CONTRACT = CommandContract(
 
 VALIDATE_CONTRACT = CommandContract(
     name="validate",
-    kind="detail",
-    help_key="validate",
     default_fields=("project", "manifest", "valid", "jobs", "manifest_hash", "errors", "warnings"),
     allowed_fields=("project", "manifest", "valid", "jobs", "manifest_hash", "errors", "warnings", "warning_messages"),
     default_hints=("Run `xcron validate --help` to review command usage",),
@@ -58,8 +45,6 @@ VALIDATE_CONTRACT = CommandContract(
 
 PLAN_CONTRACT = CommandContract(
     name="plan",
-    kind="list",
-    help_key="plan",
     default_fields=("backend", "state", "count", "changes"),
     allowed_fields=("backend", "state", "count", "changes", "help"),
     list_key="changes",
@@ -72,8 +57,6 @@ PLAN_CONTRACT = CommandContract(
 
 APPLY_CONTRACT = CommandContract(
     name="apply",
-    kind="mutation",
-    help_key="apply",
     default_fields=("kind", "target", "outcome", "backend", "count"),
     allowed_fields=("kind", "target", "outcome", "backend", "count", "manifest", "help"),
     default_hints=(
@@ -84,8 +67,6 @@ APPLY_CONTRACT = CommandContract(
 
 STATUS_CONTRACT = CommandContract(
     name="status",
-    kind="list",
-    help_key="status",
     default_fields=("backend", "count", "statuses"),
     allowed_fields=("backend", "count", "statuses", "help"),
     list_key="statuses",
@@ -98,23 +79,18 @@ STATUS_CONTRACT = CommandContract(
 
 INSPECT_CONTRACT = CommandContract(
     name="inspect",
-    kind="detail",
-    help_key="inspect",
     default_fields=("backend", "job", "status", "desired", "deployed", "snippets"),
     allowed_fields=("backend", "job", "status", "desired", "deployed", "snippets", "help"),
     nested_fields={
         "desired": ("qualified_id", "job_id", "status", "schedule", "enabled", "command", "working_dir", "shell", "overlap", "description", "timezone", "env"),
         "deployed": ("qualified_id", "backend_enabled", "desired_hash", "definition_hash", "label", "artifact_path", "wrapper_path", "stdout_log", "stderr_log", "loaded"),
     },
-    supports_full=True,
     truncation_limit=1000,
     default_hints=("Run `xcron status` to compare the full project against backend state",),
 )
 
 JOBS_LIST_CONTRACT = CommandContract(
     name="jobs.list",
-    kind="list",
-    help_key="jobs/list",
     default_fields=("manifest", "count", "jobs"),
     allowed_fields=("manifest", "count", "jobs", "help"),
     list_key="jobs",
@@ -127,18 +103,13 @@ JOBS_LIST_CONTRACT = CommandContract(
 
 JOBS_SHOW_CONTRACT = CommandContract(
     name="jobs.show",
-    kind="detail",
-    help_key="jobs/show",
     default_fields=("manifest", "job", "enabled", "schedule", "command", "working_dir", "shell", "overlap"),
     allowed_fields=("manifest", "job", "enabled", "schedule", "command", "working_dir", "shell", "overlap", "description", "env", "help"),
-    supports_full=True,
     default_hints=("Run `xcron inspect <job-id>` for backend-side detail",),
 )
 
 JOBS_ADD_CONTRACT = CommandContract(
     name="jobs.add",
-    kind="mutation",
-    help_key="jobs/add",
     default_fields=("kind", "target", "outcome", "manifest"),
     allowed_fields=("kind", "target", "outcome", "manifest", "help"),
     default_hints=(
@@ -149,8 +120,6 @@ JOBS_ADD_CONTRACT = CommandContract(
 
 JOBS_REMOVE_CONTRACT = CommandContract(
     name="jobs.remove",
-    kind="mutation",
-    help_key="jobs/remove",
     default_fields=("kind", "target", "outcome", "manifest"),
     allowed_fields=("kind", "target", "outcome", "manifest", "help"),
     default_hints=JOBS_ADD_CONTRACT.default_hints,
@@ -158,8 +127,6 @@ JOBS_REMOVE_CONTRACT = CommandContract(
 
 JOBS_ENABLE_CONTRACT = CommandContract(
     name="jobs.enable",
-    kind="mutation",
-    help_key="jobs/enable",
     default_fields=("kind", "target", "outcome", "manifest"),
     allowed_fields=("kind", "target", "outcome", "manifest", "help"),
     default_hints=JOBS_ADD_CONTRACT.default_hints,
@@ -167,8 +134,6 @@ JOBS_ENABLE_CONTRACT = CommandContract(
 
 JOBS_DISABLE_CONTRACT = CommandContract(
     name="jobs.disable",
-    kind="mutation",
-    help_key="jobs/disable",
     default_fields=("kind", "target", "outcome", "manifest"),
     allowed_fields=("kind", "target", "outcome", "manifest", "help"),
     default_hints=JOBS_ADD_CONTRACT.default_hints,
@@ -176,8 +141,6 @@ JOBS_DISABLE_CONTRACT = CommandContract(
 
 JOBS_UPDATE_CONTRACT = CommandContract(
     name="jobs.update",
-    kind="mutation",
-    help_key="jobs/update",
     default_fields=("kind", "target", "outcome", "manifest"),
     allowed_fields=("kind", "target", "outcome", "manifest", "help"),
     default_hints=JOBS_ADD_CONTRACT.default_hints,
@@ -185,8 +148,6 @@ JOBS_UPDATE_CONTRACT = CommandContract(
 
 PRUNE_CONTRACT = CommandContract(
     name="prune",
-    kind="mutation",
-    help_key="prune",
     default_fields=("kind", "target", "outcome", "backend", "count"),
     allowed_fields=("kind", "target", "outcome", "backend", "count", "help"),
     default_hints=("Run `xcron apply` to recreate managed backend state from the manifest",),
@@ -194,16 +155,12 @@ PRUNE_CONTRACT = CommandContract(
 
 HOOKS_INSTALL_CONTRACT = CommandContract(
     name="hooks.install",
-    kind="mutation",
-    help_key="root",
     default_fields=("kind", "changed", "files"),
     allowed_fields=("kind", "changed", "files"),
 )
 
 HOOKS_SESSION_START_CONTRACT = CommandContract(
     name="hooks.session-start",
-    kind="home",
-    help_key="root",
     default_fields=("bin", "project", "manifest", "backend", "jobs", "plan_summary"),
     allowed_fields=("bin", "project", "manifest", "backend", "jobs", "plan_summary", "help"),
     collection_fields={"plan_summary": ("kind", "count")},
@@ -211,8 +168,6 @@ HOOKS_SESSION_START_CONTRACT = CommandContract(
 
 HOOKS_SESSION_END_CONTRACT = CommandContract(
     name="hooks.session-end",
-    kind="mutation",
-    help_key="root",
     default_fields=("kind", "log"),
     allowed_fields=("kind", "log"),
 )
@@ -280,7 +235,6 @@ def validate_requested_fields(contract: CommandContract, requested_fields: tuple
 __all__ = [
     "COMMAND_CONTRACTS",
     "CommandContract",
-    "CommandKind",
     "get_command_contract",
     "allowed_request_fields",
     "validate_requested_fields",
