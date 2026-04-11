@@ -5,8 +5,8 @@ tools:
   pytest:
     command: ./scripts/verify-core.sh
     format: junit
-    format_args: --junitxml=.qaman/state/pytest-junit.xml
-    output_file: .qaman/state/pytest-junit.xml
+    format_args: --junitxml=.xqa/state/pytest-junit.xml
+    output_file: .xqa/state/pytest-junit.xml
     category: correctness
 
 scopes: {}
@@ -25,4 +25,4 @@ policy_packs: {}
 
 storage:
   backend: sqlite
-  path: .qaman/state/qa.db
+  path: .xqa/state/xqa.db

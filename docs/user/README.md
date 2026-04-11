@@ -10,32 +10,32 @@ Core rules:
 - native schedulers remain the executors
 - `xcron` owns only the artifacts it generates
 
-## qaman Pilot Workflow
+## xqa Pilot Workflow
 
-This repo now has a minimal `qaman` setup for deterministic core quality work.
+This repo now has a minimal `xqa` setup for deterministic core quality work.
 
 Use it for:
 
-- readiness checks: `qa doctor`
-- deterministic default verification: `qa profile run default`
-- baseline/current progress measurement: `qa snap store` and `qa progress`
+- readiness checks: `xqa doctor`
+- deterministic default verification: `xqa profile run default`
+- baseline/current progress measurement: `xqa snap store` and `xqa progress`
 
 Current pilot scope:
 
 - `default` wraps the deterministic core lane in `./scripts/verify-core.sh`
-- explicit scheduler integration remains outside the default `qaman` lane
+- explicit scheduler integration remains outside the default `xqa` lane
 
 Typical flow:
 
 ```sh
-qa doctor
-qa profile run default --output json
-qa snap store --output json
+xqa doctor
+xqa profile run default --output json
+xqa snap store --output json
 # make changes
-qa progress --against latest --output text
+xqa progress --against latest --output text
 ```
 
-Use `qa doctor --profile default` when you want readiness diagnostics plus a
+Use `xqa doctor --profile default` when you want readiness diagnostics plus a
 real execution probe of the default profile.
 
 ## Manifest
@@ -395,7 +395,7 @@ This lane is intended for:
 
 - routine local verification
 - agent-safe default checks
-- future `qaman` default profile integration
+- future `xqa` default profile integration
 
 It stays fast and safe and does not mutate the host scheduler.
 

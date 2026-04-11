@@ -101,21 +101,21 @@ bd close bd-42 --reason "Completed" --json
    - `bd create "Found bug" --description="Details about what was found" -p 1 --deps discovered-from:<parent-id>`
 5. **Complete**: `bd close <id> --reason "Done"`
 
-## qaman Pilot
+## xqa Pilot
 
-This repo has a minimal `qaman` pilot setup for deterministic core quality
+This repo has a minimal `xqa` pilot setup for deterministic core quality
 work.
 
 Use:
 
-- `qa doctor` for readiness diagnostics
-- `qa doctor --profile default` to probe the deterministic default lane
-- `qa profile run default` for the core verification lane
-- `qa progress` after capturing a baseline with `qa snap store`
+- `xqa doctor` for readiness diagnostics
+- `xqa doctor --profile default` to probe the deterministic default lane
+- `xqa profile run default` for the core verification lane
+- `xqa progress` after capturing a baseline with `xqa snap store`
 
-The current `qaman` pilot intentionally covers only the deterministic core
+The current `xqa` pilot intentionally covers only the deterministic core
 verification lane. Real scheduler integration remains explicit-only and outside
-the default `qaman` flow.
+the default `xqa` flow.
 
 ### Auto-Sync
 

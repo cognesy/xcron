@@ -6,7 +6,7 @@ __pycache__/
 .pytest_cache/
 *.py[cod]
 .venv/
-.qaman/state/
+.xqa/state/
 build/
 *.egg-info/
 

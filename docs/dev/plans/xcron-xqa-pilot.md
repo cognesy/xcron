@@ -1,22 +1,22 @@
-# xcron qaman Pilot Plan
+# xcron xqa Pilot Plan
 
 Date: 2026-04-09
 
 ## Goal
 
-Adopt `qaman` in `xcron` as the first smaller external validation repo and use
+Adopt `xqa` in `xcron` as the first smaller external validation repo and use
 the rollout to harden transferability, onboarding, and measurement-first
-quality workflows outside the `qa-man` codebase itself.
+quality workflows outside the `xqa` codebase itself.
 
-The success condition is not only "qaman runs here". The success condition is
+The success condition is not only "xqa runs here". The success condition is
 that an agent or operator can get from zero to:
 
-- `qa doctor`
-- `qa profile run <default>`
-- `qa progress --against <baseline>`
-- `qa report ...`
+- `xqa doctor`
+- `xqa profile run <default>`
+- `xqa progress --against <baseline>`
+- `xqa report ...`
 
-with minimal confusion and no custom code inside `qa-man`.
+with minimal confusion and no custom code inside `xqa`.
 
 ## Why xcron
 
@@ -32,8 +32,8 @@ This makes it useful for validating:
 - setup friction
 - config defaults for a Python CLI repo
 - policy/profile portability
-- usefulness of `qa doctor`
-- usefulness of `qa progress`
+- usefulness of `xqa doctor`
+- usefulness of `xqa progress`
 - where repo-local workflow guidance is still required
 
 ## Constraints
@@ -43,9 +43,9 @@ This makes it useful for validating:
 - `xcron` has repo-local guidance in `AGENTS.md` and architecture constraints
   documented in `SPEC.md` and `docs/dev/architecture.md`.
 - The pilot should stay pragmatic. The point is not to invent elaborate
-  `xcron`-specific audits up front; it is to validate the shared `qaman`
+  `xcron`-specific audits up front; it is to validate the shared `xqa`
   rollout path and capture friction honestly.
-- Prefer repo-local policy/config and documentation over changes to `qa-man`
+- Prefer repo-local policy/config and documentation over changes to `xqa`
   unless the pilot reveals a genuine shared-tool gap.
 
 ## Current state
@@ -54,7 +54,7 @@ Observed baseline:
 
 - Python project managed via `pyproject.toml`
 - test suite exists and `uv run pytest` is already the normal verification lane
-- no `.qaman/` directory exists yet
+- no `.xqa/` directory exists yet
 - no dedicated quality workflow surface beyond the existing test workflow is
   obvious from the current repo docs
 - architecture is clearly documented:
@@ -64,19 +64,19 @@ Observed baseline:
   - `resources/`
   - `docs/`
 
-Likely initial `qaman` value here:
+Likely initial `xqa` value here:
 
 - create a stable `default` quality workflow
 - introduce or clarify a deterministic core verification lane for the repo
-- create readiness diagnostics with `qa doctor`
+- create readiness diagnostics with `xqa doctor`
 - establish baseline/progress reporting for cleanup or refactor sessions
-- prove that `qaman` can be rolled out quickly in a smaller external repo
+- prove that `xqa` can be rolled out quickly in a smaller external repo
 
 ## Proposed rollout
 
 ### 1. Assess and design the xcron quality workflow
 
-Identify the smallest useful initial `qaman` surface for `xcron`:
+Identify the smallest useful initial `xqa` surface for `xcron`:
 
 - which tools should be in `default`
 - whether `typing` is warranted yet
@@ -88,7 +88,7 @@ working configuration.
 
 ### Assessment decision
 
-The initial `qaman` scope for `xcron` should stay intentionally small:
+The initial `xqa` scope for `xcron` should stay intentionally small:
 
 - `default`: deterministic core verification lane only
 - `doctor`: readiness and optional profile execution probe
@@ -107,7 +107,7 @@ Why:
   - real scheduler integration is explicit-only
   - host- or environment-specific checks are intentionally outside the default lane
 - that means `xcron` already has the beginnings of the deterministic core lane
-  we want `qaman` to rely on
+  we want `xqa` to rely on
 - using that lane as the first `default` profile keeps the pilot honest and
   avoids importing extra tool churn before the rollout path itself is proven
 
@@ -125,19 +125,19 @@ What is deferred in the first pilot:
 
 Implication for the next task:
 
-- the `xcron` `qaman` setup should start with a minimal `default` profile built
+- the `xcron` `xqa` setup should start with a minimal `default` profile built
   around the deterministic `uv run pytest` lane, then prove doctor/profile/
   progress/report flows on top of that
 
-### 2. Add repo-local qaman setup
+### 2. Add repo-local xqa setup
 
-Create and validate the initial `xcron` `qaman` setup:
+Create and validate the initial `xcron` `xqa` setup:
 
-- `.qaman/config.yaml`
+- `.xqa/config.yaml`
 - any minimal policy packs if justified
 - any supporting ignore entries
 
-The setup must be valid under `qa doctor` and executable under `qa profile`.
+The setup must be valid under `xqa doctor` and executable under `xqa profile`.
 
 ### 2.5. Harden the deterministic core test lane
 
@@ -147,19 +147,19 @@ automation:
 - separate deterministic core verification from host- or environment-specific
   scheduling mechanisms where needed
 - make the intended default test lane explicit
-- ensure the first `qaman` profile can rely on a stable, non-flaky core check
+- ensure the first `xqa` profile can rely on a stable, non-flaky core check
 
-This is both `xcron` hardening and a transferability check for how `qaman`
+This is both `xcron` hardening and a transferability check for how `xqa`
 should fit into repos with mixed deterministic and environment-specific tests.
 
 ### 3. Establish operator workflow and discoverability
 
-Document how `xcron` should use `qaman`:
+Document how `xcron` should use `xqa`:
 
-- when to run `qa doctor`
-- when to run `qa profile run default`
-- how to capture a baseline and use `qa progress`
-- when to use `qa report` and `qa remediate plan`
+- when to run `xqa doctor`
+- when to run `xqa profile run default`
+- how to capture a baseline and use `xqa progress`
+- when to use `xqa report` and `xqa remediate plan`
 
 Keep this minimal and practical. The purpose is to make the pilot usable, not
 to write a huge operations manual.
@@ -168,15 +168,15 @@ to write a huge operations manual.
 
 Actually run the new workflow in `xcron`:
 
-- run `qa doctor`
+- run `xqa doctor`
 - run the profile(s)
 - capture a baseline
 - make or identify a cleanup slice
-- run `qa progress`
+- run `xqa progress`
 - use reports/remediation planning if needed
 
 This is the proof step. It should show whether the workflow actually provides
-clear before/current/remaining-work visibility in a non-`qa-man` repo.
+clear before/current/remaining-work visibility in a non-`xqa` repo.
 
 ### 5. Capture transferability friction explicitly
 
@@ -190,16 +190,16 @@ The pilot should end with a clear list of what did not transfer cleanly:
 - output friction
 - missing generic skill/template opportunities
 
-Those findings should feed back into `qa-man`, but they should first be
+Those findings should feed back into `xqa`, but they should first be
 captured clearly from the `xcron` pilot itself.
 
 ## Task breakdown
 
-1. Assess `xcron` and define the minimal initial `qaman` workflow surface.
-2. Implement the repo-local `qaman` setup in `xcron`.
+1. Assess `xcron` and define the minimal initial `xqa` workflow surface.
+2. Implement the repo-local `xqa` setup in `xcron`.
 3. Harden or clarify the deterministic core verification lane in `xcron`.
 4. Add minimal operator docs and discoverability for the pilot workflow.
-5. Dogfood the workflow in `xcron` and prove `qa doctor` / `qa progress`.
+5. Dogfood the workflow in `xcron` and prove `xqa doctor` / `xqa progress`.
 6. Capture transferability gaps and create follow-up work in the right repo(s).
 
 ## Risks
@@ -218,7 +218,7 @@ captured clearly from the `xcron` pilot itself.
   be deferred until after the basic rollout works?
 - Should the first `default` profile rely only on the deterministic core lane,
   with environment-specific verification kept explicitly separate?
-- Should repo-local `qaman` skills be added in `xcron` during the pilot, or
+- Should repo-local `xqa` skills be added in `xcron` during the pilot, or
   only after the base workflow proves useful?
 
 ## Review status
