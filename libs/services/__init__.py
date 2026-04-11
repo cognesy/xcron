@@ -28,6 +28,17 @@ from libs.services.hook_installer import (
     resolve_xcron_executable,
 )
 from libs.services.logging_paths import RuntimePaths, ensure_runtime_dirs, resolve_runtime_paths, runtime_log_paths_for_wrapper
+from libs.services.logging_config import (
+    LOGGING_CONFIG_NAME,
+    LOGGING_PACKAGE,
+    LOG_FORMAT_ENV,
+    LOG_LEVEL_ENV,
+    LoggingConfig,
+    LoggingEventsConfig,
+    LoggingFieldsConfig,
+    apply_logging_env_overrides,
+    load_logging_config,
+)
 from libs.services.manifest_editor import (
     ManifestEditError,
     ManifestEditValidationError,
@@ -139,6 +150,7 @@ __all__ = [
     "STATE_ENV_VAR",
     "ValidationMessage",
     "add_manifest_job",
+    "apply_logging_env_overrides",
     "attach_parsed_manifest",
     "build_error_payload",
     "build_manifest_hashes",
@@ -183,8 +195,16 @@ __all__ = [
     "JobListRow",
     "JobsListResponse",
     "JobsShowResponse",
+    "LOGGING_CONFIG_NAME",
+    "LOGGING_PACKAGE",
+    "LOG_FORMAT_ENV",
+    "LOG_LEVEL_ENV",
+    "LoggingConfig",
+    "LoggingEventsConfig",
+    "LoggingFieldsConfig",
     "list_manifest_jobs",
     "load_help_body",
+    "load_logging_config",
     "load_project_manifest",
     "load_project_state",
     "map_apply_response",

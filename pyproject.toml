@@ -39,6 +39,7 @@ include = ["apps*", "libs*", "resources*"]
 
 [tool.setuptools.package-data]
 "resources.help" = ["*.md", "jobs/*.md"]
+"resources.logging" = ["*.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

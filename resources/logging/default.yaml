@@ -1,0 +1,24 @@
+version: 1
+logger: xcron
+destination: stderr
+format: auto
+level: INFO
+timestamp: iso
+events:
+  actions: true
+  subprocesses: true
+  scheduler_wrappers: true
+fields:
+  include:
+    - event
+    - level
+    - timestamp
+    - action
+    - process_event
+    - command
+    - duration_ms
+    - returncode
+  redact:
+    - env
+    - token
+    - secret

@@ -5,13 +5,14 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 import functools
 import logging
-import os
 import subprocess
 import sys
 import time
 from typing import Any, TypeVar
 
 import structlog
+
+from libs.services.logging_config import LoggingConfig, load_logging_config
 
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -20,23 +21,27 @@ _CONFIGURED = False
 _CONFIGURED_STREAM_ID: int | None = None
 _CONFIGURED_LEVEL_NAME: str | None = None
 _CONFIGURED_FORMAT: str | None = None
+_CONFIGURED_CONFIG: LoggingConfig | None = None
 
 
-def configure_logging() -> None:
+def configure_logging() -> LoggingConfig:
     """Configure process-wide structured logging once."""
-    global _CONFIGURED, _CONFIGURED_FORMAT, _CONFIGURED_LEVEL_NAME, _CONFIGURED_STREAM_ID
+    global _CONFIGURED, _CONFIGURED_CONFIG, _CONFIGURED_FORMAT
+    global _CONFIGURED_LEVEL_NAME, _CONFIGURED_STREAM_ID
 
-    level_name = os.environ.get("XCRON_LOG_LEVEL", "INFO").upper()
+    config = load_logging_config()
+    level_name = config.level
     level = getattr(logging, level_name, logging.INFO)
-    log_format = os.environ.get("XCRON_LOG_FORMAT", "auto").lower()
+    log_format = config.format
     stream_id = id(sys.stderr)
     if (
         _CONFIGURED
         and _CONFIGURED_LEVEL_NAME == level_name
         and _CONFIGURED_FORMAT == log_format
         and _CONFIGURED_STREAM_ID == stream_id
+        and _CONFIGURED_CONFIG == config
     ):
-        return
+        return config
 
     renderer: structlog.typing.Processor
     if log_format == "json" or (log_format == "auto" and not sys.stderr.isatty()):
@@ -49,7 +54,7 @@ def configure_logging() -> None:
         processors=[
             structlog.contextvars.merge_contextvars,
             structlog.stdlib.add_log_level,
-            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.TimeStamper(fmt=config.timestamp),
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
             renderer,
@@ -62,6 +67,8 @@ def configure_logging() -> None:
     _CONFIGURED_LEVEL_NAME = level_name
     _CONFIGURED_FORMAT = log_format
     _CONFIGURED_STREAM_ID = stream_id
+    _CONFIGURED_CONFIG = config
+    return config
 
 
 def get_logger(name: str) -> structlog.typing.FilteringBoundLogger:
@@ -76,7 +83,9 @@ def instrument_action(action_name: str) -> Callable[[F], F]:
     def decorator(func: F) -> F:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            configure_logging()
+            config = configure_logging()
+            if not config.events.actions:
+                return func(*args, **kwargs)
             logger = get_logger("xcron.action").bind(action=action_name)
             started = time.perf_counter()
             logger.info("action_started")
@@ -111,8 +120,14 @@ def run_logged_subprocess(
     **kwargs: Any,
 ) -> subprocess.CompletedProcess[str]:
     """Run one subprocess and emit structured start/finish/failure logs."""
-    configure_logging()
-    logger = get_logger("xcron.process").bind(process_event=event, command=list(command))
+    config = configure_logging()
+    if not config.events.subprocesses:
+        return subprocess.run(command, check=check, **kwargs)
+
+    logger = get_logger("xcron.process").bind(
+        process_event=event,
+        command=redact_sequence(command, config.fields.redact),
+    )
     started = time.perf_counter()
     logger.info("subprocess_started")
     try:
@@ -142,8 +157,14 @@ def run_logged_subprocess(
 
 def check_output_logged(command: Sequence[str], *, event: str, **kwargs: Any) -> str:
     """Run subprocess.check_output with structured logs."""
-    configure_logging()
-    logger = get_logger("xcron.process").bind(process_event=event, command=list(command))
+    config = configure_logging()
+    if not config.events.subprocesses:
+        return subprocess.check_output(command, **kwargs)
+
+    logger = get_logger("xcron.process").bind(
+        process_event=event,
+        command=redact_sequence(command, config.fields.redact),
+    )
     started = time.perf_counter()
     logger.info("subprocess_started")
     try:
@@ -179,6 +200,39 @@ def preview(value: Any, *, limit: int = 400) -> str | None:
     if len(text) <= limit:
         return text
     return f"{text[:limit]}..."
+
+
+def redact_sequence(values: Sequence[str], patterns: Sequence[str]) -> list[str]:
+    """Redact likely sensitive subprocess arguments before logging."""
+    redacted: list[str] = []
+    redact_next = False
+    normalized_patterns = tuple(pattern.lower() for pattern in patterns if pattern)
+
+    for value in values:
+        if redact_next:
+            redacted.append("[REDACTED]")
+            redact_next = False
+            continue
+
+        text = str(value)
+        flag_name, separator, _remainder = text.partition("=")
+        lookup_name = flag_name.lstrip("-").lower()
+        if separator and _matches_redaction_pattern(lookup_name, normalized_patterns):
+            redacted.append(f"{flag_name}=[REDACTED]")
+            continue
+
+        if text.startswith("-") and _matches_redaction_pattern(lookup_name, normalized_patterns):
+            redacted.append(text)
+            redact_next = True
+            continue
+
+        redacted.append(text)
+
+    return redacted
+
+
+def _matches_redaction_pattern(value: str, patterns: Sequence[str]) -> bool:
+    return any(pattern in value for pattern in patterns)
 
 
 def elapsed_ms(started: float) -> int:

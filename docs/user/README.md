@@ -361,6 +361,17 @@ Managed derived state is stored machine-locally and partitioned by `project.id`.
 Projects do not need to define log targets in YAML. The tool assigns default
 paths automatically.
 
+Application-level operational logs are separate from job-run logs. `xcron`
+writes command/action diagnostics to stderr through `structlog`, while stdout
+remains reserved for TOON or JSON command payloads. The default logging config
+lives in the installed `resources/logging/default.yaml` resource.
+
+Useful logging overrides:
+
+- `XCRON_LOG_LEVEL=DEBUG`
+- `XCRON_LOG_FORMAT=json`
+- `XCRON_LOG_FORMAT=console`
+
 ## Safe Overrides For Testing
 
 The CLI supports environment overrides that are useful for local testing:
