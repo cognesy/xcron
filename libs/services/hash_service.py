@@ -8,6 +8,8 @@ import json
 
 from libs.domain.models import NormalizedJob, NormalizedManifest
 
+WRAPPER_RENDERER_VERSION = 2
+
 
 @dataclass(frozen=True)
 class ManifestHashes:
@@ -37,6 +39,7 @@ def hash_normalized_job_definition(job: NormalizedJob) -> str:
             "env": list(job.execution.env),
             "overlap": job.execution.overlap.value,
         },
+        "wrapper_renderer_version": WRAPPER_RENDERER_VERSION,
         "description": job.description,
     }
     return stable_hash(payload)
