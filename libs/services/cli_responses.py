@@ -143,6 +143,30 @@ class MutationResponse(PayloadConvertible):
         return self.model_dump(exclude_none=True, exclude={"help"} if not self.help else None)
 
 
+class LogFileRow(PayloadConvertible):
+    job: str
+    kind: str
+    path: str
+    size: str
+
+
+class LogsListResponse(PayloadConvertible):
+    project: str
+    logs_dir: Optional[str]
+    count: str
+    files: tuple[LogFileRow, ...]
+    help: tuple[str, ...] = ()
+
+
+class LogsClearResponse(PayloadConvertible):
+    project: str
+    dry_run: bool
+    count: str
+    cleared: int
+    files: tuple[LogFileRow, ...]
+    help: tuple[str, ...] = ()
+
+
 class HookInstallResponse(PayloadConvertible):
     kind: str
     changed: int
@@ -191,6 +215,9 @@ __all__ = [
     "InspectResponse",
     "JobListRow",
     "JobsListResponse",
+    "LogFileRow",
+    "LogsClearResponse",
+    "LogsListResponse",
     "JobsShowResponse",
     "MutationResponse",
     "PayloadConvertible",

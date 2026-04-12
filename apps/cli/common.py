@@ -8,7 +8,7 @@ from typing import Sequence
 
 from libs.services import ValidationMessage
 
-VALID_OUTPUT_FORMATS = ("json", "toon")
+VALID_OUTPUT_FORMATS = ("json", "toon", "tmux")
 
 
 def resolve_project_path(value: str | None) -> Path:

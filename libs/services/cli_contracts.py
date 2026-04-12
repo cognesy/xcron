@@ -146,6 +146,30 @@ JOBS_UPDATE_CONTRACT = CommandContract(
     default_hints=JOBS_ADD_CONTRACT.default_hints,
 )
 
+LOGS_LIST_CONTRACT = CommandContract(
+    name="logs.list",
+    default_fields=("project", "logs_dir", "count", "files"),
+    allowed_fields=("project", "logs_dir", "count", "files", "help"),
+    list_key="files",
+    list_row_fields=("job", "kind", "path", "size"),
+    default_hints=(
+        "Run `xcron logs clear --project <path> --dry-run` to preview log cleanup",
+        "Run `xcron logs clear --project <path> --apply` to truncate log files",
+    ),
+)
+
+LOGS_CLEAR_CONTRACT = CommandContract(
+    name="logs.clear",
+    default_fields=("project", "dry_run", "count", "cleared", "files"),
+    allowed_fields=("project", "dry_run", "count", "cleared", "files", "help"),
+    list_key="files",
+    list_row_fields=("job", "kind", "path", "size"),
+    default_hints=(
+        "Run without --apply to preview which files would be cleared",
+        "Run `xcron logs list` to inspect log files without modifying them",
+    ),
+)
+
 PRUNE_CONTRACT = CommandContract(
     name="prune",
     default_fields=("kind", "target", "outcome", "backend", "count"),
@@ -211,6 +235,8 @@ COMMAND_CONTRACTS: dict[str, CommandContract] = {
         JOBS_ENABLE_CONTRACT,
         JOBS_DISABLE_CONTRACT,
         JOBS_UPDATE_CONTRACT,
+        LOGS_LIST_CONTRACT,
+        LOGS_CLEAR_CONTRACT,
         PRUNE_CONTRACT,
         HOOKS_INSTALL_CONTRACT,
         HOOKS_STATUS_CONTRACT,

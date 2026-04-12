@@ -2,6 +2,13 @@
 
 from libs.actions.apply_project import ApplyProjectResult, apply_project
 from libs.actions.inspect_job import InspectJobResult, inspect_job
+from libs.actions.manage_logs import (
+    LogFileEntry,
+    LogsClearResult,
+    LogsListResult,
+    clear_logs,
+    list_logs,
+)
 from libs.actions.manage_jobs import (
     JobActionResult,
     add_job,
@@ -21,16 +28,21 @@ __all__ = [
     "ApplyProjectResult",
     "InspectJobResult",
     "JobActionResult",
+    "LogFileEntry",
+    "LogsClearResult",
+    "LogsListResult",
     "PlanProjectResult",
     "PruneProjectResult",
     "StatusProjectResult",
     "ValidateProjectResult",
     "add_job",
     "apply_project",
+    "clear_logs",
     "disable_job",
     "enable_job",
     "inspect_job",
     "list_jobs",
+    "list_logs",
     "plan_project",
     "prune_project",
     "remove_job",

@@ -19,10 +19,12 @@ from apps.cli.output import Output
 from libs.actions import (
     add_job,
     apply_project,
+    clear_logs,
     disable_job,
     enable_job,
     inspect_job,
     list_jobs,
+    list_logs,
     plan_project,
     prune_project,
     remove_job,
@@ -47,6 +49,8 @@ from libs.services import (
     map_jobs_list_response,
     map_jobs_mutation_response,
     map_jobs_show_response,
+    map_logs_clear_response,
+    map_logs_list_response,
     map_plan_response,
     map_prune_response,
     map_status_response,
@@ -69,6 +73,11 @@ jobs_app = typer.Typer(
     short_help="Inspect and edit jobs inside one schedule manifest.",
     rich_markup_mode="markdown",
 )
+logs_app = typer.Typer(
+    help="Inspect and manage wrapper log files for one project.",
+    short_help="Inspect and manage wrapper log files.",
+    rich_markup_mode="markdown",
+)
 hooks_app = typer.Typer(help="Manage repo-local Codex and Claude hook integration.", rich_markup_mode="markdown")
 
 
@@ -88,11 +97,14 @@ def _build_output(ctx: typer.Context, contract_name: str, output_format: str | N
         return Output(ctx, contract_name, output_format)
     except ValueError as exc:
         effective_output = output_format if output_format is not None else _shared_option(ctx, "output_format", None)
-        fallback_format = "json" if str(effective_output).strip().lower() == "json" else "toon"
+        effective_lower = str(effective_output).strip().lower()
+        fallback_format = effective_lower if effective_lower in ("json", "tmux") else "toon"
         _emit_bootstrap_usage_error(str(exc), output_format=fallback_format)
 
 
 def _emit_bootstrap_usage_error(message: str, *, output_format: str) -> NoReturn:
+    from libs.services import render_tmux
+
     payload = {
         "kind": "error",
         "code": "usage_error",
@@ -100,6 +112,8 @@ def _emit_bootstrap_usage_error(message: str, *, output_format: str) -> NoReturn
     }
     if output_format == "json":
         typer.echo(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=True))
+    elif output_format == "tmux":
+        typer.echo(render_tmux(payload))
     else:
         typer.echo(render_toon(payload))
     raise typer.Exit(code=2)
@@ -616,6 +630,64 @@ def jobs_update_command(
 jobs_update_command.__doc__ = load_help_body("jobs/update")
 
 
+@logs_app.command("list")
+def logs_list_command(
+    ctx: typer.Context,
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing resources/schedules/."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
+    job: Optional[str] = typer.Option(None, help="Filter to one job by project-local or qualified identifier."),
+    fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json, toon, or tmux. Defaults to toon."),
+) -> None:
+    """List wrapper log files for one project."""
+    project = _shared_option(ctx, "project", project)
+    schedule = _shared_option(ctx, "schedule", schedule)
+    out = _build_output(ctx, "logs.list", output_format)
+    result = list_logs(
+        resolve_project_path(project),
+        schedule_name=schedule,
+        job_filter=job,
+        state_root=env_path("XCRON_STATE_ROOT"),
+    )
+    if not result.valid:
+        details = []
+        if result.validation is not None:
+            details.extend(validation_details(result.validation.errors + result.validation.warnings))
+        out.error(result.error or "log listing failed", details=details, hints=list(out.contract.default_hints))
+
+    out.print(map_logs_list_response(result, contract=out.contract))
+
+
+@logs_app.command("clear")
+def logs_clear_command(
+    ctx: typer.Context,
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing resources/schedules/."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
+    job: Optional[str] = typer.Option(None, help="Filter to one job by project-local or qualified identifier."),
+    apply: bool = typer.Option(False, "--apply", help="Actually truncate log files. Without this flag, runs in dry-run mode."),
+    fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json, toon, or tmux. Defaults to toon."),
+) -> None:
+    """Clear (truncate) wrapper log files for one project. Dry-run by default."""
+    project = _shared_option(ctx, "project", project)
+    schedule = _shared_option(ctx, "schedule", schedule)
+    out = _build_output(ctx, "logs.clear", output_format)
+    result = clear_logs(
+        resolve_project_path(project),
+        schedule_name=schedule,
+        job_filter=job,
+        state_root=env_path("XCRON_STATE_ROOT"),
+        dry_run=not apply,
+    )
+    if not result.valid:
+        details = []
+        if result.validation is not None:
+            details.extend(validation_details(result.validation.errors + result.validation.warnings))
+        out.error(result.error or "log clear failed", details=details, hints=list(out.contract.default_hints))
+
+    out.print(map_logs_clear_response(result, contract=out.contract))
+
+
 @hooks_app.command("install")
 def hooks_install_command(ctx: typer.Context, output_format: Optional[str] = typer.Option(None, "--output", "-o")) -> None:
     out = _build_output(ctx, "hooks.install", output_format)
@@ -680,6 +752,7 @@ def hooks_session_end_command(ctx: typer.Context, output_format: Optional[str] =
 
 
 app.add_typer(jobs_app, name="jobs")
+app.add_typer(logs_app, name="logs")
 app.add_typer(hooks_app, name="hooks")
 
 

@@ -17,6 +17,9 @@ from libs.services.cli_responses import (
     JobListRow,
     JobsListResponse,
     JobsShowResponse,
+    LogFileRow,
+    LogsClearResponse,
+    LogsListResponse,
     MutationResponse,
     PlanChangeRow,
     PlanResponse,
@@ -204,6 +207,48 @@ def map_jobs_mutation_response(
     )
 
 
+def _format_size(size_bytes: int) -> str:
+    """Format a byte count as a human-readable size string."""
+    if size_bytes < 1024:
+        return f"{size_bytes}B"
+    if size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f}K"
+    return f"{size_bytes / (1024 * 1024):.1f}M"
+
+
+def _map_log_file_rows(files: Any) -> tuple[LogFileRow, ...]:
+    return tuple(
+        LogFileRow(
+            job=entry.qualified_id,
+            kind=entry.kind,
+            path=collapse_home_path(entry.path),
+            size=_format_size(entry.size_bytes),
+        )
+        for entry in files
+    )
+
+
+def map_logs_list_response(result: Any, *, contract: CommandContract) -> LogsListResponse:
+    return LogsListResponse(
+        project=result.project_id or "",
+        logs_dir=collapse_home_path(result.logs_dir) if result.logs_dir else None,
+        count=f"{len(result.files)} of {len(result.files)}",
+        files=_map_log_file_rows(result.files),
+        help=tuple(contract.default_hints),
+    )
+
+
+def map_logs_clear_response(result: Any, *, contract: CommandContract) -> LogsClearResponse:
+    return LogsClearResponse(
+        project=result.project_id or "",
+        dry_run=result.dry_run,
+        count=f"{len(result.files)} of {len(result.files)}",
+        cleared=result.cleared,
+        files=_map_log_file_rows(result.files),
+        help=tuple(contract.default_hints),
+    )
+
+
 def map_prune_response(result: Any, *, contract: CommandContract) -> MutationResponse:
     return MutationResponse(
         kind=contract.name,
@@ -221,6 +266,8 @@ __all__ = [
     "map_home_response",
     "map_inspect_response",
     "map_jobs_list_response",
+    "map_logs_clear_response",
+    "map_logs_list_response",
     "map_jobs_mutation_response",
     "map_jobs_show_response",
     "map_plan_response",

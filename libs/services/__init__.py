@@ -89,6 +89,8 @@ from libs.services.cli_mappers import (
     map_inspect_response,
     map_jobs_list_response,
     map_jobs_mutation_response,
+    map_logs_clear_response,
+    map_logs_list_response,
     map_jobs_show_response,
     map_plan_response,
     map_prune_response,
@@ -109,6 +111,9 @@ from libs.services.cli_responses import (
     JobListRow,
     JobsListResponse,
     JobsShowResponse,
+    LogFileRow,
+    LogsClearResponse,
+    LogsListResponse,
     MutationResponse,
     PayloadConvertible,
     PlanChangeRow,
@@ -127,6 +132,7 @@ from libs.services.cli_contracts import (
 )
 from libs.services.codex_hooks import CodexHookStatus, ensure_codex_hooks, inspect_codex_hooks
 from libs.services.help_renderer import HELP_PACKAGE, load_help_body, render_help_markdown, render_help_text
+from libs.services.tmux_renderer import render_tmux
 from libs.services.toon_renderer import TOON_OPTIONS, normalize_for_toon, render_toon
 from libs.services.wrapper_renderer import RenderedWrapper, render_wrapper, write_wrapper
 
@@ -195,6 +201,9 @@ __all__ = [
     "JobListRow",
     "JobsListResponse",
     "JobsShowResponse",
+    "LogFileRow",
+    "LogsClearResponse",
+    "LogsListResponse",
     "LOGGING_CONFIG_NAME",
     "LOGGING_PACKAGE",
     "LOG_FORMAT_ENV",
@@ -214,6 +223,8 @@ __all__ = [
     "map_jobs_list_response",
     "map_jobs_mutation_response",
     "map_jobs_show_response",
+    "map_logs_clear_response",
+    "map_logs_list_response",
     "map_plan_response",
     "map_prune_response",
     "map_status_response",
@@ -249,6 +260,7 @@ __all__ = [
     "TOON_OPTIONS",
     "truncate_text",
     "normalize_for_toon",
+    "render_tmux",
     "render_toon",
     "update_manifest_job",
     "validate_schema",

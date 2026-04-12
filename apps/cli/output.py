@@ -17,12 +17,13 @@ from libs.services import (
     PayloadConvertible,
     get_command_contract,
     parse_fields_csv,
+    render_tmux,
     render_toon,
     select_fields,
     validate_requested_fields,
 )
 
-OutputFormat = Literal["json", "toon"]
+OutputFormat = Literal["json", "toon", "tmux"]
 
 
 class Output:
@@ -90,6 +91,8 @@ class Output:
         normalized = normalize_for_output(active_payload)
         if self._fmt == "json":
             return json.dumps(normalized, indent=2, sort_keys=True, ensure_ascii=True)
+        if self._fmt == "tmux":
+            return render_tmux(normalized)
         return render_toon(normalized)
 
     def _select(self, payload: dict[str, Any]) -> dict[str, Any]:
