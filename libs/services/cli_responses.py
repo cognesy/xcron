@@ -44,6 +44,9 @@ class StatusRow(PayloadConvertible):
     kind: str
     id: str
     reason: str
+    schedule: Optional[str] = None
+    last_applied_at: Optional[str] = None
+    next_run: Optional[str] = None
 
 
 class JobListRow(PayloadConvertible):

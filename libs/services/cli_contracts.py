@@ -70,7 +70,7 @@ STATUS_CONTRACT = CommandContract(
     default_fields=("backend", "count", "statuses"),
     allowed_fields=("backend", "count", "statuses", "help"),
     list_key="statuses",
-    list_row_fields=("kind", "id", "reason"),
+    list_row_fields=("kind", "id", "reason", "schedule", "last_applied_at", "next_run"),
     default_hints=(
         "Run `xcron inspect <job-id>` for one detailed job view",
         "Run `xcron apply` to reconcile drift or missing jobs",

@@ -117,11 +117,24 @@ def map_status_response(result: Any, *, contract: CommandContract) -> StatusResp
         backend=result.backend,
         count=f"{len(result.statuses)} of {len(result.statuses)}",
         statuses=tuple(
-            StatusRow(kind=entry.kind.value, id=entry.qualified_id, reason=entry.reason)
+            StatusRow(
+                kind=entry.kind.value,
+                id=entry.qualified_id,
+                reason=entry.reason,
+                schedule=_status_schedule(entry),
+                last_applied_at=None if entry.deployed_job is None else entry.deployed_job.last_applied_at,
+                next_run="unavailable",
+            )
             for entry in result.statuses
         ),
         help=tuple(contract.default_hints),
     )
+
+
+def _status_schedule(entry: Any) -> str | None:
+    if entry.desired_job is None:
+        return None
+    return f"{entry.desired_job.schedule.kind.value}={entry.desired_job.schedule.value}"
 
 
 def map_inspect_response(
