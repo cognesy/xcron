@@ -8,7 +8,8 @@ from libs.actions.validate_project import validate_project
 from libs.services.wrapper_renderer import render_wrapper, write_wrapper
 
 
-def test_wrapper_overlap_forbid_skips_and_cleans_lock(tmp_path) -> None:
+def test_wrapper_overlap_forbid_skips_and_cleans_lock(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("XCRON_HOME", str(tmp_path / "xcron-home"))
     project = tmp_path / "project"
     project.mkdir()
     schedule_dir = project / "resources" / "schedules"
@@ -53,5 +54,6 @@ def test_wrapper_overlap_forbid_skips_and_cleans_lock(tmp_path) -> None:
     assert "skipped overlapping run" in stderr_text
     assert "event=job_started" in stderr_text
     assert "event=job_finished" in stderr_text
+    assert "xcron_metric ticks.started" in rendered.content
     assert "exit_code=0" in stderr_text
     assert not rendered.runtime_paths.lock_path.exists()

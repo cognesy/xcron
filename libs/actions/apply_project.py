@@ -9,6 +9,7 @@ from libs.actions.plan_project import PlanProjectResult, collect_cron_schedule_e
 from libs.actions.status_project import status_project
 from libs.domain import ProjectState
 from libs.services import get_logger, instrument_action
+from libs.services.metrics import MetricsService
 from libs.services.backends.cron_service import apply_cron_plan
 from libs.services.backends.launchd_service import apply_launchd_plan
 from libs.services.state_store import resolve_project_state_path
@@ -41,6 +42,8 @@ def apply_project(
     manage_crontab: bool = True,
 ) -> ApplyProjectResult:
     """Apply one project's desired state using the selected backend."""
+    metrics = MetricsService()
+    metrics.increment("apply.calls")
     status_result = status_project(
         project_path,
         schedule_name=schedule_name,
@@ -51,6 +54,7 @@ def apply_project(
         crontab_path=crontab_path,
     )
     if not status_result.valid or status_result.backend is None or status_result.plan is None:
+        metrics.increment("apply.failed")
         LOGGER.warning(
             "apply_status_failed",
             backend=status_result.backend,
@@ -83,6 +87,7 @@ def apply_project(
     if plan_result.backend == "cron" and plan_result.plan is not None:
         cron_errors = collect_cron_schedule_errors(plan_result.plan.manifest.jobs)
         if cron_errors:
+            metrics.increment("apply.failed")
             LOGGER.error(
                 "apply_cron_incompatible_schedules",
                 project_id=plan_result.plan.manifest.project_id,
@@ -117,6 +122,8 @@ def apply_project(
         applied_job_count=len(applied_state.jobs),
         state_path=plan_result.state_path,
     )
+    metrics.increment("apply.succeeded")
+    metrics.increment("jobs.applied", len(applied_state.jobs))
     return ApplyProjectResult(
         valid=True,
         backend=plan_result.backend,

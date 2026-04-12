@@ -9,6 +9,7 @@ from typing import Any
 from libs.actions.validate_project import ValidateProjectResult, validate_project
 from libs.domain import ProjectPlan, StatusEntry, build_project_plan, build_status_entries
 from libs.services import get_logger, instrument_action
+from libs.services.metrics import MetricsService
 from libs.services.backends.cron_service import collect_cron_project_state, inspect_cron_project
 from libs.services.backends.launchd_service import collect_launchd_project_state, inspect_launchd_project
 from libs.services.state_store import default_backend_for_current_platform
@@ -40,8 +41,11 @@ def status_project(
     crontab_path: str | Path | None = None,
 ) -> StatusProjectResult:
     """Compare desired state to actual backend state for one project."""
+    metrics = MetricsService()
+    metrics.increment("status.calls")
     validation = validate_project(project_path, schedule_name=schedule_name)
     if not validation.valid or validation.normalized_manifest is None or validation.hashes is None:
+        metrics.increment("status.failed")
         LOGGER.warning(
             "status_validation_failed",
             project_root=validation.project_root,
@@ -94,6 +98,7 @@ def status_project(
         inspection_count=len(inspections),
         deployed_job_count=len(actual_state.jobs),
     )
+    metrics.increment("status.succeeded")
     return StatusProjectResult(
         valid=True,
         backend=selected_backend,

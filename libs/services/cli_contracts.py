@@ -219,6 +219,18 @@ HOOKS_SESSION_END_CONTRACT = CommandContract(
     allowed_fields=("kind", "log"),
 )
 
+METRICS_SHOW_CONTRACT = CommandContract(
+    name="metrics.show",
+    default_fields=("path", "updated_at", "counters"),
+    allowed_fields=("path", "version", "created_at", "updated_at", "counters", "help"),
+)
+
+METRICS_RESET_CONTRACT = CommandContract(
+    name="metrics.reset",
+    default_fields=("path", "updated_at", "counters", "previous_counters"),
+    allowed_fields=("path", "version", "created_at", "updated_at", "counters", "previous_counters", "help"),
+)
+
 COMMAND_CONTRACTS: dict[str, CommandContract] = {
     contract.name: contract
     for contract in (
@@ -242,6 +254,8 @@ COMMAND_CONTRACTS: dict[str, CommandContract] = {
         HOOKS_STATUS_CONTRACT,
         HOOKS_SESSION_START_CONTRACT,
         HOOKS_SESSION_END_CONTRACT,
+        METRICS_SHOW_CONTRACT,
+        METRICS_RESET_CONTRACT,
     )
 }
 

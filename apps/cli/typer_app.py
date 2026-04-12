@@ -28,7 +28,9 @@ from libs.actions import (
     plan_project,
     prune_project,
     remove_job,
+    reset_metrics,
     show_job,
+    show_metrics,
     status_project,
     update_job,
     validate_project,
@@ -79,6 +81,7 @@ logs_app = typer.Typer(
     rich_markup_mode="markdown",
 )
 hooks_app = typer.Typer(help="Manage repo-local Codex and Claude hook integration.", rich_markup_mode="markdown")
+metrics_app = typer.Typer(help="Inspect and reset persisted runtime metrics.", rich_markup_mode="markdown")
 
 
 def _shared_option(ctx: typer.Context, key: str, value):
@@ -751,9 +754,32 @@ def hooks_session_end_command(ctx: typer.Context, output_format: Optional[str] =
     out.print(HookSessionEndResponse(kind="hooks.session_end", log=str(log_path)))
 
 
+@metrics_app.command("show")
+def metrics_show_command(
+    ctx: typer.Context,
+    fields: Optional[str] = typer.Option(None),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o"),
+) -> None:
+    """Show persisted xcron runtime metrics."""
+    out = _build_output(ctx, "metrics.show", output_format)
+    out.print(show_metrics())
+
+
+@metrics_app.command("reset")
+def metrics_reset_command(
+    ctx: typer.Context,
+    fields: Optional[str] = typer.Option(None),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o"),
+) -> None:
+    """Reset persisted xcron runtime metrics."""
+    out = _build_output(ctx, "metrics.reset", output_format)
+    out.print(reset_metrics())
+
+
 app.add_typer(jobs_app, name="jobs")
 app.add_typer(logs_app, name="logs")
 app.add_typer(hooks_app, name="hooks")
+app.add_typer(metrics_app, name="metrics")
 
 
 def run() -> None:

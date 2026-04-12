@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PayloadConvertible(BaseModel):
@@ -170,6 +170,18 @@ class LogsClearResponse(PayloadConvertible):
     help: tuple[str, ...] = ()
 
 
+class MetricsResponse(PayloadConvertible):
+    path: str
+    version: int = 1
+    created_at: str
+    updated_at: str
+    counters: dict[str, int] = Field(default_factory=dict)
+
+
+class MetricsResetResponse(MetricsResponse):
+    previous_counters: dict[str, int] = Field(default_factory=dict)
+
+
 class HookInstallResponse(PayloadConvertible):
     kind: str
     changed: int
@@ -223,6 +235,8 @@ __all__ = [
     "LogsListResponse",
     "JobsShowResponse",
     "MutationResponse",
+    "MetricsResponse",
+    "MetricsResetResponse",
     "PayloadConvertible",
     "PlanChangeRow",
     "PlanResponse",

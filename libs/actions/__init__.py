@@ -9,6 +9,7 @@ from libs.actions.manage_logs import (
     clear_logs,
     list_logs,
 )
+from libs.actions.metrics import reset_metrics, show_metrics
 from libs.actions.manage_jobs import (
     JobActionResult,
     add_job,
@@ -43,6 +44,8 @@ __all__ = [
     "inspect_job",
     "list_jobs",
     "list_logs",
+    "reset_metrics",
+    "show_metrics",
     "plan_project",
     "prune_project",
     "remove_job",

@@ -8,6 +8,7 @@ from pathlib import Path
 from libs.actions.validate_project import ValidateProjectResult, validate_project
 from libs.services import get_logger, instrument_action
 from libs.services.logging_paths import resolve_runtime_paths
+from libs.services.metrics import MetricsService
 from libs.services.state_store import resolve_state_root
 
 
@@ -119,6 +120,7 @@ def list_logs(
     state_root: Path | None = None,
 ) -> LogsListResult:
     """List wrapper log files for one project."""
+    MetricsService().increment("logs.list.calls")
     validation = validate_project(project_path, schedule_name=schedule_name)
     if not validation.valid or validation.normalized_manifest is None:
         return LogsListResult(valid=False, validation=validation, error="project validation failed")
@@ -151,6 +153,8 @@ def clear_logs(
     dry_run: bool = True,
 ) -> LogsClearResult:
     """Clear (truncate) wrapper log files for one project."""
+    metrics = MetricsService()
+    metrics.increment("logs.clear.calls")
     validation = validate_project(project_path, schedule_name=schedule_name)
     if not validation.valid or validation.normalized_manifest is None:
         return LogsClearResult(valid=False, validation=validation, error="project validation failed")
@@ -166,6 +170,7 @@ def clear_logs(
                 path.write_text("", encoding="utf-8")
                 cleared += 1
                 LOGGER.info("log_cleared", path=entry.path, previous_bytes=entry.size_bytes)
+        metrics.increment("logs.cleared", cleared)
 
     LOGGER.info(
         "logs_clear_completed",

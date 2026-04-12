@@ -70,6 +70,7 @@ from libs.services.state_store import (
     resolve_state_root,
     save_project_state,
 )
+from libs.services.metrics import MetricsService, resolve_metrics_path
 from libs.services.axi_presenter import (
     build_error_payload,
     collapse_home_path,
@@ -115,6 +116,8 @@ from libs.services.cli_responses import (
     LogsClearResponse,
     LogsListResponse,
     MutationResponse,
+    MetricsResponse,
+    MetricsResetResponse,
     PayloadConvertible,
     PlanChangeRow,
     PlanResponse,
@@ -230,6 +233,9 @@ __all__ = [
     "map_status_response",
     "map_validation_response",
     "MutationResponse",
+    "MetricsResponse",
+    "MetricsResetResponse",
+    "MetricsService",
     "parse_fields_csv",
     "PayloadConvertible",
     "PlanChangeRow",
@@ -243,6 +249,7 @@ __all__ = [
     "select_list_fields",
     "select_nested_fields",
     "resolve_manifest_path",
+    "resolve_metrics_path",
     "resolve_project_root",
     "resolve_project_state_dir",
     "resolve_project_state_path",
