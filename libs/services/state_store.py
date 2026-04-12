@@ -37,12 +37,10 @@ def resolve_state_root(
     if override:
         return Path(override).expanduser().resolve()
 
-    selected = sys.platform if platform is None else platform
     selected_home = Path.home() if home is None else Path(home)
-    if selected.startswith("darwin"):
-        return (selected_home / "Library" / "Application Support" / "xcron").resolve()
-    if selected.startswith("linux"):
-        return (selected_home / ".local" / "state" / "xcron").resolve()
+    selected = sys.platform if platform is None else platform
+    if selected.startswith(("darwin", "linux")):
+        return (selected_home / ".xcron").resolve()
     raise ValueError(f"unsupported platform for xcron prototype: {selected}")
 
 
