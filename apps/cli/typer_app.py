@@ -22,6 +22,7 @@ from libs.actions import (
     clear_logs,
     disable_job,
     enable_job,
+    init_home,
     inspect_job,
     list_jobs,
     list_logs,
@@ -39,6 +40,7 @@ from libs.services import (
     capture_session_end,
     collapse_home_path,
     ensure_agent_hooks,
+    InitResponse,
     HookInstallResponse,
     HookSessionEndResponse,
     HookStatusResponse,
@@ -125,8 +127,8 @@ def _emit_bootstrap_usage_error(message: str, *, output_format: str) -> NoReturn
 @app.callback()
 def main_callback(
     ctx: typer.Context,
-    project: Optional[str] = typer.Option(None, help="Path to the project root containing resources/schedules/."),
-    schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
     backend: Optional[str] = typer.Option(None, help="Override the backend instead of using the platform default."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
     full: bool = typer.Option(False, help="Show full response content instead of truncated previews."),
@@ -174,11 +176,29 @@ def _parse_env_assignments(values: List[str]) -> dict[str, str]:
     return env
 
 
+@app.command("init")
+def init_command(
+    ctx: typer.Context,
+    output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json or toon. Defaults to toon."),
+) -> None:
+    """Initialize ~/.xcron/ with a starter schedule manifest."""
+    out = _build_output(ctx, "init", output_format)
+    result = init_home()
+    out.print(InitResponse(
+        kind="init",
+        xcron_home=result.xcron_home,
+        schedules_dir=result.schedules_dir,
+        manifest_path=result.manifest_path,
+        created=result.created,
+        message="xcron home initialized" if result.created else "xcron home already initialized",
+    ))
+
+
 @app.command("validate")
 def validate_command(
     ctx: typer.Context,
-    project: Optional[str] = typer.Option(None, help="Path to the project root containing resources/schedules/."),
-    schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
     output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json or toon. Defaults to toon."),
 ) -> None:
@@ -202,8 +222,8 @@ validate_command.__doc__ = load_help_body("validate")
 @app.command("plan")
 def plan_command(
     ctx: typer.Context,
-    project: Optional[str] = typer.Option(None, help="Path to the project root containing resources/schedules/."),
-    schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
     backend: Optional[str] = typer.Option(None, help="Override the backend instead of using the platform default."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
     output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json or toon. Defaults to toon."),
@@ -234,8 +254,8 @@ plan_command.__doc__ = load_help_body("plan")
 @app.command("status")
 def status_command(
     ctx: typer.Context,
-    project: Optional[str] = typer.Option(None, help="Path to the project root containing resources/schedules/."),
-    schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
     backend: Optional[str] = typer.Option(None, help="Override the backend instead of using the platform default."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
     output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json or toon. Defaults to toon."),
@@ -269,8 +289,8 @@ status_command.__doc__ = load_help_body("status")
 def inspect_command(
     ctx: typer.Context,
     job_id: str = typer.Argument(..., help="Project-local or qualified job identifier."),
-    project: Optional[str] = typer.Option(None, help="Path to the project root containing resources/schedules/."),
-    schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
     backend: Optional[str] = typer.Option(None, help="Override the backend instead of using the platform default."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
     full: bool = typer.Option(False, help="Show full response content instead of truncated previews."),
@@ -304,8 +324,8 @@ inspect_command.__doc__ = load_help_body("inspect")
 @app.command("apply")
 def apply_command(
     ctx: typer.Context,
-    project: Optional[str] = typer.Option(None, help="Path to the project root containing resources/schedules/."),
-    schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
     backend: Optional[str] = typer.Option(None, help="Override the backend instead of using the platform default."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
     output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json or toon. Defaults to toon."),
@@ -341,8 +361,8 @@ apply_command.__doc__ = load_help_body("apply")
 @app.command("prune")
 def prune_command(
     ctx: typer.Context,
-    project: Optional[str] = typer.Option(None, help="Path to the project root containing resources/schedules/."),
-    schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
     backend: Optional[str] = typer.Option(None, help="Override the backend instead of using the platform default."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
     output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json or toon. Defaults to toon."),
@@ -374,8 +394,8 @@ prune_command.__doc__ = load_help_body("prune")
 @jobs_app.command("list")
 def jobs_list_command(
     ctx: typer.Context,
-    project: Optional[str] = typer.Option(None, help="Path to the project root containing resources/schedules/."),
-    schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
     output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json or toon. Defaults to toon."),
 ) -> None:
@@ -401,8 +421,8 @@ jobs_list_command.__doc__ = load_help_body("jobs/list")
 def jobs_show_command(
     ctx: typer.Context,
     job_id: str = typer.Argument(..., help="Project-local or qualified job identifier."),
-    project: Optional[str] = typer.Option(None, help="Path to the project root containing resources/schedules/."),
-    schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
     output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json or toon. Defaults to toon."),
 ) -> None:
@@ -439,8 +459,8 @@ def jobs_add_command(
     overlap: Optional[str] = typer.Option(None, help="Optional overlap policy override."),
     env: List[str] = typer.Option([], help="Environment variable assignment. Repeatable."),
     disabled: bool = typer.Option(False, help="Create the job as disabled in YAML."),
-    project: Optional[str] = typer.Option(None, help="Path to the project root containing resources/schedules/."),
-    schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
     output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json or toon. Defaults to toon."),
 ) -> None:
@@ -636,8 +656,8 @@ jobs_update_command.__doc__ = load_help_body("jobs/update")
 @logs_app.command("list")
 def logs_list_command(
     ctx: typer.Context,
-    project: Optional[str] = typer.Option(None, help="Path to the project root containing resources/schedules/."),
-    schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
     job: Optional[str] = typer.Option(None, help="Filter to one job by project-local or qualified identifier."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
     output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json, toon, or tmux. Defaults to toon."),
@@ -664,8 +684,8 @@ def logs_list_command(
 @logs_app.command("clear")
 def logs_clear_command(
     ctx: typer.Context,
-    project: Optional[str] = typer.Option(None, help="Path to the project root containing resources/schedules/."),
-    schedule: Optional[str] = typer.Option(None, help="Schedule name under resources/schedules/."),
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
     job: Optional[str] = typer.Option(None, help="Filter to one job by project-local or qualified identifier."),
     apply: bool = typer.Option(False, "--apply", help="Actually truncate log files. Without this flag, runs in dry-run mode."),
     fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),

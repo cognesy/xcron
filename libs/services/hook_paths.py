@@ -8,7 +8,7 @@ from pathlib import Path
 CODEX_HOOKS_RELATIVE_PATH = Path(".codex/hooks.json")
 CODEX_CONFIG_RELATIVE_PATH = Path(".codex/config.toml")
 CLAUDE_SETTINGS_RELATIVE_PATH = Path(".claude/settings.json")
-SESSION_LOG_RELATIVE_PATH = Path(".xcron/session-history.jsonl")
+SESSION_LOG_RELATIVE_PATH = Path("session-history.jsonl")
 
 
 __all__ = [

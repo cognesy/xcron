@@ -12,9 +12,9 @@ VALID_OUTPUT_FORMATS = ("json", "toon", "tmux")
 
 
 def resolve_project_path(value: str | None) -> Path:
-    if value:
-        return Path(value).expanduser().resolve()
-    return Path.cwd().resolve()
+    from libs.services.config_loader import resolve_project_root
+
+    return resolve_project_root(value)
 
 
 def env_path(name: str) -> Path | None:

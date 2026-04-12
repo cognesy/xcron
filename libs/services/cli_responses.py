@@ -60,6 +60,15 @@ class HomeJobsSummary(PayloadConvertible):
     total: int
 
 
+class InitResponse(PayloadConvertible):
+    kind: str
+    xcron_home: str
+    schedules_dir: str
+    manifest_path: str
+    created: bool
+    message: str
+
+
 class HomeResponse(PayloadConvertible):
     bin: str
     description: str

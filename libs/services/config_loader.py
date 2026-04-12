@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
@@ -18,7 +19,9 @@ from libs.domain.models import (
     ScheduleKind,
 )
 
-MANIFEST_DIR = Path("resources/schedules")
+XCRON_HOME_ENV_VAR = "XCRON_HOME"
+MANIFEST_DIR = Path("schedules")
+LEGACY_MANIFEST_DIR = Path("resources/schedules")
 MANIFEST_SUFFIXES = (".yaml", ".yml")
 
 
@@ -52,9 +55,30 @@ class LoadedManifestDocument:
     manifest: ProjectManifest | None = None
 
 
+def resolve_xcron_home(env: dict[str, str] | None = None) -> Path:
+    """Return the xcron home directory (~/.xcron by default, XCRON_HOME override)."""
+    env_map = os.environ if env is None else env
+    override = env_map.get(XCRON_HOME_ENV_VAR)
+    if override:
+        return Path(override).expanduser().resolve()
+    return (Path.home() / ".xcron").resolve()
+
+
+def _has_schedules(directory: Path) -> bool:
+    """Check whether a directory contains a schedules/ or resources/schedules/ subdir."""
+    return (directory / MANIFEST_DIR).is_dir() or (directory / LEGACY_MANIFEST_DIR).is_dir()
+
+
 def resolve_project_root(project_path: str | Path | None = None) -> Path:
-    """Resolve the target project root from the current directory or an explicit path."""
-    candidate = Path.cwd() if project_path is None else Path(project_path).expanduser()
+    """Resolve the target project root.
+
+    Priority: explicit --project > cwd (if it has schedules/) > ~/.xcron
+    """
+    if project_path is not None:
+        candidate = Path(project_path).expanduser()
+    else:
+        cwd = Path.cwd()
+        candidate = cwd if _has_schedules(cwd) else resolve_xcron_home()
     resolved = candidate.resolve()
     if not resolved.exists():
         raise ProjectResolutionError(f"project path does not exist: {resolved}")
@@ -65,7 +89,13 @@ def resolve_project_root(project_path: str | Path | None = None) -> Path:
 
 def resolve_manifest_dir(project_root: Path) -> Path:
     """Resolve the schedules directory for one project."""
-    return (project_root / MANIFEST_DIR).resolve()
+    primary = (project_root / MANIFEST_DIR).resolve()
+    if primary.exists():
+        return primary
+    legacy = (project_root / LEGACY_MANIFEST_DIR).resolve()
+    if legacy.exists():
+        return legacy
+    return primary
 
 
 def resolve_manifest_path(project_root: Path, schedule_name: str | None = None) -> Path:

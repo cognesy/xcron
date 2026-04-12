@@ -1,6 +1,7 @@
 """Action entrypoints for xcron use cases."""
 
 from libs.actions.apply_project import ApplyProjectResult, apply_project
+from libs.actions.init_home import InitHomeResult, init_home
 from libs.actions.inspect_job import InspectJobResult, inspect_job
 from libs.actions.manage_logs import (
     LogFileEntry,
@@ -27,6 +28,7 @@ from libs.actions.validate_project import ValidateProjectResult, validate_projec
 
 __all__ = [
     "ApplyProjectResult",
+    "InitHomeResult",
     "InspectJobResult",
     "JobActionResult",
     "LogFileEntry",
@@ -38,6 +40,7 @@ __all__ = [
     "ValidateProjectResult",
     "add_job",
     "apply_project",
+    "init_home",
     "clear_logs",
     "disable_job",
     "enable_job",

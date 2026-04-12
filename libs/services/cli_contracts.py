@@ -36,6 +36,12 @@ HOME_CONTRACT = CommandContract(
     ),
 )
 
+INIT_CONTRACT = CommandContract(
+    name="init",
+    default_fields=("kind", "xcron_home", "schedules_dir", "manifest_path", "created", "message"),
+    allowed_fields=("kind", "xcron_home", "schedules_dir", "manifest_path", "created", "message"),
+)
+
 VALIDATE_CONTRACT = CommandContract(
     name="validate",
     default_fields=("project", "manifest", "valid", "jobs", "manifest_hash", "errors", "warnings"),
@@ -235,6 +241,7 @@ COMMAND_CONTRACTS: dict[str, CommandContract] = {
     contract.name: contract
     for contract in (
         HOME_CONTRACT,
+        INIT_CONTRACT,
         VALIDATE_CONTRACT,
         PLAN_CONTRACT,
         APPLY_CONTRACT,
