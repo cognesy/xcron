@@ -12,7 +12,7 @@ from typing import Any
 
 from libs.actions.plan_project import PlanProjectResult
 from libs.domain import DeployedJobState, NormalizedJob, PlanChangeKind, ProjectState, ScheduleKind
-from libs.services.logging_paths import resolve_runtime_paths, runtime_log_paths_for_wrapper
+from libs.services.logging_paths import resolve_runtime_paths, runtime_event_log_path_for_wrapper, runtime_log_paths_for_wrapper
 from libs.services.observability import check_output_logged, get_logger, run_logged_subprocess
 from libs.services.state_store import save_project_state
 from libs.services.wrapper_renderer import RenderedWrapper, render_wrapper, write_wrapper
@@ -53,6 +53,7 @@ class LaunchdInspection:
     raw_plist: dict[str, Any]
     stdout_log_path: Path | None = None
     stderr_log_path: Path | None = None
+    event_log_path: Path | None = None
     launchctl_print: str | None = None
 
 
@@ -326,6 +327,7 @@ def apply_launchd_plan(
                 wrapper_path=str(runtime_paths.wrapper_path),
                 stdout_log_path=str(runtime_paths.stdout_log_path),
                 stderr_log_path=str(runtime_paths.stderr_log_path),
+                event_log_path=str(runtime_paths.event_log_path),
                 last_applied_at=timestamp,
             )
         )
@@ -378,8 +380,10 @@ def inspect_launchd_project(
             wrapper_path = Path(program_arguments[0])
         stdout_log_path = None
         stderr_log_path = None
+        event_log_path = None
         if wrapper_path is not None:
             stdout_log_path, stderr_log_path = runtime_log_paths_for_wrapper(wrapper_path)
+            event_log_path = runtime_event_log_path_for_wrapper(wrapper_path)
         inspections.append(
             LaunchdInspection(
                 qualified_id=qualified_id,
@@ -394,6 +398,7 @@ def inspect_launchd_project(
                 raw_plist=raw_plist,
                 stdout_log_path=stdout_log_path,
                 stderr_log_path=stderr_log_path,
+                event_log_path=event_log_path,
                 launchctl_print=launchctl_print,
             )
         )
@@ -435,6 +440,7 @@ def collect_launchd_project_state(
             wrapper_path=str(item.wrapper_path) if item.wrapper_path else None,
             stdout_log_path=str(item.stdout_log_path) if item.stdout_log_path else None,
             stderr_log_path=str(item.stderr_log_path) if item.stderr_log_path else None,
+            event_log_path=str(item.event_log_path) if item.event_log_path else None,
         )
         for item in inspections
     )

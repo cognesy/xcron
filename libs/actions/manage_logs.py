@@ -20,7 +20,7 @@ class LogFileEntry:
     """One discovered log file on disk."""
 
     qualified_id: str
-    kind: str  # "stdout" or "stderr"
+    kind: str  # "stdout", "stderr", or "events"
     path: str
     size_bytes: int
 
@@ -71,7 +71,11 @@ def _collect_log_files(
         if logs_dir is None:
             logs_dir = str(paths.logs_dir)
 
-        for kind, log_path in (("stdout", paths.stdout_log_path), ("stderr", paths.stderr_log_path)):
+        for kind, log_path in (
+            ("stdout", paths.stdout_log_path),
+            ("stderr", paths.stderr_log_path),
+            ("events", paths.event_log_path),
+        ):
             if log_path.exists():
                 entries.append(
                     LogFileEntry(
@@ -87,18 +91,21 @@ def _collect_log_files(
         known_paths = {entry.path for entry in entries}
         logs_dir_path = Path(logs_dir)
         if logs_dir_path.is_dir():
-            for log_file in sorted(logs_dir_path.glob("*.log")):
+            for log_file in sorted([*logs_dir_path.glob("*.log"), *logs_dir_path.glob("*.jsonl")]):
                 if str(log_file) not in known_paths:
-                    stem = log_file.stem
-                    if stem.endswith(".out"):
+                    name = log_file.name
+                    if name.endswith(".out.log"):
                         kind = "stdout"
-                        artifact_id = stem.removesuffix(".out")
-                    elif stem.endswith(".err"):
+                        artifact_id = name.removesuffix(".out.log")
+                    elif name.endswith(".err.log"):
                         kind = "stderr"
-                        artifact_id = stem.removesuffix(".err")
+                        artifact_id = name.removesuffix(".err.log")
+                    elif name.endswith(".events.jsonl"):
+                        kind = "events"
+                        artifact_id = name.removesuffix(".events.jsonl")
                     else:
                         kind = "unknown"
-                        artifact_id = stem
+                        artifact_id = log_file.stem
                     entries.append(
                         LogFileEntry(
                             qualified_id=f"(orphan) {artifact_id}",

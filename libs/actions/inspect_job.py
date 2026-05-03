@@ -199,6 +199,9 @@ def build_deployed_fields(inspection: Any | None) -> tuple[InspectField, ...]:
     stderr_log_path = getattr(inspection, "stderr_log_path", None)
     if stderr_log_path is not None:
         fields.append(InspectField("stderr_log", str(stderr_log_path)))
+    event_log_path = getattr(inspection, "event_log_path", None)
+    if event_log_path is not None:
+        fields.append(InspectField("event_log", str(event_log_path)))
     loaded = getattr(inspection, "loaded", None)
     if loaded is not None:
         fields.append(InspectField("loaded", str(loaded)))

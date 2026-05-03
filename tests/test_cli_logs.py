@@ -85,6 +85,18 @@ def test_logs_list_json_output(tmp_path, monkeypatch, capsys) -> None:
     assert all("job" in f and "kind" in f and "path" in f and "size" in f for f in payload["files"])
 
 
+def test_logs_list_includes_event_jsonl_stream(tmp_path, monkeypatch, capsys) -> None:
+    project, state_root, _ = _setup_project(tmp_path)
+    monkeypatch.setenv("XCRON_STATE_ROOT", str(state_root))
+    logs_dir = state_root / "projects" / "logs-demo" / "logs"
+    (logs_dir / "logs-demo.hello.events.jsonl").write_text('{"event":"job_started"}\n', encoding="utf-8")
+
+    assert main(["logs", "list", "--project", str(project), "--job", "hello", "--output", "json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+
+    assert {item["kind"] for item in payload["files"]} == {"stdout", "stderr", "events"}
+
+
 def test_logs_list_with_job_filter(tmp_path, monkeypatch, capsys) -> None:
     project, state_root, _ = _setup_project(tmp_path)
     monkeypatch.setenv("XCRON_STATE_ROOT", str(state_root))

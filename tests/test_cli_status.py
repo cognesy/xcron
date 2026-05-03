@@ -55,9 +55,13 @@ def test_status_prints_operator_facing_states_for_cron(tmp_path, monkeypatch, ca
     captured = capsys.readouterr()
 
     assert "backend: cron" in captured.out
-    assert_list_output(captured.out, count="2 of 2", header="statuses[2,]{kind,id,reason}:")
-    assert "ok,status-demo.ping_job,desired definition and actual backend state are aligned" in captured.out
-    assert "disabled,status-demo.paused_job,job is disabled in desired state" in captured.out
+    assert_list_output(
+        captured.out,
+        count="2 of 2",
+        header="statuses[2,]{kind,id,reason,schedule,last_applied_at,next_run}:",
+    )
+    assert "ok,status-demo.ping_job,desired definition and actual backend state are aligned,cron=*/5 * * * *,null,unavailable" in captured.out
+    assert "disabled,status-demo.paused_job,job is disabled in desired state,cron=0 * * * *,null,unavailable" in captured.out
 
 
 def test_status_supports_json_output_format_for_jq_style_consumers(tmp_path, monkeypatch, capsys) -> None:
@@ -107,6 +111,9 @@ def test_status_supports_json_output_format_for_jq_style_consumers(tmp_path, mon
         {
             "id": "status-demo.ping_job",
             "kind": "ok",
+            "last_applied_at": None,
+            "next_run": "unavailable",
             "reason": "desired definition and actual backend state are aligned",
+            "schedule": "cron=*/5 * * * *",
         }
     ]

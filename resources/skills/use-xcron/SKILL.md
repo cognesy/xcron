@@ -249,6 +249,13 @@ xcron inspect sync_reports --full
 snippets. Large snippet content is truncated by default and expanded by
 `--full`.
 
+Use `inspect` or `xcron logs list` to discover runtime logs:
+
+- `deployed.stdout_log` is raw child stdout.
+- `deployed.stderr_log` is raw child stderr plus wrapper lifecycle lines.
+- `deployed.event_log` is timestamped JSONL for wrapper run boundaries and
+  child output line framing.
+
 ## plan vs status
 
 `plan` compares the manifest against xcron's local records (written during

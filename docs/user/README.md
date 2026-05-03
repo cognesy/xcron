@@ -291,7 +291,8 @@ surfaces:
 - normalized desired fields such as schedule, enabled state, command,
   working directory, shell, and overlap policy
 - deployed backend fields such as artifact path, wrapper path, stdout/stderr
-  log paths, hashes, and backend-loaded/enabled state where applicable
+  log paths, wrapper event log path, hashes, and backend-loaded/enabled state
+  where applicable
 - backend-native raw detail:
   - cron: managed raw entry
   - launchd: raw plist content and `launchctl print` output when available
@@ -354,7 +355,8 @@ Managed derived state is stored machine-locally and partitioned by `project.id`.
 `xcron` manages:
 
 - wrapper scripts
-- stdout/stderr logs
+- raw stdout/stderr logs
+- JSONL wrapper event logs
 - per-project deployment metadata
 - backend-native artifacts such as plists or managed cron blocks
 
@@ -365,6 +367,12 @@ Application-level operational logs are separate from job-run logs. `xcron`
 writes command/action diagnostics to stderr through `structlog`, while stdout
 remains reserved for TOON or JSON command payloads. The default logging config
 lives in the installed `resources/logging/default.yaml` resource.
+
+Scheduled job logs are separate again. Each wrapper writes raw child output to
+`*.out.log` and `*.err.log`, and writes timestamped JSONL run events to
+`*.events.jsonl`. Use `xcron inspect <job-id>` or `xcron logs list` to discover
+the paths. For scheduled xpm dispatch jobs, prefer the event log plus xpm's own
+dispatch JSONL logs over reading repeated TOON payloads from raw stdout.
 
 Useful logging overrides:
 

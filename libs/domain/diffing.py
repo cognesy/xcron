@@ -49,6 +49,7 @@ class DeployedJobState:
     wrapper_path: str | None = None
     stdout_log_path: str | None = None
     stderr_log_path: str | None = None
+    event_log_path: str | None = None
     last_applied_at: str | None = None
 
 

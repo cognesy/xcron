@@ -27,7 +27,13 @@ from libs.services.hook_installer import (
     inspect_agent_hooks,
     resolve_xcron_executable,
 )
-from libs.services.logging_paths import RuntimePaths, ensure_runtime_dirs, resolve_runtime_paths, runtime_log_paths_for_wrapper
+from libs.services.logging_paths import (
+    RuntimePaths,
+    ensure_runtime_dirs,
+    resolve_runtime_paths,
+    runtime_event_log_path_for_wrapper,
+    runtime_log_paths_for_wrapper,
+)
 from libs.services.logging_config import (
     LOGGING_CONFIG_NAME,
     LOGGING_PACKAGE,
@@ -257,6 +263,7 @@ __all__ = [
     "resolve_project_state_path",
     "resolve_state_root",
     "resolve_runtime_paths",
+    "runtime_event_log_path_for_wrapper",
     "runtime_log_paths_for_wrapper",
     "resolve_xcron_executable",
     "remove_manifest_job",

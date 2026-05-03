@@ -53,7 +53,7 @@ For admin work, this changes how you should read command results:
 ~/Library/Application Support/xcron/projects/<project-id>/
   project-state.json       # xcron's records from last apply
   wrappers/                # generated shell wrapper scripts
-  logs/                    # stdout and stderr logs per job
+  logs/                    # stdout, stderr, and JSONL event logs per job
   locks/                   # overlap lock directories (transient)
 
 # Linux
@@ -118,7 +118,7 @@ Shows:
 - normalized desired definition (schedule, command, working dir, env, overlap)
 - artifact path (plist or crontab reference)
 - wrapper script path
-- stdout and stderr log paths
+- stdout, stderr, and JSONL event log paths
 - backend-native status (launchd loaded/enabled state, raw plist, or managed
   cron entry)
 - hash comparison (desired hash vs deployed hash)
@@ -208,15 +208,24 @@ Check the job's log files. The paths are shown by `xcron inspect <job-id>`.
 
 ```sh
 xcron inspect <job-id>
-# note stdout_log_path and stderr_log_path, then:
+# note deployed.stdout_log, deployed.stderr_log, and deployed.event_log, then:
 tail -f ~/.local/state/xcron/projects/<id>/logs/<artifact-id>.err.log
+tail -f ~/.local/state/xcron/projects/<id>/logs/<artifact-id>.events.jsonl
 ```
 
-The stderr log contains xcron's own lifecycle markers:
+The event log contains parseable wrapper lifecycle and child-output events:
+
+```json
+{"event":"job_started","qualified_id":"myapp.sync","run_id":"20260503T210000Z-12345"}
+{"event":"child_output","stream":"stdout","sequence":0,"line":"..."}
+{"event":"job_finished","exit_code":0,"duration_seconds":1}
+```
+
+The stderr log also contains human-readable wrapper lifecycle markers:
 
 ```
-2026-03-23T05:00:00Z event=job_started qualified_id=myapp.sync pid=12345
-2026-03-23T05:00:01Z event=job_finished qualified_id=myapp.sync exit_code=0 duration_seconds=1
+2026-03-23T05:00:00Z event=job_started run_id=... qualified_id=myapp.sync pid=12345
+2026-03-23T05:00:01Z event=job_finished run_id=... qualified_id=myapp.sync exit_code=0 duration_seconds=1
 ```
 
 If `job_started` appears but `job_finished` does not, the process was killed.

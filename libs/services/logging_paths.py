@@ -20,6 +20,7 @@ class RuntimePaths:
     wrapper_path: Path
     stdout_log_path: Path
     stderr_log_path: Path
+    event_log_path: Path
     lock_path: Path
 
 
@@ -37,6 +38,7 @@ def resolve_runtime_paths(job: NormalizedJob, state_root: Path | None = None) ->
         wrapper_path=wrappers_dir / f"{job.artifact_id}.sh",
         stdout_log_path=logs_dir / f"{job.artifact_id}.out.log",
         stderr_log_path=logs_dir / f"{job.artifact_id}.err.log",
+        event_log_path=logs_dir / f"{job.artifact_id}.events.jsonl",
         lock_path=locks_dir / f"{job.artifact_id}.lock",
     )
 
@@ -55,3 +57,11 @@ def runtime_log_paths_for_wrapper(wrapper_path: Path) -> tuple[Path, Path]:
     artifact_id = wrapper_path.stem
     logs_dir = project_dir / "logs"
     return logs_dir / f"{artifact_id}.out.log", logs_dir / f"{artifact_id}.err.log"
+
+
+def runtime_event_log_path_for_wrapper(wrapper_path: Path) -> Path:
+    """Derive the JSONL wrapper event log path from one managed wrapper path."""
+    wrappers_dir = wrapper_path.expanduser().resolve().parent
+    project_dir = wrappers_dir.parent
+    artifact_id = wrapper_path.stem
+    return project_dir / "logs" / f"{artifact_id}.events.jsonl"

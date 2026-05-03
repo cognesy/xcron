@@ -57,6 +57,7 @@ def test_cron_backend_apply_inspect_and_prune(tmp_path) -> None:
     assert all(item.artifact_path == str(crontab_path) for item in inspections)
     assert all(item.stdout_log_path.name.endswith(".out.log") for item in inspections)
     assert all(item.stderr_log_path.name.endswith(".err.log") for item in inspections)
+    assert all(item.event_log_path.name.endswith(".events.jsonl") for item in inspections)
 
     removed = prune_cron_project("cron-demo", crontab_path=crontab_path, manage_crontab=True)
     pruned_content = crontab_path.read_text(encoding="utf-8")
@@ -121,3 +122,4 @@ def test_apply_project_repairs_missing_actual_cron_block(tmp_path) -> None:
     assert inspections[0].job_id == "sync_job"
     assert inspections[0].stdout_log_path.name == "demo.project.sync_job.out.log"
     assert inspections[0].stderr_log_path.name == "demo.project.sync_job.err.log"
+    assert inspections[0].event_log_path.name == "demo.project.sync_job.events.jsonl"

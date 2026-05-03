@@ -77,6 +77,7 @@ def load_project_state(project_id: str, backend: str, state_root: Path | None = 
             wrapper_path=item.get("wrapper_path"),
             stdout_log_path=item.get("stdout_log_path"),
             stderr_log_path=item.get("stderr_log_path"),
+            event_log_path=item.get("event_log_path"),
             last_applied_at=item.get("last_applied_at"),
         )
         for item in data.get("jobs", [])

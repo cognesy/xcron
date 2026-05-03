@@ -75,8 +75,20 @@ def test_map_status_response_builds_typed_rows() -> None:
     result = SimpleNamespace(
         backend="cron",
         statuses=(
-            SimpleNamespace(kind=SimpleNamespace(value="ok"), qualified_id="demo.sync", reason="aligned"),
-            SimpleNamespace(kind=SimpleNamespace(value="disabled"), qualified_id="demo.pause", reason="disabled in desired state"),
+            SimpleNamespace(
+                kind=SimpleNamespace(value="ok"),
+                qualified_id="demo.sync",
+                reason="aligned",
+                desired_job=None,
+                deployed_job=None,
+            ),
+            SimpleNamespace(
+                kind=SimpleNamespace(value="disabled"),
+                qualified_id="demo.pause",
+                reason="disabled in desired state",
+                desired_job=None,
+                deployed_job=None,
+            ),
         ),
     )
 

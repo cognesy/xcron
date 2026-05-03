@@ -9,7 +9,7 @@ import re
 
 from libs.actions.plan_project import PlanProjectResult
 from libs.domain import DeployedJobState, NormalizedJob, ProjectState, ScheduleKind
-from libs.services.logging_paths import resolve_runtime_paths, runtime_log_paths_for_wrapper
+from libs.services.logging_paths import resolve_runtime_paths, runtime_event_log_path_for_wrapper, runtime_log_paths_for_wrapper
 from libs.services.observability import get_logger, run_logged_subprocess
 from libs.services.state_store import save_project_state
 from libs.services.wrapper_renderer import render_wrapper, write_wrapper
@@ -41,6 +41,7 @@ class CronInspection:
     raw_entry: str
     stdout_log_path: Path
     stderr_log_path: Path
+    event_log_path: Path
 
 
 def read_crontab(*, crontab_path: Path | None = None) -> str:
@@ -200,6 +201,7 @@ def inspect_cron_project(project_id: str, *, crontab_path: Path | None = None) -
         schedule, wrapper_path = split_cron_entry(cron_line)
         wrapper = Path(wrapper_path)
         stdout_log_path, stderr_log_path = runtime_log_paths_for_wrapper(wrapper)
+        event_log_path = runtime_event_log_path_for_wrapper(wrapper)
         inspections.append(
             CronInspection(
                 qualified_id=current_meta.group("qualified_id"),
@@ -213,6 +215,7 @@ def inspect_cron_project(project_id: str, *, crontab_path: Path | None = None) -
                 raw_entry=line,
                 stdout_log_path=stdout_log_path,
                 stderr_log_path=stderr_log_path,
+                event_log_path=event_log_path,
             )
         )
         current_meta = None
@@ -249,6 +252,7 @@ def collect_cron_project_state(project_id: str, *, crontab_path: Path | None = N
             wrapper_path=str(item.wrapper_path),
             stdout_log_path=str(item.stdout_log_path),
             stderr_log_path=str(item.stderr_log_path),
+            event_log_path=str(item.event_log_path),
         )
         for item in inspections
     )
@@ -309,6 +313,7 @@ def apply_cron_plan(
                 wrapper_path=str(wrapper_paths[job.qualified_id]),
                 stdout_log_path=str(runtime_paths.stdout_log_path),
                 stderr_log_path=str(runtime_paths.stderr_log_path),
+                event_log_path=str(runtime_paths.event_log_path),
                 last_applied_at=timestamp,
             )
         )
