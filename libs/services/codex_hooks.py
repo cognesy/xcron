@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from libs.services.hook_paths import CODEX_CONFIG_RELATIVE_PATH, CODEX_HOOKS_RELATIVE_PATH
+from xcron_libs.services.hook_paths import CODEX_CONFIG_RELATIVE_PATH, CODEX_HOOKS_RELATIVE_PATH
 
 
 @dataclass(frozen=True)

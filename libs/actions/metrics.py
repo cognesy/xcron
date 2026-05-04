@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from libs.services import MetricsResetResponse, MetricsResponse, MetricsService
+from xcron_libs.services import MetricsResetResponse, MetricsResponse, MetricsService
 
 
 def show_metrics() -> MetricsResponse:

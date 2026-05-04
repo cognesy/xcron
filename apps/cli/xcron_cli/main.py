@@ -9,7 +9,7 @@ from click import ClickException
 from click.exceptions import Exit as ClickExit
 from typer.main import get_command
 
-from apps.cli.typer_app import app
+from xcron_cli.typer_app import app
 
 
 def main(argv: Sequence[str] | None = None) -> int:

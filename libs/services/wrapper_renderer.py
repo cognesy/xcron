@@ -6,9 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 import shlex
 
-from libs.domain.models import NormalizedJob, OverlapPolicy
-from libs.services.logging_paths import RuntimePaths, ensure_runtime_dirs, resolve_runtime_paths
-from libs.services.observability import get_logger
+from xcron_libs.domain.models import NormalizedJob, OverlapPolicy
+from xcron_libs.services.logging_paths import RuntimePaths, ensure_runtime_dirs, resolve_runtime_paths
+from xcron_libs.services.observability import get_logger
 
 LOGGER = get_logger(__name__)
 

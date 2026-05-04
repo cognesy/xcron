@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import textwrap
 
-from libs.actions.plan_project import plan_project
-from libs.domain import (
+from xcron_libs.actions.plan_project import plan_project
+from xcron_libs.domain import (
     DeployedJobState,
     ProjectState,
     StatusKind,
     build_status_entries,
 )
-from libs.services.state_store import save_project_state
+from xcron_libs.services.state_store import save_project_state
 
 
 def test_status_projection_maps_plan_changes_to_spec_vocabulary(tmp_path) -> None:

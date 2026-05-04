@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from libs.services import get_logger, instrument_action
-from libs.services.config_loader import MANIFEST_DIR, resolve_xcron_home
+from xcron_libs.services import get_logger, instrument_action
+from xcron_libs.services.config_loader import MANIFEST_DIR, resolve_xcron_home
 
 LOGGER = get_logger(__name__)
 

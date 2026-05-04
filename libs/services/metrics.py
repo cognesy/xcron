@@ -14,7 +14,7 @@ def utc_timestamp() -> str:
 
 
 def resolve_metrics_path(env: dict[str, str] | None = None) -> Path:
-    from libs.services.config_loader import resolve_xcron_home
+    from xcron_libs.services.config_loader import resolve_xcron_home
 
     root = resolve_xcron_home(env=env)
     return (root / "metrics" / "metrics.json").resolve()

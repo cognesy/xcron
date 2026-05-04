@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from libs.services.cli_contracts import get_command_contract
+from xcron_libs.services.cli_contracts import get_command_contract
 
 
 def test_cli_contract_registry_exposes_representative_command_metadata() -> None:

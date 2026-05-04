@@ -10,7 +10,7 @@ from typing import Any
 import yaml
 
 
-LOGGING_PACKAGE = "resources.logging"
+LOGGING_PACKAGE = "xcron_resources.logging"
 LOGGING_CONFIG_NAME = "default.yaml"
 LOG_LEVEL_ENV = "XCRON_LOG_LEVEL"
 LOG_FORMAT_ENV = "XCRON_LOG_FORMAT"

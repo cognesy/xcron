@@ -6,9 +6,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from libs.actions.validate_project import ValidateProjectResult, validate_project
-from libs.domain import NormalizedJob, NormalizedManifest, normalize_manifest
-from libs.services import (
+from xcron_libs.actions.validate_project import ValidateProjectResult, validate_project
+from xcron_libs.domain import NormalizedJob, NormalizedManifest, normalize_manifest
+from xcron_libs.services import (
     ManifestEditError,
     ManifestEditValidationError,
     ValidationMessage,

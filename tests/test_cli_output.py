@@ -7,8 +7,8 @@ import click
 import pytest
 import typer
 
-from apps.cli.output import Output
-from libs.services.cli_responses import (
+from xcron_cli.output import Output
+from xcron_libs.services.cli_responses import (
     HomeJobsSummary,
     HomeResponse,
     InspectResponse,

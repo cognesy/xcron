@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from libs.actions.init_home import init_home
-from libs.services.config_loader import (
+from xcron_libs.actions.init_home import init_home
+from xcron_libs.services.config_loader import (
     resolve_manifest_dir,
     resolve_project_root,
     resolve_xcron_home,

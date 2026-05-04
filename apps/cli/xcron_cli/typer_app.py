@@ -8,15 +8,15 @@ from typing import List, NoReturn, Optional
 
 import typer
 
-from apps.cli.common import (
+from xcron_cli.common import (
     env_flag,
     env_path,
     env_string,
     resolve_project_path,
     validation_details,
 )
-from apps.cli.output import Output
-from libs.actions import (
+from xcron_cli.output import Output
+from xcron_libs.actions import (
     add_job,
     apply_project,
     clear_logs,
@@ -36,7 +36,7 @@ from libs.actions import (
     update_job,
     validate_project,
 )
-from libs.services import (
+from xcron_libs.services import (
     capture_session_end,
     collapse_home_path,
     ensure_agent_hooks,
@@ -108,7 +108,7 @@ def _build_output(ctx: typer.Context, contract_name: str, output_format: str | N
 
 
 def _emit_bootstrap_usage_error(message: str, *, output_format: str) -> NoReturn:
-    from libs.services import render_tmux
+    from xcron_libs.services import render_tmux
 
     payload = {
         "kind": "error",

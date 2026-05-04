@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from libs.services.tmux_renderer import render_tmux
+from xcron_libs.services.tmux_renderer import render_tmux
 
 
 def test_render_scalar_fields() -> None:

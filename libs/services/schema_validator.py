@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from importlib.resources import files
 from pathlib import Path
 import re
 from typing import Any, Mapping, Sequence
@@ -11,11 +12,12 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import jsonschema
 import yaml
 
-from libs.domain.models import ProjectManifest, ScheduleKind, SUPPORTED_EVERY_SUFFIXES, resolve_working_dir
+from xcron_libs.domain.models import ProjectManifest, ScheduleKind, SUPPORTED_EVERY_SUFFIXES, resolve_working_dir
 
 
 CRON_FIELD_PATTERN = re.compile(r"^[0-9A-Za-z*/,\-]+$")
-SCHEMA_PATH = Path(__file__).resolve().parents[2] / "resources" / "schemas" / "schedules.schema.yaml"
+SCHEMA_PACKAGE = "xcron_resources.schemas"
+SCHEMA_NAME = "schedules.schema.yaml"
 
 
 @dataclass(frozen=True)
@@ -29,9 +31,13 @@ class ValidationMessage:
 
 def load_schema(schema_path: Path | None = None) -> Mapping[str, Any]:
     """Load the JSON Schema document used to validate schedule manifests."""
-    target = SCHEMA_PATH if schema_path is None else Path(schema_path)
-    with target.open("r", encoding="utf-8") as handle:
-        loaded = yaml.safe_load(handle)
+    if schema_path is None:
+        target = files(SCHEMA_PACKAGE).joinpath(SCHEMA_NAME)
+        loaded = yaml.safe_load(target.read_text(encoding="utf-8"))
+    else:
+        target = Path(schema_path)
+        with target.open("r", encoding="utf-8") as handle:
+            loaded = yaml.safe_load(handle)
     if not isinstance(loaded, Mapping):
         raise ValueError(f"schema root must be a mapping: {target}")
     return loaded

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
 
-from libs.domain.models import (
+from xcron_libs.domain.models import (
     JobDefinition,
     NormalizedExecutionConfig,
     NormalizedJob,

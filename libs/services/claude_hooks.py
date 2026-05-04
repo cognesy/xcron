@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from libs.services.hook_paths import CLAUDE_SETTINGS_RELATIVE_PATH
+from xcron_libs.services.hook_paths import CLAUDE_SETTINGS_RELATIVE_PATH
 
 
 @dataclass(frozen=True)

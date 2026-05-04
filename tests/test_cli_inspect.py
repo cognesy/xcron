@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import textwrap
 
-from apps.cli.main import main
-from libs.actions.apply_project import apply_project
+from xcron_cli.main import main
+from xcron_libs.actions.apply_project import apply_project
 
 
 def test_inspect_prints_artifact_wrapper_and_log_paths_for_cron(tmp_path, monkeypatch, capsys) -> None:

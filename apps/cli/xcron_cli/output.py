@@ -9,8 +9,8 @@ from typing import Any, Literal, NoReturn, cast
 
 import typer
 
-from apps.cli.common import selected_output_format
-from libs.services import (
+from xcron_cli.common import selected_output_format
+from xcron_libs.services import (
     CommandContract,
     ErrorDetail,
     ErrorResponse,

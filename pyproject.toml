@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Per-project schedule reconciliation prototype for native OS schedulers"
 readme = "SPEC.md"
 requires-python = ">=3.9"
-license = { text = "Proprietary" }
+license = "LicenseRef-Proprietary"
 authors = [
   { name = "Dariusz Debowczyk" }
 ]
@@ -28,18 +28,35 @@ dev = [
 ]
 
 [project.scripts]
-xcron = "apps.cli.typer_app:run"
+xcron = "xcron_cli.typer_app:run"
 
 [tool.setuptools]
 include-package-data = true
+packages = [
+  "xcron_cli",
+  "xcron_libs",
+  "xcron_libs.actions",
+  "xcron_libs.domain",
+  "xcron_libs.infra",
+  "xcron_libs.services",
+  "xcron_libs.services.backends",
+  "xcron_resources",
+  "xcron_resources.help",
+  "xcron_resources.help.jobs",
+  "xcron_resources.logging",
+  "xcron_resources.schemas",
+]
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["apps*", "libs*", "resources*"]
+[tool.setuptools.package-dir]
+xcron_cli = "apps/cli/xcron_cli"
+xcron_libs = "libs"
+xcron_resources = "resources"
 
 [tool.setuptools.package-data]
-"resources.help" = ["*.md", "jobs/*.md"]
-"resources.logging" = ["*.yaml"]
+"xcron_resources.help" = ["*.md", "jobs/*.md"]
+"xcron_resources.help.jobs" = ["*.md"]
+"xcron_resources.logging" = ["*.yaml"]
+"xcron_resources.schemas" = ["*.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

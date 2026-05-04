@@ -8,9 +8,9 @@ import json
 from pathlib import Path
 import shutil
 
-from libs.services.claude_hooks import ClaudeHookStatus, ensure_claude_hooks, inspect_claude_hooks
-from libs.services.codex_hooks import CodexHookStatus, ensure_codex_hooks, inspect_codex_hooks
-from libs.services.hook_paths import (
+from xcron_libs.services.claude_hooks import ClaudeHookStatus, ensure_claude_hooks, inspect_claude_hooks
+from xcron_libs.services.codex_hooks import CodexHookStatus, ensure_codex_hooks, inspect_codex_hooks
+from xcron_libs.services.hook_paths import (
     CLAUDE_SETTINGS_RELATIVE_PATH,
     CODEX_CONFIG_RELATIVE_PATH,
     CODEX_HOOKS_RELATIVE_PATH,

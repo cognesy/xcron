@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from libs.services.cli_contracts import get_command_contract
-from libs.services.cli_mappers import (
+from xcron_libs.services.cli_contracts import get_command_contract
+from xcron_libs.services.cli_mappers import (
     map_apply_response,
     map_error_response,
     map_home_response,

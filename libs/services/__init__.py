@@ -1,7 +1,7 @@
 """Context-independent service layer for xcron."""
 """Reusable services for xcron actions."""
 
-from libs.services.config_loader import (
+from xcron_libs.services.config_loader import (
     MANIFEST_DIR,
     MANIFEST_SUFFIXES,
     AmbiguousManifestSelectionError,
@@ -15,8 +15,8 @@ from libs.services.config_loader import (
     resolve_manifest_path,
     resolve_project_root,
 )
-from libs.services.hash_service import ManifestHashes, build_manifest_hashes
-from libs.services.hook_installer import (
+from xcron_libs.services.hash_service import ManifestHashes, build_manifest_hashes
+from xcron_libs.services.hook_installer import (
     CODEX_CONFIG_RELATIVE_PATH,
     CODEX_HOOKS_RELATIVE_PATH,
     CLAUDE_SETTINGS_RELATIVE_PATH,
@@ -27,14 +27,14 @@ from libs.services.hook_installer import (
     inspect_agent_hooks,
     resolve_xcron_executable,
 )
-from libs.services.logging_paths import (
+from xcron_libs.services.logging_paths import (
     RuntimePaths,
     ensure_runtime_dirs,
     resolve_runtime_paths,
     runtime_event_log_path_for_wrapper,
     runtime_log_paths_for_wrapper,
 )
-from libs.services.logging_config import (
+from xcron_libs.services.logging_config import (
     LOGGING_CONFIG_NAME,
     LOGGING_PACKAGE,
     LOG_FORMAT_ENV,
@@ -45,7 +45,7 @@ from libs.services.logging_config import (
     apply_logging_env_overrides,
     load_logging_config,
 )
-from libs.services.manifest_editor import (
+from xcron_libs.services.manifest_editor import (
     ManifestEditError,
     ManifestEditValidationError,
     ManifestJobAlreadyExistsError,
@@ -58,15 +58,15 @@ from libs.services.manifest_editor import (
     set_manifest_job_enabled,
     update_manifest_job,
 )
-from libs.services.observability import (
+from xcron_libs.services.observability import (
     check_output_logged,
     configure_logging,
     get_logger,
     instrument_action,
     run_logged_subprocess,
 )
-from libs.services.schema_validator import ValidationMessage, validate_schema, validate_semantics
-from libs.services.state_store import (
+from xcron_libs.services.schema_validator import ValidationMessage, validate_schema, validate_semantics
+from xcron_libs.services.state_store import (
     STATE_ENV_VAR,
     default_backend_for_current_platform,
     delete_project_state,
@@ -76,8 +76,8 @@ from libs.services.state_store import (
     resolve_state_root,
     save_project_state,
 )
-from libs.services.metrics import MetricsService, resolve_metrics_path
-from libs.services.axi_presenter import (
+from xcron_libs.services.metrics import MetricsService, resolve_metrics_path
+from xcron_libs.services.axi_presenter import (
     build_error_payload,
     collapse_home_path,
     parse_fields_csv,
@@ -88,8 +88,8 @@ from libs.services.axi_presenter import (
     select_nested_fields,
     truncate_text,
 )
-from libs.services.claude_hooks import ClaudeHookStatus, ensure_claude_hooks, inspect_claude_hooks
-from libs.services.cli_mappers import (
+from xcron_libs.services.claude_hooks import ClaudeHookStatus, ensure_claude_hooks, inspect_claude_hooks
+from xcron_libs.services.cli_mappers import (
     map_apply_response,
     map_error_response,
     map_home_response,
@@ -104,7 +104,7 @@ from libs.services.cli_mappers import (
     map_status_response,
     map_validation_response,
 )
-from libs.services.cli_responses import (
+from xcron_libs.services.cli_responses import (
     ClaudeHookStatusResponse,
     CodexHookStatusResponse,
     ErrorDetail,
@@ -133,18 +133,18 @@ from libs.services.cli_responses import (
     SummaryRow,
     ValidationSummaryResponse,
 )
-from libs.services.cli_contracts import (
+from xcron_libs.services.cli_contracts import (
     COMMAND_CONTRACTS,
     CommandContract,
     allowed_request_fields,
     get_command_contract,
     validate_requested_fields,
 )
-from libs.services.codex_hooks import CodexHookStatus, ensure_codex_hooks, inspect_codex_hooks
-from libs.services.help_renderer import HELP_PACKAGE, load_help_body, render_help_markdown, render_help_text
-from libs.services.tmux_renderer import render_tmux
-from libs.services.toon_renderer import TOON_OPTIONS, normalize_for_toon, render_toon
-from libs.services.wrapper_renderer import RenderedWrapper, render_wrapper, write_wrapper
+from xcron_libs.services.codex_hooks import CodexHookStatus, ensure_codex_hooks, inspect_codex_hooks
+from xcron_libs.services.help_renderer import HELP_PACKAGE, load_help_body, render_help_markdown, render_help_text
+from xcron_libs.services.tmux_renderer import render_tmux
+from xcron_libs.services.toon_renderer import TOON_OPTIONS, normalize_for_toon, render_toon
+from xcron_libs.services.wrapper_renderer import RenderedWrapper, render_wrapper, write_wrapper
 
 __all__ = [
     "AmbiguousManifestSelectionError",

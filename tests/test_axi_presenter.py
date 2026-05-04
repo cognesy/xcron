@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from libs.services.axi_presenter import build_error_payload, parse_fields_csv, select_fields, truncate_text
+from xcron_libs.services.axi_presenter import build_error_payload, parse_fields_csv, select_fields, truncate_text
 
 
 def test_parse_fields_csv_preserves_order_and_drops_empty_values() -> None:

@@ -10,12 +10,12 @@ import plistlib
 import re
 from typing import Any
 
-from libs.actions.plan_project import PlanProjectResult
-from libs.domain import DeployedJobState, NormalizedJob, PlanChangeKind, ProjectState, ScheduleKind
-from libs.services.logging_paths import resolve_runtime_paths, runtime_event_log_path_for_wrapper, runtime_log_paths_for_wrapper
-from libs.services.observability import check_output_logged, get_logger, run_logged_subprocess
-from libs.services.state_store import save_project_state
-from libs.services.wrapper_renderer import RenderedWrapper, render_wrapper, write_wrapper
+from xcron_libs.actions.plan_project import PlanProjectResult
+from xcron_libs.domain import DeployedJobState, NormalizedJob, PlanChangeKind, ProjectState, ScheduleKind
+from xcron_libs.services.logging_paths import resolve_runtime_paths, runtime_event_log_path_for_wrapper, runtime_log_paths_for_wrapper
+from xcron_libs.services.observability import check_output_logged, get_logger, run_logged_subprocess
+from xcron_libs.services.state_store import save_project_state
+from xcron_libs.services.wrapper_renderer import RenderedWrapper, render_wrapper, write_wrapper
 
 
 LABEL_PREFIX = "com.xcron"

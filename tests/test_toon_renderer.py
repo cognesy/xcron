@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from libs.services.toon_renderer import normalize_for_toon, render_toon
+from xcron_libs.services.toon_renderer import normalize_for_toon, render_toon
 
 
 def test_render_toon_encodes_root_object_with_bool_and_null() -> None:

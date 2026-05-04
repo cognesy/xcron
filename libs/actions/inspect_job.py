@@ -7,11 +7,11 @@ from pathlib import Path
 import plistlib
 from typing import Any
 
-from libs.actions.status_project import StatusProjectResult, status_project
-from libs.domain import NormalizedJob, StatusEntry
-from libs.services import get_logger, instrument_action
-from libs.services.backends.cron_service import inspect_cron_project
-from libs.services.backends.launchd_service import inspect_launchd_project
+from xcron_libs.actions.status_project import StatusProjectResult, status_project
+from xcron_libs.domain import NormalizedJob, StatusEntry
+from xcron_libs.services import get_logger, instrument_action
+from xcron_libs.services.backends.cron_service import inspect_cron_project
+from xcron_libs.services.backends.launchd_service import inspect_launchd_project
 
 
 LOGGER = get_logger(__name__)

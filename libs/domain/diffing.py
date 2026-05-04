@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
-from libs.domain.models import NormalizedJob, NormalizedManifest
+from xcron_libs.domain.models import NormalizedJob, NormalizedManifest
 
 
 class PlanChangeKind(str, Enum):

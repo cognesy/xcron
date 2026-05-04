@@ -2,7 +2,16 @@ from __future__ import annotations
 
 import textwrap
 
-from libs.actions.validate_project import validate_project
+from xcron_libs.actions.validate_project import validate_project
+from xcron_libs.services.schema_validator import SCHEMA_PACKAGE, load_schema
+
+
+def test_load_schema_reads_project_resource_package() -> None:
+    schema = load_schema()
+
+    assert SCHEMA_PACKAGE == "xcron_resources.schemas"
+    assert schema["type"] == "object"
+    assert "jobs" in schema["properties"]
 
 
 def test_validate_project_success_and_hash_determinism(tmp_path) -> None:

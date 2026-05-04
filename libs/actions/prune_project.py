@@ -6,11 +6,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from libs.actions.validate_project import validate_project
-from libs.services import get_logger, instrument_action
-from libs.services.backends.cron_service import prune_cron_project
-from libs.services.backends.launchd_service import prune_launchd_project
-from libs.services.state_store import default_backend_for_current_platform, delete_project_state
+from xcron_libs.actions.validate_project import validate_project
+from xcron_libs.services import get_logger, instrument_action
+from xcron_libs.services.backends.cron_service import prune_cron_project
+from xcron_libs.services.backends.launchd_service import prune_launchd_project
+from xcron_libs.services.state_store import default_backend_for_current_platform, delete_project_state
 
 LOGGER = get_logger(__name__)
 

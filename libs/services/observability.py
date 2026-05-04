@@ -12,7 +12,7 @@ from typing import Any, TypeVar
 
 import structlog
 
-from libs.services.logging_config import LoggingConfig, load_logging_config
+from xcron_libs.services.logging_config import LoggingConfig, load_logging_config
 
 
 F = TypeVar("F", bound=Callable[..., Any])

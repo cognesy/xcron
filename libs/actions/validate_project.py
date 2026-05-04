@@ -5,16 +5,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from libs.domain import NormalizedManifest, normalize_manifest
-from libs.services import get_logger, instrument_action
-from libs.services.config_loader import (
+from xcron_libs.domain import NormalizedManifest, normalize_manifest
+from xcron_libs.services import get_logger, instrument_action
+from xcron_libs.services.config_loader import (
     LoadedManifestDocument,
     ManifestLoadError,
     attach_parsed_manifest,
     load_project_manifest,
 )
-from libs.services.hash_service import ManifestHashes, build_manifest_hashes
-from libs.services.schema_validator import (
+from xcron_libs.services.hash_service import ManifestHashes, build_manifest_hashes
+from xcron_libs.services.schema_validator import (
     ValidationMessage,
     split_validation_messages,
     validate_schema,

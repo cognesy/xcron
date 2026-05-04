@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import textwrap
 
-from apps.cli.main import main
+from xcron_cli.main import main
 
 
 def test_bare_xcron_returns_content_first_home_view(tmp_path, capsys) -> None:

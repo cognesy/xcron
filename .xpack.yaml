@@ -1,0 +1,22 @@
+expected_scripts:
+  - xcron
+smoke_commands:
+  # Keep these installed-wheel checks read-only and isolated from host schedulers.
+  - name: xcron
+    args: ["--help"]
+  - name: xcron
+    args: ["--output", "json"]
+    cwd: "{workspace}"
+    env:
+      XCRON_HOME: "{project}/resources/examples/basic"
+      XCRON_STATE_ROOT: "{temp}/state"
+      XCRON_MANAGE_LAUNCHCTL: "0"
+      XCRON_MANAGE_CRONTAB: "0"
+  - name: xcron
+    args: ["status", "--backend", "cron", "--output", "json", "--fields", "backend,statuses"]
+    cwd: "{workspace}"
+    env:
+      XCRON_HOME: "{project}/resources/examples/basic"
+      XCRON_STATE_ROOT: "{temp}/state"
+      XCRON_CRONTAB_PATH: "{temp}/crontab"
+      XCRON_MANAGE_CRONTAB: "0"

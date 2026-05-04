@@ -11,10 +11,10 @@ from typing import Any, Mapping, Sequence
 
 import yaml
 
-from libs.domain.models import ProjectManifest
-from libs.services.config_loader import LoadedManifestDocument, attach_parsed_manifest, load_project_manifest
-from libs.services.observability import get_logger
-from libs.services.schema_validator import (
+from xcron_libs.domain.models import ProjectManifest
+from xcron_libs.services.config_loader import LoadedManifestDocument, attach_parsed_manifest, load_project_manifest
+from xcron_libs.services.observability import get_logger
+from xcron_libs.services.schema_validator import (
     ValidationMessage,
     split_validation_messages,
     validate_schema,

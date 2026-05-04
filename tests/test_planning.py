@@ -4,12 +4,12 @@ import textwrap
 
 import pytest
 
-from libs.actions.apply_project import apply_project
-from libs.actions.plan_project import plan_project
-from libs.actions.validate_project import validate_project
-from libs.domain import DeployedJobState, ProjectState
-from libs.domain.diffing import PlanChangeKind
-from libs.services.state_store import save_project_state
+from xcron_libs.actions.apply_project import apply_project
+from xcron_libs.actions.plan_project import plan_project
+from xcron_libs.actions.validate_project import validate_project
+from xcron_libs.domain import DeployedJobState, ProjectState
+from xcron_libs.domain.diffing import PlanChangeKind
+from xcron_libs.services.state_store import save_project_state
 
 
 def _make_every_project(tmp_path, every_value: str):

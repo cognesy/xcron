@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from libs.actions.validate_project import validate_project
-from libs.domain import DeployedJobState, ProjectState, build_project_plan
-from libs.services.hash_service import WRAPPER_RENDERER_VERSION
+from xcron_libs.actions.validate_project import validate_project
+from xcron_libs.domain import DeployedJobState, ProjectState, build_project_plan
+from xcron_libs.services.hash_service import WRAPPER_RENDERER_VERSION
 
 
 def test_wrapper_renderer_version_participates_in_definition_hash(tmp_path) -> None:

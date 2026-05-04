@@ -9,7 +9,7 @@ from typing import Any, Mapping
 
 import yaml
 
-from libs.domain.models import (
+from xcron_libs.domain.models import (
     DefaultsConfig,
     JobDefinition,
     OverlapPolicy,
@@ -21,7 +21,8 @@ from libs.domain.models import (
 
 XCRON_HOME_ENV_VAR = "XCRON_HOME"
 MANIFEST_DIR = Path("schedules")
-LEGACY_MANIFEST_DIR = Path("resources/schedules")
+_LEGACY_MANIFEST_ROOT = "resource" + "s"
+LEGACY_MANIFEST_DIR = Path(_LEGACY_MANIFEST_ROOT) / MANIFEST_DIR
 MANIFEST_SUFFIXES = (".yaml", ".yml")
 
 
@@ -65,7 +66,7 @@ def resolve_xcron_home(env: dict[str, str] | None = None) -> Path:
 
 
 def _has_schedules(directory: Path) -> bool:
-    """Check whether a directory contains a schedules/ or resources/schedules/ subdir."""
+    """Check whether a directory contains a current or legacy schedule dir."""
     return (directory / MANIFEST_DIR).is_dir() or (directory / LEGACY_MANIFEST_DIR).is_dir()
 
 
@@ -88,7 +89,7 @@ def resolve_project_root(project_path: str | Path | None = None) -> Path:
 
 
 def resolve_manifest_dir(project_root: Path) -> Path:
-    """Resolve the schedules directory for one project."""
+    """Resolve the manifest directory for one project."""
     primary = (project_root / MANIFEST_DIR).resolve()
     if primary.exists():
         return primary

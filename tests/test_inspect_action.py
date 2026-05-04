@@ -3,15 +3,15 @@ from __future__ import annotations
 import importlib
 import textwrap
 
-from libs.actions.inspect_job import inspect_job
-from libs.actions.status_project import StatusProjectResult
-from libs.actions.validate_project import validate_project
-from libs.domain import ProjectState, StatusKind, build_project_plan, build_status_entries
-from libs.services.backends.launchd_service import LaunchdInspection
+from xcron_libs.actions.inspect_job import inspect_job
+from xcron_libs.actions.status_project import StatusProjectResult
+from xcron_libs.actions.validate_project import validate_project
+from xcron_libs.domain import ProjectState, StatusKind, build_project_plan, build_status_entries
+from xcron_libs.services.backends.launchd_service import LaunchdInspection
 
 
 def test_inspect_job_builds_launchd_raw_detail_sections(tmp_path, monkeypatch) -> None:
-    inspect_job_module = importlib.import_module("libs.actions.inspect_job")
+    inspect_job_module = importlib.import_module("xcron_libs.actions.inspect_job")
     project = tmp_path / "project"
     project.mkdir()
     schedule_dir = project / "resources" / "schedules"

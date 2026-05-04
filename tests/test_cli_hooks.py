@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from apps.cli.main import main
+from xcron_cli.main import main
 
 
 def test_hooks_status_and_repair_report_repo_local_hook_state(tmp_path, monkeypatch, capsys) -> None:

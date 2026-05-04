@@ -1,6 +1,6 @@
 """Native scheduler backend services."""
 
-from libs.services.backends.launchd_service import (
+from xcron_libs.services.backends.launchd_service import (
     LaunchdInspection,
     LaunchdRenderedJob,
     apply_launchd_plan,
@@ -10,7 +10,7 @@ from libs.services.backends.launchd_service import (
     render_launchd_job,
     resolve_launch_agents_dir,
 )
-from libs.services.backends.cron_service import (
+from xcron_libs.services.backends.cron_service import (
     CronInspection,
     apply_cron_plan,
     collect_cron_project_state,

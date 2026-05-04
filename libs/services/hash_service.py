@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 
-from libs.domain.models import NormalizedJob, NormalizedManifest
+from xcron_libs.domain.models import NormalizedJob, NormalizedManifest
 
 WRAPPER_RENDERER_VERSION = 2
 

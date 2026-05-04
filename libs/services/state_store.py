@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 import sys
 
-from libs.domain.diffing import DeployedJobState, ProjectState
+from xcron_libs.domain.diffing import DeployedJobState, ProjectState
 
 
 STATE_ENV_VAR = "XCRON_STATE_ROOT"

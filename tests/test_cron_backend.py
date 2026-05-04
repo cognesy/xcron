@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import textwrap
 
-from libs.actions.apply_project import apply_project
-from libs.actions.plan_project import plan_project
-from libs.services.backends.cron_service import apply_cron_plan, inspect_cron_project, prune_cron_project
+from xcron_libs.actions.apply_project import apply_project
+from xcron_libs.actions.plan_project import plan_project
+from xcron_libs.services.backends.cron_service import apply_cron_plan, inspect_cron_project, prune_cron_project
 
 
 def test_cron_backend_apply_inspect_and_prune(tmp_path) -> None:

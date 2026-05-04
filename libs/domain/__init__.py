@@ -1,6 +1,6 @@
 """Domain models and normalization logic for xcron."""
 
-from libs.domain.diffing import (
+from xcron_libs.domain.diffing import (
     DeployedJobState,
     PlanChange,
     PlanChangeKind,
@@ -11,7 +11,7 @@ from libs.domain.diffing import (
     build_project_plan,
     build_status_entries,
 )
-from libs.domain.models import (
+from xcron_libs.domain.models import (
     DEFAULT_SHELL,
     DEFAULT_WORKING_DIR,
     SUPPORTED_EVERY_SUFFIXES,
@@ -28,7 +28,7 @@ from libs.domain.models import (
     build_artifact_id,
     build_qualified_job_id,
 )
-from libs.domain.normalization import normalize_job, normalize_manifest, normalized_job_ids
+from xcron_libs.domain.normalization import normalize_job, normalize_manifest, normalized_job_ids
 
 __all__ = [
     "DEFAULT_SHELL",

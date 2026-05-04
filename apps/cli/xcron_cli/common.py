@@ -6,13 +6,13 @@ import os
 from pathlib import Path
 from typing import Sequence
 
-from libs.services import ValidationMessage
+from xcron_libs.services import ValidationMessage
 
 VALID_OUTPUT_FORMATS = ("json", "toon", "tmux")
 
 
 def resolve_project_path(value: str | None) -> Path:
-    from libs.services.config_loader import resolve_project_root
+    from xcron_libs.services.config_loader import resolve_project_root
 
     return resolve_project_root(value)
 

@@ -7,7 +7,7 @@ from pathlib import Path
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from libs.services.toon_renderer import render_toon
+from xcron_libs.services.toon_renderer import render_toon
 
 
 def parse_fields_csv(value: str | None) -> tuple[str, ...]:

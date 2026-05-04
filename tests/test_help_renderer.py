@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from libs.services.help_renderer import load_help_body, render_help_text
+from xcron_libs.services.help_renderer import HELP_PACKAGE, load_help_body, render_help_text
 
 
 def test_load_help_body_reads_packaged_root_and_leaf_pages() -> None:
+    assert HELP_PACKAGE == "xcron_resources.help"
     assert "Authoritative runtime help for xcron lives under `resources/help/`." in load_help_body("root")
     assert "Create a new manifest job." in load_help_body("jobs/add")
 

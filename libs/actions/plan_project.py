@@ -5,11 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from libs.actions.validate_project import ValidateProjectResult, validate_project
-from libs.domain.diffing import PlanChange, PlanChangeKind, ProjectPlan, build_project_plan
-from libs.domain.models import NormalizedJob, ScheduleKind
-from libs.services import get_logger, instrument_action
-from libs.services.state_store import (
+from xcron_libs.actions.validate_project import ValidateProjectResult, validate_project
+from xcron_libs.domain.diffing import PlanChange, PlanChangeKind, ProjectPlan, build_project_plan
+from xcron_libs.domain.models import NormalizedJob, ScheduleKind
+from xcron_libs.services import get_logger, instrument_action
+from xcron_libs.services.state_store import (
     default_backend_for_current_platform,
     load_project_state,
     resolve_project_state_path,

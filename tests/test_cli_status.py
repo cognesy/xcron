@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 import textwrap
 
-from apps.cli.main import main
-from libs.actions.apply_project import apply_project
+from xcron_cli.main import main
+from xcron_libs.actions.apply_project import apply_project
 from tests.cli_assertions import assert_list_output
 
 

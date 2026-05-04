@@ -5,7 +5,7 @@ import textwrap
 
 from typer.testing import CliRunner
 
-from apps.cli.typer_app import app
+from xcron_cli.typer_app import app
 
 
 runner = CliRunner()

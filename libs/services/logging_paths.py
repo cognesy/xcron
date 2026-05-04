@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from libs.domain.models import NormalizedJob
-from libs.services.state_store import resolve_project_state_dir
+from xcron_libs.domain.models import NormalizedJob
+from xcron_libs.services.state_store import resolve_project_state_dir
 
 
 @dataclass(frozen=True)

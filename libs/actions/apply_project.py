@@ -5,14 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from libs.actions.plan_project import PlanProjectResult, collect_cron_schedule_errors
-from libs.actions.status_project import status_project
-from libs.domain import ProjectState
-from libs.services import get_logger, instrument_action
-from libs.services.metrics import MetricsService
-from libs.services.backends.cron_service import apply_cron_plan
-from libs.services.backends.launchd_service import apply_launchd_plan
-from libs.services.state_store import resolve_project_state_path
+from xcron_libs.actions.plan_project import PlanProjectResult, collect_cron_schedule_errors
+from xcron_libs.actions.status_project import status_project
+from xcron_libs.domain import ProjectState
+from xcron_libs.services import get_logger, instrument_action
+from xcron_libs.services.metrics import MetricsService
+from xcron_libs.services.backends.cron_service import apply_cron_plan
+from xcron_libs.services.backends.launchd_service import apply_launchd_plan
+from xcron_libs.services.state_store import resolve_project_state_path
 
 LOGGER = get_logger(__name__)
 
