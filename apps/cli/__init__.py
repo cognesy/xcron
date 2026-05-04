@@ -1,1 +1,1 @@
-"""CLI application package."""
+"""xcron command-line application package."""

@@ -8,7 +8,7 @@
 ## Purpose
 
 Describe the output layer that now backs `xcron`'s Typer CLI. The current
-implementation is centered on [`apps/cli/xcron_cli/output.py`](/Users/ddebowczyk/projects/xcron/apps/cli/xcron_cli/output.py):
+implementation is centered on [`apps/cli/output.py`](/Users/ddebowczyk/projects/xcron/apps/cli/output.py):
 one `Output` object per command invocation, contract-driven field selection,
 structured errors, and pure string rendering for tests.
 
@@ -99,8 +99,8 @@ Key behavior:
 ## Context Resolution
 
 xcron stores global options in Typer's normal parent parameter chain, not
-`ctx.obj`. Both [`apps/cli/xcron_cli/output.py`](/Users/ddebowczyk/projects/xcron/apps/cli/xcron_cli/output.py)
-and [`apps/cli/xcron_cli/typer_app.py`](/Users/ddebowczyk/projects/xcron/apps/cli/xcron_cli/typer_app.py)
+`ctx.obj`. Both [`apps/cli/output.py`](/Users/ddebowczyk/projects/xcron/apps/cli/output.py)
+and [`apps/cli/typer_app.py`](/Users/ddebowczyk/projects/xcron/apps/cli/typer_app.py)
 walk `ctx.parent` to resolve inherited options.
 
 Implications:
@@ -250,7 +250,7 @@ Exit codes:
 - `2` - usage or validation failure at the CLI boundary
 
 There is also a small bootstrap error path in
-[`apps/cli/xcron_cli/typer_app.py`](/Users/ddebowczyk/projects/xcron/apps/cli/xcron_cli/typer_app.py)
+[`apps/cli/typer_app.py`](/Users/ddebowczyk/projects/xcron/apps/cli/typer_app.py)
 for failures that occur before an `Output` object can be constructed, such as
 an invalid `--output` value.
 

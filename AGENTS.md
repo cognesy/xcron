@@ -81,7 +81,7 @@ Rules:
 
 - `apps/cli` parses Typer flags, resolves the project path / shared options,
   calls exactly one action, renders typed responses through the `Output` class
-  in `apps/cli/xcron_cli/output.py`, and sets exit codes.
+  in `apps/cli/output.py`, and sets exit codes.
 - `apps/cli` must not contain manifest IO, scheduler IO, subprocess logic, hash
   comparisons, or domain rules.
 - `libs/actions` owns user-visible use cases: `validate_project`, `plan_project`,
@@ -131,9 +131,9 @@ which the later Go rewrite is expected to preserve.
 
 When changing CLI behavior, inspect and update:
 
-- `apps/cli/xcron_cli/typer_app.py` (Typer commands and bootstrap usage-error path)
-- `apps/cli/xcron_cli/output.py` (`Output` class, normalization, field selection)
-- `apps/cli/xcron_cli/common.py` (shared option/env helpers)
+- `apps/cli/typer_app.py` (Typer commands and bootstrap usage-error path)
+- `apps/cli/output.py` (`Output` class, normalization, field selection)
+- `apps/cli/common.py` (shared option/env helpers)
 - `libs/services/cli_contracts.py`, `cli_responses.py`, `cli_mappers.py`
 - `resources/help/*.md` (authored runtime help)
 - `tests/test_cli_*` and `tests/test_typer_cli.py`

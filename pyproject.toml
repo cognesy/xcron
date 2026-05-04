@@ -48,7 +48,7 @@ packages = [
 ]
 
 [tool.setuptools.package-dir]
-xcron_cli = "apps/cli/xcron_cli"
+xcron_cli = "apps/cli"
 xcron_libs = "libs"
 xcron_resources = "resources"
 
