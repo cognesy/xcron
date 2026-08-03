@@ -2,38 +2,23 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from pathlib import Path
+
 from xcron_libs.capabilities.reconciliation.contracts import (
-    SchedulerInspection,
     SchedulerRuntimeOptions,
+    StatusProjectResult,
 )
 from xcron_libs.capabilities.reconciliation.scheduler_registry import (
     SchedulerRegistry,
     default_scheduler_registry,
 )
-from xcron_libs.capabilities.reconciliation.validation import (
-    ValidateProjectResult,
-    validate_project,
-)
-from xcron_libs.domain import ProjectPlan, StatusEntry, build_project_plan, build_status_entries
+from xcron_libs.capabilities.reconciliation.validation import validate_project
+from xcron_libs.domain import build_project_plan, build_status_entries
 from xcron_libs.services.metrics import MetricsService
 from xcron_libs.services.observability import get_logger, instrument_action
 from xcron_libs.services.state_store import default_backend_for_current_platform
 
 LOGGER = get_logger(__name__)
-
-
-@dataclass(frozen=True)
-class StatusProjectResult:
-    """Structured result for the status use case."""
-
-    valid: bool
-    backend: str | None
-    validation: ValidateProjectResult
-    plan: ProjectPlan | None = None
-    statuses: tuple[StatusEntry, ...] = field(default_factory=tuple)
-    inspections: tuple[SchedulerInspection, ...] = field(default_factory=tuple)
 
 
 @instrument_action("status_project")

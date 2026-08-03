@@ -10,6 +10,7 @@ from xcron_libs.capabilities.reconciliation.contracts import (
     SchedulerBackend,
     SchedulerInspection,
     SchedulerRuntimeOptions,
+    UnknownSchedulerBackendError,
 )
 from xcron_libs.capabilities.reconciliation.cron_policy import cron_schedule_errors
 from xcron_libs.domain import NormalizedJob, PlanChange, ProjectState
@@ -27,18 +28,6 @@ from xcron_libs.services.backends.launchd_service import (
     inspect_launchd_project,
     prune_launchd_project,
 )
-
-
-class UnknownSchedulerBackendError(ValueError):
-    """Raised when a scheduler identity is absent from the active registry."""
-
-    def __init__(self, backend_name: str, available: tuple[str, ...]) -> None:
-        self.backend_name = backend_name
-        self.available = available
-        available_text = ", ".join(available) or "none"
-        super().__init__(
-            f"unsupported scheduler backend: {backend_name} (available: {available_text})"
-        )
 
 
 @dataclass(frozen=True)

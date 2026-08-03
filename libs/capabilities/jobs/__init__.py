@@ -1,23 +1,5 @@
-"""Project-manifest job management capability."""
+"""Manifest job-management capability package.
 
-from xcron_libs.capabilities.jobs.actions import (
-    JobActionResult,
-    add_job,
-    disable_job,
-    enable_job,
-    list_jobs,
-    remove_job,
-    show_job,
-    update_job,
-)
-
-__all__ = [
-    "JobActionResult",
-    "add_job",
-    "disable_job",
-    "enable_job",
-    "list_jobs",
-    "remove_job",
-    "show_job",
-    "update_job",
-]
+Import the explicit ``api`` and ``contracts`` modules; the package root is
+intentionally non-aggregating.
+"""

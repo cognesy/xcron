@@ -4,14 +4,8 @@ from __future__ import annotations
 
 from typing import Callable, TypeVar
 
-from xcron_libs.capabilities.reconciliation import (
-    ApplyProjectResult,
-    InspectJobResult,
-    PlanProjectResult,
-    PruneProjectResult,
+from xcron_libs.capabilities.reconciliation.api import (
     SchedulerRegistry,
-    StatusProjectResult,
-    ValidateProjectResult,
     apply_project,
     inspect_job,
     plan_project,
@@ -19,8 +13,14 @@ from xcron_libs.capabilities.reconciliation import (
     status_project,
     validate_project,
 )
-from xcron_libs.capabilities.reconciliation.scheduler_registry import (
+from xcron_libs.capabilities.reconciliation.contracts import (
+    ApplyProjectResult,
+    InspectJobResult,
+    PlanProjectResult,
+    PruneProjectResult,
+    StatusProjectResult,
     UnknownSchedulerBackendError,
+    ValidateProjectResult,
 )
 from xcron_libs.sdk.errors import UnknownBackendError
 from xcron_libs.sdk.options import XcronOptions

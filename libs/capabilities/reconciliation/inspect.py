@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from pathlib import Path
 import plistlib
+
 from xcron_libs.capabilities.reconciliation.contracts import (
+    InspectField,
+    InspectJobResult,
+    InspectSnippet,
     SchedulerInspection,
     SchedulerRuntimeOptions,
 )
@@ -13,47 +16,12 @@ from xcron_libs.capabilities.reconciliation.scheduler_registry import (
     SchedulerRegistry,
     default_scheduler_registry,
 )
-from xcron_libs.capabilities.reconciliation.status import (
-    StatusProjectResult,
-    status_project,
-)
+from xcron_libs.capabilities.reconciliation.status import status_project
 from xcron_libs.domain import NormalizedJob, StatusEntry
 from xcron_libs.services.observability import get_logger, instrument_action
 
 
 LOGGER = get_logger(__name__)
-
-
-@dataclass(frozen=True)
-class InspectField:
-    """One structured field shown in inspect output."""
-
-    name: str
-    value: str
-
-
-@dataclass(frozen=True)
-class InspectSnippet:
-    """One backend-native snippet shown in inspect output."""
-
-    name: str
-    content: str
-
-
-@dataclass(frozen=True)
-class InspectJobResult:
-    """Structured result for the inspect use case."""
-
-    valid: bool
-    backend: str | None
-    status: StatusProjectResult
-    desired_job: NormalizedJob | None = None
-    status_entry: StatusEntry | None = None
-    desired_fields: tuple[InspectField, ...] = field(default_factory=tuple)
-    deployed_fields: tuple[InspectField, ...] = field(default_factory=tuple)
-    snippets: tuple[InspectSnippet, ...] = field(default_factory=tuple)
-    inspection: SchedulerInspection | None = None
-    error: str | None = None
 
 
 @instrument_action("inspect_job")

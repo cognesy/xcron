@@ -4,15 +4,17 @@ from __future__ import annotations
 
 from typing import Callable
 
-from xcron_libs.capabilities.operations import (
-    LogsClearResult,
-    LogsListResult,
-    MetricsResetResult,
-    MetricsResult,
+from xcron_libs.capabilities.operations.api import (
     clear_logs,
     list_logs,
     reset_metrics,
     show_metrics,
+)
+from xcron_libs.capabilities.operations.contracts import (
+    LogsClearResult,
+    LogsListResult,
+    MetricsResetResult,
+    MetricsResult,
 )
 from xcron_libs.sdk.options import XcronOptions
 

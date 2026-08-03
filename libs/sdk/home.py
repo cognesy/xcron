@@ -5,7 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
-from xcron_libs.capabilities.home import InitHomeResult, init_home
+from xcron_libs.capabilities.home.api import init_home
+from xcron_libs.capabilities.home.contracts import InitHomeResult
 
 
 class HomeAPI:

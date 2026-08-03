@@ -5,8 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any, Callable
 
-from xcron_libs.capabilities.jobs import (
-    JobActionResult,
+from xcron_libs.capabilities.jobs.api import (
     add_job,
     disable_job,
     enable_job,
@@ -15,6 +14,7 @@ from xcron_libs.capabilities.jobs import (
     show_job,
     update_job,
 )
+from xcron_libs.capabilities.jobs.contracts import JobActionResult
 from xcron_libs.sdk.options import XcronOptions
 
 

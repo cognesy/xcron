@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from pathlib import Path
+
 from xcron_libs.capabilities.reconciliation.contracts import (
-    SchedulerInspection,
+    PruneProjectResult,
     SchedulerRuntimeOptions,
 )
 from xcron_libs.capabilities.reconciliation.scheduler_registry import (
@@ -17,17 +17,6 @@ from xcron_libs.services.observability import get_logger, instrument_action
 from xcron_libs.services.state_store import default_backend_for_current_platform, delete_project_state
 
 LOGGER = get_logger(__name__)
-
-
-@dataclass(frozen=True)
-class PruneProjectResult:
-    """Structured result for the prune use case."""
-
-    valid: bool
-    backend: str | None
-    project_id: str | None
-    removed: tuple[SchedulerInspection, ...] = field(default_factory=tuple)
-    error: str | None = None
 
 
 @instrument_action("prune_project")

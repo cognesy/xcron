@@ -1,7 +1,6 @@
 """Compatibility imports for the manifest jobs capability."""
 
-from xcron_libs.capabilities.jobs.actions import (
-    JobActionResult,
+from xcron_libs.capabilities.jobs.api import (
     add_job,
     disable_job,
     enable_job,
@@ -10,6 +9,7 @@ from xcron_libs.capabilities.jobs.actions import (
     show_job,
     update_job,
 )
+from xcron_libs.capabilities.jobs.contracts import JobActionResult
 
 __all__ = [
     "JobActionResult",

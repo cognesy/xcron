@@ -1,5 +1,5 @@
-"""xcron home initialization capability."""
+"""xcron home initialization capability package.
 
-from xcron_libs.capabilities.home.actions import InitHomeResult, init_home
-
-__all__ = ["InitHomeResult", "init_home"]
+Import the explicit ``api`` and ``contracts`` modules; the package root is
+intentionally non-aggregating.
+"""

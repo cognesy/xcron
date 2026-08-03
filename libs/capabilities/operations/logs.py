@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from pathlib import Path
 
-from xcron_libs.capabilities.reconciliation.validation import (
-    ValidateProjectResult,
-    validate_project,
+from xcron_libs.capabilities.operations.contracts import (
+    LogFileEntry,
+    LogsClearResult,
+    LogsListResult,
 )
+from xcron_libs.capabilities.reconciliation.api import validate_project
+from xcron_libs.capabilities.reconciliation.contracts import ValidateProjectResult
 from xcron_libs.services.logging_paths import resolve_runtime_paths
 from xcron_libs.services.metrics import MetricsService
 from xcron_libs.services.observability import get_logger, instrument_action
@@ -16,41 +18,6 @@ from xcron_libs.services.state_store import resolve_state_root
 
 
 LOGGER = get_logger(__name__)
-
-
-@dataclass(frozen=True)
-class LogFileEntry:
-    """One discovered log file on disk."""
-
-    qualified_id: str
-    kind: str  # "stdout", "stderr", or "events"
-    path: str
-    size_bytes: int
-
-
-@dataclass(frozen=True)
-class LogsListResult:
-    """Structured result for the logs list use case."""
-
-    valid: bool
-    project_id: str | None = None
-    logs_dir: str | None = None
-    files: tuple[LogFileEntry, ...] = field(default_factory=tuple)
-    validation: ValidateProjectResult | None = None
-    error: str | None = None
-
-
-@dataclass(frozen=True)
-class LogsClearResult:
-    """Structured result for the logs clear use case."""
-
-    valid: bool
-    project_id: str | None = None
-    dry_run: bool = True
-    files: tuple[LogFileEntry, ...] = field(default_factory=tuple)
-    cleared: int = 0
-    validation: ValidateProjectResult | None = None
-    error: str | None = None
 
 
 def _collect_log_files(

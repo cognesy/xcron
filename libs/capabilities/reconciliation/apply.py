@@ -2,35 +2,24 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 
 from xcron_libs.capabilities.reconciliation.contracts import (
+    ApplyProjectResult,
     DeploymentPlan,
+    PlanProjectResult,
     SchedulerRuntimeOptions,
 )
-from xcron_libs.capabilities.reconciliation.planning import PlanProjectResult
 from xcron_libs.capabilities.reconciliation.scheduler_registry import (
     SchedulerRegistry,
     default_scheduler_registry,
 )
 from xcron_libs.capabilities.reconciliation.status import status_project
-from xcron_libs.domain import ProjectState
 from xcron_libs.services.metrics import MetricsService
 from xcron_libs.services.observability import get_logger, instrument_action
 from xcron_libs.services.state_store import resolve_project_state_path
 
 LOGGER = get_logger(__name__)
-
-
-@dataclass(frozen=True)
-class ApplyProjectResult:
-    """Structured result for the apply use case."""
-
-    valid: bool
-    backend: str | None
-    plan_result: PlanProjectResult
-    applied_state: ProjectState | None = None
 
 
 @instrument_action("apply_project")

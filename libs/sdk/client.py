@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from xcron_libs.capabilities.reconciliation.scheduler_registry import SchedulerRegistry
+from xcron_libs.capabilities.reconciliation.api import SchedulerRegistry
 from xcron_libs.runtime import XcronRuntime
 from xcron_libs.sdk.errors import ClientClosedError
 from xcron_libs.sdk.home import HomeAPI

@@ -78,9 +78,144 @@ test lane covers payload preservation, idempotency, typed failures, and exact
 state ownership.
 
 This is a Level 1 code-module result, not a new distribution, dependency set,
-process boundary, plugin system, or service deployment. `reconciliation`,
-`jobs`, `operations`, and `home` remain capability groupings or migration-in-
-progress; this result does not claim they are isolated modules.
+process boundary, plugin system, or service deployment.
+
+## Module cards
+
+Every capability now declares a public surface (`api.py` plus `contracts.py`)
+and a non-aggregating `__init__.py`. The cards below are the checked-in record
+of what each module hides, owns, and is allowed to depend on;
+`tests/test_reconciliation_architecture.py` enforces the surface, the
+initializer, and the `allowed_dependencies` line of every card.
+
+Only `agent_hooks` currently satisfies the full Level 1 bar. The other four
+have the public surface and the declared dependency edges but not yet a single
+state owner or a module-owned test lane; their `isolation_level` says so.
+
+```yaml
+module: xcron_libs.capabilities.agent_hooks
+hidden_decision: >
+  How repository-local Codex and Claude hooks are installed, repaired, and
+  detected, including each agent's on-disk hook file format.
+public_entrypoints: [agent_hooks.api, agent_hooks.contracts]
+owned_state:
+  - .codex/config.toml
+  - .codex/hooks.json
+  - .claude/settings.json
+  - session-history.jsonl
+owned_resources: [repository-local agent configuration files]
+allowed_dependencies: [stdlib]
+cross_module_flows:
+  - libs/sdk/hooks.py adapts api/contracts for the SDK and CLI
+failure_behavior: >
+  Typed AgentHooksError; installation is idempotent and preserves unrelated
+  payload keys.
+isolation_level: 1 (verified)
+verification:
+  - tests/test_agent_hooks.py
+  - tests/test_reconciliation_architecture.py
+```
+
+```yaml
+module: xcron_libs.capabilities.home
+hidden_decision: >
+  Where the default xcron home lives and what a first-run starter manifest
+  contains.
+public_entrypoints: [home.api, home.contracts]
+owned_state:
+  - ~/.xcron/schedules/
+  - ~/.xcron/schedules/<starter manifest>
+owned_resources: [the xcron home directory tree]
+allowed_dependencies: [libs/services/config_loader, libs/services/observability]
+cross_module_flows: []
+failure_behavior: >
+  Creating an existing home is a no-op reported as created=false; the starter
+  manifest is never overwritten.
+isolation_level: 1 (surface only; state owner shared with config_loader)
+verification:
+  - tests/test_init_home.py
+  - tests/test_reconciliation_architecture.py
+```
+
+```yaml
+module: xcron_libs.capabilities.jobs
+hidden_decision: >
+  How a job entry is added, edited, enabled, and removed inside a schedule
+  manifest while preserving the author's YAML.
+public_entrypoints: [jobs.api, jobs.contracts]
+owned_state:
+  - resources/schedules/*.yaml (job entries only)
+owned_resources: [manifest job list]
+allowed_dependencies:
+  - reconciliation.api, reconciliation.contracts
+  - libs/domain
+  - libs/services/manifest_editor
+  - libs/services/observability
+cross_module_flows:
+  - validates through reconciliation.api.validate_project before every mutation
+failure_behavior: >
+  Every action returns JobActionResult; a rejected edit sets valid=false and
+  changed=false and leaves the manifest untouched.
+isolation_level: 1 (surface only; manifest writes still go through a shared service)
+verification:
+  - tests/test_job_actions.py
+  - tests/test_reconciliation_architecture.py
+```
+
+```yaml
+module: xcron_libs.capabilities.reconciliation
+hidden_decision: >
+  How desired manifest state is compared to actual native scheduler state and
+  converged, and which artifacts xcron may claim as its own.
+public_entrypoints: [reconciliation.api, reconciliation.contracts]
+owned_state:
+  - project-state.json
+  - launchd plists under the selected LaunchAgents directory
+  - xcron-owned crontab entries
+  - generated job wrapper scripts
+owned_resources: [SchedulerBackend registry, native scheduler artifacts]
+allowed_dependencies:
+  - libs/domain
+  - libs/services (hashing, schema validation, state store, backends)
+cross_module_flows:
+  - SchedulerBackend is an inbound port; adapters live in libs/services/backends
+failure_behavior: >
+  Validation failures short-circuit before any mutation; an unknown backend
+  raises UnknownSchedulerBackendError.
+isolation_level: >
+  1 (surface only) - workspace resolution and manifest mechanics split out in
+  phases 4-5, and the metrics write path moves behind an OutcomeRecorder port
+verification:
+  - tests/test_validation.py, tests/test_planning.py, tests/test_status_projection.py
+  - tests/test_launchd_backend.py, tests/test_cron_backend.py
+  - tests/test_reconciliation_architecture.py
+```
+
+```yaml
+module: xcron_libs.capabilities.operations
+hidden_decision: >
+  Where wrapper logs and runtime counters live, and what clearing or resetting
+  them means.
+public_entrypoints: [operations.api, operations.contracts]
+owned_state:
+  - per-project stdout, stderr, and event log files
+  - metrics/metrics.json
+owned_resources: [runtime log directory, metrics file]
+allowed_dependencies:
+  - reconciliation.api, reconciliation.contracts
+  - libs/services/logging_paths, libs/services/metrics, libs/services/state_store
+cross_module_flows:
+  - resolves the project through reconciliation.api.validate_project
+failure_behavior: >
+  Clearing defaults to dry_run=true; an unresolvable project returns
+  valid=false with the underlying validation attached.
+isolation_level: >
+  1 (surface only) - reconciliation also writes metrics.json today, so this
+  module is not yet the single owner of that file
+verification:
+  - tests/test_cli_logs.py
+  - tests/test_reconciliation_architecture.py
+```
 
 Current model decisions:
 

@@ -7,15 +7,20 @@ from pathlib import Path
 
 import pytest
 
-from xcron_libs.capabilities.reconciliation import SchedulerRegistry, SchedulerRuntimeOptions
+from xcron_libs.capabilities.reconciliation.api import SchedulerRegistry
+from xcron_libs.capabilities.reconciliation.contracts import SchedulerRuntimeOptions
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-AGENT_HOOKS_ROOT = "xcron_libs.capabilities.agent_hooks"
-AGENT_HOOKS_PUBLIC = {
-    f"{AGENT_HOOKS_ROOT}.api",
-    f"{AGENT_HOOKS_ROOT}.contracts",
-}
+CAPABILITY_PACKAGE = "xcron_libs.capabilities"
+ISOLATED_MODULES = (
+    "agent_hooks",
+    "home",
+    "jobs",
+    "operations",
+    "reconciliation",
+)
+AGENT_HOOKS_ROOT = f"{CAPABILITY_PACKAGE}.agent_hooks"
 BACKEND_MODULES = tuple(sorted((REPOSITORY_ROOT / "libs" / "services" / "backends").glob("*_service.py")))
 CAPABILITY_MODULES = tuple(sorted((REPOSITORY_ROOT / "libs" / "capabilities").rglob("*.py")))
 DOMAIN_MODULES = tuple(sorted((REPOSITORY_ROOT / "libs" / "domain").rglob("*.py")))
@@ -38,53 +43,135 @@ def _imported_modules(path: Path) -> set[str]:
     return imports
 
 
-def _agent_hooks_import_violations(source: str) -> set[str]:
-    """Return agent-hooks imports that bypass its public API/contracts."""
+def _public_surface_violations(source: str, *, filename: str = "<planted>") -> set[str]:
+    """Return capability imports that bypass a module's ``api``/``contracts``."""
 
-    tree = ast.parse(source)
+    tree = ast.parse(source, filename=filename)
     violations: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
-                if alias.name == AGENT_HOOKS_ROOT or alias.name.startswith(f"{AGENT_HOOKS_ROOT}."):
-                    if alias.name not in AGENT_HOOKS_PUBLIC:
-                        violations.add(alias.name)
+                violations.update(_violations_for_dotted_path(alias.name))
         elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
             module = node.module
-            if module == AGENT_HOOKS_ROOT:
+            owner = _module_owner(module)
+            if owner is None:
+                continue
+            root = f"{CAPABILITY_PACKAGE}.{owner}"
+            if module == root:
+                # ``from <module> import x`` is only legal for the two surfaces.
                 for alias in node.names:
                     if alias.name not in {"api", "contracts"}:
                         violations.add(f"{module}.{alias.name}")
-            elif module.startswith(f"{AGENT_HOOKS_ROOT}."):
-                if module not in AGENT_HOOKS_PUBLIC:
-                    violations.add(module)
-                else:
-                    for alias in node.names:
-                        if alias.name.startswith("_"):
-                            violations.add(f"{module}.{alias.name}")
+            elif module in {f"{root}.api", f"{root}.contracts"}:
+                for alias in node.names:
+                    if alias.name.startswith("_"):
+                        violations.add(f"{module}.{alias.name}")
+            else:
+                violations.add(module)
     return violations
 
 
-def test_agent_hooks_public_surface_checker_has_planted_negative_examples() -> None:
+def _module_owner(dotted: str) -> str | None:
+    """Return the isolated capability module a dotted import path belongs to."""
+
+    for name in ISOLATED_MODULES:
+        root = f"{CAPABILITY_PACKAGE}.{name}"
+        if dotted == root or dotted.startswith(f"{root}."):
+            return name
+    return None
+
+
+def _violations_for_dotted_path(dotted: str) -> set[str]:
+    owner = _module_owner(dotted)
+    if owner is None:
+        return set()
+    root = f"{CAPABILITY_PACKAGE}.{owner}"
+    if dotted in {f"{root}.api", f"{root}.contracts"}:
+        return set()
+    return {dotted}
+
+
+def _source_files_outside(module: str) -> tuple[Path, ...]:
+    """Every repository source file that is not part of the given module."""
+
+    module_root = REPOSITORY_ROOT / "libs" / "capabilities" / module
+    this_file = Path(__file__).resolve()
+    paths: list[Path] = []
+    for root in ("libs", "apps", "tests"):
+        for path in sorted((REPOSITORY_ROOT / root).rglob("*.py")):
+            if path == this_file or module_root in path.parents:
+                continue
+            paths.append(path)
+    return tuple(paths)
+
+
+@pytest.mark.parametrize("module", ISOLATED_MODULES)
+def test_public_surface_checker_has_planted_negative_examples(module: str) -> None:
+    root = f"{CAPABILITY_PACKAGE}.{module}"
     forbidden = (
-        "import xcron_libs.capabilities.agent_hooks._codex",
-        "import xcron_libs.capabilities.agent_hooks._codex as private_hooks",
-        "from xcron_libs.capabilities.agent_hooks import _codex",
-        "from xcron_libs.capabilities.agent_hooks import _codex as private_hooks",
-        "from xcron_libs.capabilities.agent_hooks._codex import CodexHookStatus",
-        "from xcron_libs.capabilities.agent_hooks._codex import CodexHookStatus as Status",
+        f"import {root}._private",
+        f"import {root}._private as shortcut",
+        f"import {root}.implementation",
+        f"from {root} import _private",
+        f"from {root} import implementation as shortcut",
+        f"from {root}._private import Thing",
+        f"from {root}.implementation import Thing as Alias",
+        f"from {root}.api import _private_helper",
     )
     allowed = (
-        "import xcron_libs.capabilities.agent_hooks.api as hooks_api",
-        "from xcron_libs.capabilities.agent_hooks import api as hooks_api",
-        "from xcron_libs.capabilities.agent_hooks.api import install_agent_hooks",
-        "from xcron_libs.capabilities.agent_hooks.contracts import HookInstallResult as Result",
+        f"import {root}.api as module_api",
+        f"import {root}.contracts",
+        f"from {root} import api as module_api",
+        f"from {root} import contracts",
+        f"from {root}.api import public_callable",
+        f"from {root}.contracts import PublicResult as Alias",
     )
 
     for source in forbidden:
-        assert _agent_hooks_import_violations(source), source
+        assert _public_surface_violations(source), source
     for source in allowed:
-        assert _agent_hooks_import_violations(source) == set(), source
+        assert _public_surface_violations(source) == set(), source
+
+
+@pytest.mark.parametrize("module", ISOLATED_MODULES)
+def test_nothing_outside_a_capability_module_imports_below_its_surface(module: str) -> None:
+    root = f"{CAPABILITY_PACKAGE}.{module}"
+    for path in _source_files_outside(module):
+        violations = {
+            name
+            for name in _public_surface_violations(
+                path.read_text(encoding="utf-8"), filename=str(path)
+            )
+            if name.startswith(root)
+        }
+        assert not violations, (path.relative_to(REPOSITORY_ROOT), sorted(violations))
+
+
+@pytest.mark.parametrize("module", ISOLATED_MODULES)
+def test_capability_package_initializer_does_not_aggregate(module: str) -> None:
+    """The package root re-exports nothing; ``api``/``contracts`` are the surface."""
+
+    initializer = REPOSITORY_ROOT / "libs" / "capabilities" / module / "__init__.py"
+    assert _imported_modules(initializer) == set(), initializer
+
+
+@pytest.mark.parametrize("module", ISOLATED_MODULES)
+def test_every_capability_module_declares_both_public_surfaces(module: str) -> None:
+    module_root = REPOSITORY_ROOT / "libs" / "capabilities" / module
+    for surface in ("api.py", "contracts.py"):
+        path = module_root / surface
+        assert path.is_file(), path
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        exported = {
+            target.id
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            for target in node.targets
+            if isinstance(target, ast.Name)
+        }
+        if surface == "api.py":
+            assert "__all__" in exported, path
 
 
 def test_agent_hooks_module_has_no_sibling_or_channel_imports() -> None:
@@ -111,6 +198,32 @@ def test_agent_hooks_module_has_no_sibling_or_channel_imports() -> None:
                 assert node.module in own_modules, (path, node.module)
             elif node.module:
                 assert not node.module.startswith(forbidden_prefixes), (path, node.module)
+
+
+# The only permitted cross-module import edges, by module. Phases 4-5 split
+# `workspace` and `manifest` out of `reconciliation`; this table tightens to the
+# target set in `docs/plans/2026-08-03-module-first-isolation/02-target-architecture.md`
+# as those modules land.
+DECLARED_MODULE_EDGES = {
+    "agent_hooks": frozenset(),
+    "home": frozenset(),
+    "jobs": frozenset({"reconciliation"}),
+    "operations": frozenset({"reconciliation"}),
+    "reconciliation": frozenset(),
+}
+
+
+@pytest.mark.parametrize("module", ISOLATED_MODULES)
+def test_capability_modules_only_take_declared_cross_module_edges(module: str) -> None:
+    allowed = DECLARED_MODULE_EDGES[module]
+    module_root = REPOSITORY_ROOT / "libs" / "capabilities" / module
+
+    for path in sorted(module_root.rglob("*.py")):
+        for imported in _imported_modules(path):
+            owner = _module_owner(imported)
+            if owner is None or owner == module:
+                continue
+            assert owner in allowed, (path.relative_to(REPOSITORY_ROOT), imported)
 
 
 def test_scheduler_adapters_do_not_import_actions_or_sdk() -> None:

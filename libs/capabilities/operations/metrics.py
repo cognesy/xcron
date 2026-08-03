@@ -2,28 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any, Mapping
 
+from xcron_libs.capabilities.operations.contracts import MetricsResetResult, MetricsResult
 from xcron_libs.services.metrics import MetricsService
-
-
-@dataclass(frozen=True)
-class MetricsResult:
-    """Channel-neutral snapshot of persisted runtime metrics."""
-
-    path: str
-    version: int
-    created_at: str
-    updated_at: str
-    counters: Mapping[str, int]
-
-
-@dataclass(frozen=True)
-class MetricsResetResult(MetricsResult):
-    """Metrics snapshot after reset, including the counters it replaced."""
-
-    previous_counters: Mapping[str, int]
 
 
 def show_metrics() -> MetricsResult:

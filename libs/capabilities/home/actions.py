@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 
+from xcron_libs.capabilities.home.contracts import InitHomeResult
 from xcron_libs.services.config_loader import MANIFEST_DIR, resolve_xcron_home
 from xcron_libs.services.observability import get_logger, instrument_action
 
@@ -19,16 +19,6 @@ defaults:
   shell: /bin/sh
 jobs: []
 """
-
-
-@dataclass(frozen=True)
-class InitHomeResult:
-    """Structured result for the init use case."""
-
-    xcron_home: str
-    schedules_dir: str
-    manifest_path: str
-    created: bool
 
 
 @instrument_action("init_home")

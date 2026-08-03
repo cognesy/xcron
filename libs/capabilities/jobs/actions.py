@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from xcron_libs.capabilities.reconciliation.validation import (
-    ValidateProjectResult,
-    validate_project,
-)
+from xcron_libs.capabilities.jobs.contracts import JobActionResult
+from xcron_libs.capabilities.reconciliation.api import validate_project
+from xcron_libs.capabilities.reconciliation.contracts import ValidateProjectResult
 from xcron_libs.domain import NormalizedJob, NormalizedManifest, normalize_manifest
 from xcron_libs.services.manifest_editor import (
     ManifestEditError,
@@ -22,28 +20,9 @@ from xcron_libs.services.manifest_editor import (
     update_manifest_job,
 )
 from xcron_libs.services.observability import get_logger, instrument_action
-from xcron_libs.services.schema_validator import ValidationMessage
 
 
 LOGGER = get_logger(__name__)
-
-
-@dataclass(frozen=True)
-class JobActionResult:
-    """Structured result for one job-management action."""
-
-    valid: bool
-    project_root: str
-    manifest_path: str | None
-    validation: ValidateProjectResult | None = None
-    jobs: tuple[NormalizedJob, ...] = field(default_factory=tuple)
-    raw_jobs: tuple[Mapping[str, Any], ...] = field(default_factory=tuple)
-    job: NormalizedJob | None = None
-    raw_job: Mapping[str, Any] | None = None
-    removed_job_identifier: str | None = None
-    changed: bool = True
-    warnings: tuple[ValidationMessage, ...] = field(default_factory=tuple)
-    error: str | None = None
 
 
 @instrument_action("list_jobs")

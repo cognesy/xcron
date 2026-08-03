@@ -1,20 +1,15 @@
 from __future__ import annotations
 
-import importlib
 import textwrap
 
 from xcron_libs.actions.inspect_job import inspect_job
-from xcron_libs.actions.status_project import StatusProjectResult
 from xcron_libs.actions.validate_project import validate_project
-from xcron_libs.capabilities.reconciliation import (
-    SchedulerInspection,
-    SchedulerRegistry,
-)
-from xcron_libs.domain import ProjectState, StatusKind, build_project_plan, build_status_entries
+from xcron_libs.capabilities.reconciliation.api import SchedulerRegistry
+from xcron_libs.capabilities.reconciliation.contracts import SchedulerInspection
+from xcron_libs.domain import ProjectState, StatusKind
 
 
-def test_inspect_job_builds_launchd_raw_detail_sections(tmp_path, monkeypatch) -> None:
-    inspect_job_module = importlib.import_module("xcron_libs.capabilities.reconciliation.inspect")
+def test_inspect_job_builds_launchd_raw_detail_sections(tmp_path) -> None:
     project = tmp_path / "project"
     project.mkdir()
     schedule_dir = project / "resources" / "schedules"
@@ -44,22 +39,6 @@ def test_inspect_job_builds_launchd_raw_detail_sections(tmp_path, monkeypatch) -
     assert validation.normalized_manifest is not None
     assert validation.hashes is not None
 
-    plan = build_project_plan(
-        validation.normalized_manifest,
-        "launchd",
-        validation.hashes.manifest_hash,
-        validation.hashes.job_hashes,
-        validation.hashes.job_definition_hashes,
-        ProjectState(project_id="inspect-launchd", backend="launchd", manifest_hash=None),
-    )
-    status_result = StatusProjectResult(
-        valid=True,
-        backend="launchd",
-        validation=validation,
-        plan=plan,
-        statuses=build_status_entries(plan),
-        inspections=tuple(),
-    )
     inspection = SchedulerInspection(
         qualified_id="inspect-launchd.ping_job",
         job_id="ping_job",
@@ -77,13 +56,19 @@ def test_inspect_job_builds_launchd_raw_detail_sections(tmp_path, monkeypatch) -
         launchctl_print="service = {\n\tstate = running\n}",
     )
 
-    monkeypatch.setattr(inspect_job_module, "status_project", lambda *args, **kwargs: status_result)
-
     class LaunchdInspectionBackend:
+        """Reports nothing deployed, so every desired job stays MISSING."""
+
         name = "launchd"
+
+        def collect_project_state(self, project_id, **kwargs):
+            return ProjectState(project_id=project_id, backend="launchd", manifest_hash=None)
 
         def inspect_project(self, *args, **kwargs):
             return (inspection,)
+
+        def schedule_errors(self, jobs):
+            return tuple()
 
     registry = SchedulerRegistry((LaunchdInspectionBackend(),))
 

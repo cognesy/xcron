@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from pathlib import Path
 
-from xcron_libs.domain import NormalizedManifest, normalize_manifest
+from xcron_libs.capabilities.reconciliation.contracts import ValidateProjectResult
+from xcron_libs.domain import normalize_manifest
 from xcron_libs.services.config_loader import (
     LoadedManifestDocument,
     ManifestLoadError,
     attach_parsed_manifest,
     load_project_manifest,
 )
-from xcron_libs.services.hash_service import ManifestHashes, build_manifest_hashes
+from xcron_libs.services.hash_service import build_manifest_hashes
 from xcron_libs.services.observability import get_logger, instrument_action
 from xcron_libs.services.schema_validator import (
     ValidationMessage,
@@ -22,19 +22,6 @@ from xcron_libs.services.schema_validator import (
 )
 
 LOGGER = get_logger(__name__)
-
-
-@dataclass(frozen=True)
-class ValidateProjectResult:
-    """Structured result for the validate use case."""
-
-    project_root: str
-    manifest_path: str | None
-    valid: bool
-    errors: tuple[ValidationMessage, ...] = field(default_factory=tuple)
-    warnings: tuple[ValidationMessage, ...] = field(default_factory=tuple)
-    normalized_manifest: NormalizedManifest | None = None
-    hashes: ManifestHashes | None = None
 
 
 @instrument_action("validate_project")

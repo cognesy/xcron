@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from pathlib import Path
 
-from xcron_libs.capabilities.reconciliation.validation import (
-    ValidateProjectResult,
-    validate_project,
-)
+from xcron_libs.capabilities.reconciliation.contracts import PlanProjectResult
+from xcron_libs.capabilities.reconciliation.validation import validate_project
 from xcron_libs.capabilities.reconciliation.cron_policy import (
     cron_incompatible_reason,
     cron_schedule_errors,
@@ -32,18 +29,6 @@ LOGGER = get_logger(__name__)
 def collect_cron_schedule_errors(jobs: tuple[NormalizedJob, ...]) -> tuple[PlanChange, ...]:
     """Compatibility facade for cron's reconciliation-owned validation rule."""
     return cron_schedule_errors(jobs)
-
-
-@dataclass(frozen=True)
-class PlanProjectResult:
-    """Structured result for the project planning use case."""
-
-    valid: bool
-    validation: ValidateProjectResult
-    backend: str | None
-    state_path: str | None
-    changes: tuple[PlanChange, ...] = field(default_factory=tuple)
-    plan: ProjectPlan | None = None
 
 
 @instrument_action("plan_project")
