@@ -1,16 +1,10 @@
-"""Domain models and normalization logic for xcron."""
+"""Manifest value types and normalization for xcron.
 
-from xcron_libs.domain.diffing import (
-    DeployedJobState,
-    PlanChange,
-    PlanChangeKind,
-    ProjectPlan,
-    ProjectState,
-    StatusEntry,
-    StatusKind,
-    build_project_plan,
-    build_status_entries,
-)
+Desired-vs-deployed diffing is not here: it belongs to the reconciliation
+module, which owns that decision. This package stays a leaf that no capability
+depends on in the wrong direction.
+"""
+
 from xcron_libs.domain.models import (
     DEFAULT_SHELL,
     DEFAULT_WORKING_DIR,
@@ -33,7 +27,6 @@ from xcron_libs.domain.normalization import normalize_job, normalize_manifest, n
 __all__ = [
     "DEFAULT_SHELL",
     "DEFAULT_WORKING_DIR",
-    "DeployedJobState",
     "SUPPORTED_EVERY_SUFFIXES",
     "DefaultsConfig",
     "JobDefinition",
@@ -41,19 +34,11 @@ __all__ = [
     "NormalizedJob",
     "NormalizedManifest",
     "OverlapPolicy",
-    "PlanChange",
-    "PlanChangeKind",
-    "ProjectPlan",
     "ProjectConfig",
     "ProjectManifest",
-    "ProjectState",
     "ScheduleDefinition",
     "ScheduleKind",
-    "StatusEntry",
-    "StatusKind",
     "build_artifact_id",
-    "build_project_plan",
-    "build_status_entries",
     "build_qualified_job_id",
     "normalize_job",
     "normalize_manifest",

@@ -1,12 +1,12 @@
 """Public contracts owned by the schedule-reconciliation module.
 
 This module is one of the two entry points outside code may import; the other
-is :mod:`xcron_libs.capabilities.reconciliation.api`. It owns three families of
-value:
+is :mod:`xcron_libs.capabilities.reconciliation.api`. It owns the use-case
+results the module's public API returns, plus the stable errors it raises.
 
-* the backend-neutral deployment and inspection data a scheduler adapter needs;
-* the typed scheduler port those adapters implement; and
-* the use-case results returned by the module's public API.
+The scheduler port itself lives in
+:mod:`xcron_libs.capabilities.reconciliation.ports`; the port values that appear
+inside a public result are re-exported here so callers need only one import.
 
 Nothing here depends on a channel, renderer, or CLI response type.
 """
@@ -14,118 +14,48 @@ Nothing here depends on a channel, renderer, or CLI response type.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Mapping, Protocol
 
-from xcron_libs.domain import (
-    NormalizedJob,
-    NormalizedManifest,
+from xcron_libs.capabilities.reconciliation.domain import (
+    DeployedJobState,
     PlanChange,
+    PlanChangeKind,
     ProjectPlan,
     ProjectState,
     StatusEntry,
+    StatusKind,
 )
+from xcron_libs.capabilities.reconciliation.ports import (
+    DeploymentPlan,
+    SchedulerBackend,
+    SchedulerInspection,
+    SchedulerRuntimeOptions,
+)
+from xcron_libs.domain import NormalizedJob, NormalizedManifest
 from xcron_libs.services.hash_service import ManifestHashes
 from xcron_libs.services.schema_validator import ValidationMessage
 
-
-@dataclass(frozen=True)
-class DeploymentPlan:
-    """Validated backend-neutral data required to apply one project plan."""
-
-    backend: str
-    plan: ProjectPlan
-    state_path: str
-    manifest_hash: str
-    job_hashes: Mapping[str, str]
-    job_definition_hashes: Mapping[str, str]
-
-
-@dataclass(frozen=True)
-class SchedulerRuntimeOptions:
-    """Explicit host paths and mutation controls for one scheduler operation."""
-
-    state_root: Path | None = None
-    launch_agents_dir: Path | None = None
-    launchctl_domain: str | None = None
-    crontab_path: Path | None = None
-    manage_launchctl: bool = True
-    manage_crontab: bool = True
-
-    @classmethod
-    def create(
-        cls,
-        *,
-        state_root: str | Path | None = None,
-        launch_agents_dir: str | Path | None = None,
-        launchctl_domain: str | None = None,
-        crontab_path: str | Path | None = None,
-        manage_launchctl: bool = True,
-        manage_crontab: bool = True,
-    ) -> SchedulerRuntimeOptions:
-        """Normalize direct/legacy path inputs at the scheduler-port boundary."""
-        return cls(
-            state_root=_resolve_path(state_root),
-            launch_agents_dir=_resolve_path(launch_agents_dir),
-            launchctl_domain=launchctl_domain,
-            crontab_path=_resolve_path(crontab_path),
-            manage_launchctl=manage_launchctl,
-            manage_crontab=manage_crontab,
-        )
-
-
-@dataclass(frozen=True)
-class SchedulerInspection:
-    """Backend-neutral view of one xcron-owned native scheduler artifact."""
-
-    qualified_id: str
-    job_id: str | None
-    artifact_path: str | None
-    wrapper_path: Path | None
-    enabled: bool
-    desired_hash: str | None
-    definition_hash: str | None
-    stdout_log_path: Path | None = None
-    stderr_log_path: Path | None = None
-    event_log_path: Path | None = None
-    label: str | None = None
-    loaded: bool | None = None
-    raw_entry: str | None = None
-    raw_plist: Mapping[str, Any] | None = None
-    launchctl_print: str | None = None
-
-
-class SchedulerBackend(Protocol):
-    """Trusted in-process adapter for one native scheduler implementation."""
-
-    name: str
-
-    def collect_project_state(
-        self, project_id: str, *, options: SchedulerRuntimeOptions
-    ) -> ProjectState:
-        """Return actual deployed state owned by this backend."""
-
-    def inspect_project(
-        self,
-        project_id: str,
-        *,
-        options: SchedulerRuntimeOptions,
-        include_native_detail: bool = False,
-    ) -> tuple[SchedulerInspection, ...]:
-        """Return backend-native inspection records for one project."""
-
-    def apply(
-        self, deployment: DeploymentPlan, *, options: SchedulerRuntimeOptions
-    ) -> ProjectState:
-        """Apply a validated desired-vs-actual plan."""
-
-    def prune_project(
-        self, project_id: str, *, options: SchedulerRuntimeOptions
-    ) -> tuple[SchedulerInspection, ...]:
-        """Remove only artifacts owned by xcron for one project."""
-
-    def schedule_errors(self, jobs: tuple[NormalizedJob, ...]) -> tuple[PlanChange, ...]:
-        """Return backend-specific schedule incompatibilities for planning."""
+__all__ = [
+    "ApplyProjectResult",
+    "DeployedJobState",
+    "DeploymentPlan",
+    "InspectField",
+    "InspectJobResult",
+    "InspectSnippet",
+    "PlanChange",
+    "PlanChangeKind",
+    "PlanProjectResult",
+    "ProjectPlan",
+    "ProjectState",
+    "PruneProjectResult",
+    "SchedulerBackend",
+    "SchedulerInspection",
+    "SchedulerRuntimeOptions",
+    "StatusEntry",
+    "StatusKind",
+    "StatusProjectResult",
+    "UnknownSchedulerBackendError",
+    "ValidateProjectResult",
+]
 
 
 class UnknownSchedulerBackendError(ValueError):
@@ -228,7 +158,3 @@ class InspectJobResult:
     snippets: tuple[InspectSnippet, ...] = field(default_factory=tuple)
     inspection: SchedulerInspection | None = None
     error: str | None = None
-
-
-def _resolve_path(value: str | Path | None) -> Path | None:
-    return Path(value).expanduser().resolve() if value is not None else None

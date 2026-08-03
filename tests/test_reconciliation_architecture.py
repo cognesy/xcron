@@ -21,7 +21,10 @@ ISOLATED_MODULES = (
     "reconciliation",
 )
 AGENT_HOOKS_ROOT = f"{CAPABILITY_PACKAGE}.agent_hooks"
-BACKEND_MODULES = tuple(sorted((REPOSITORY_ROOT / "libs" / "services" / "backends").glob("*_service.py")))
+ADAPTER_ROOT = REPOSITORY_ROOT / "libs" / "capabilities" / "reconciliation" / "adapters"
+BACKEND_MODULES = tuple(
+    path for path in sorted(ADAPTER_ROOT.glob("*.py")) if path.name != "__init__.py"
+)
 CAPABILITY_MODULES = tuple(sorted((REPOSITORY_ROOT / "libs" / "capabilities").rglob("*.py")))
 DOMAIN_MODULES = tuple(sorted((REPOSITORY_ROOT / "libs" / "domain").rglob("*.py")))
 RUNTIME_MODULES = tuple(sorted((REPOSITORY_ROOT / "libs" / "runtime").rglob("*.py")))
@@ -92,15 +95,28 @@ def _violations_for_dotted_path(dotted: str) -> set[str]:
     return {dotted}
 
 
+def _module_roots(module: str) -> tuple[Path, ...]:
+    """The implementation directory and the module-owned test lane.
+
+    A module's own test lane is part of the module, so it may exercise private
+    internals. Everything else in the repository may not.
+    """
+
+    return (
+        REPOSITORY_ROOT / "libs" / "capabilities" / module,
+        REPOSITORY_ROOT / "tests" / "modules" / module,
+    )
+
+
 def _source_files_outside(module: str) -> tuple[Path, ...]:
     """Every repository source file that is not part of the given module."""
 
-    module_root = REPOSITORY_ROOT / "libs" / "capabilities" / module
+    owned = _module_roots(module)
     this_file = Path(__file__).resolve()
     paths: list[Path] = []
     for root in ("libs", "apps", "tests"):
         for path in sorted((REPOSITORY_ROOT / root).rglob("*.py")):
-            if path == this_file or module_root in path.parents:
+            if path == this_file or any(root_dir in path.parents for root_dir in owned):
                 continue
             paths.append(path)
     return tuple(paths)
@@ -228,10 +244,55 @@ def test_capability_modules_only_take_declared_cross_module_edges(module: str) -
 
 def test_scheduler_adapters_do_not_import_actions_or_sdk() -> None:
     """Adapters receive leaf contracts, never their coordinating action results."""
+    assert BACKEND_MODULES, "no scheduler adapters found"
     for module in BACKEND_MODULES:
         imported = _imported_modules(module)
         assert not any(name.startswith("xcron_libs.actions") for name in imported), module
         assert not any(name.startswith("xcron_libs.sdk") for name in imported), module
+
+
+def test_scheduler_adapters_depend_on_the_port_not_the_use_cases() -> None:
+    """An adapter implements `ports`; it must not see a use-case result type."""
+
+    use_case_modules = {
+        f"{CAPABILITY_PACKAGE}.reconciliation.{name}"
+        for name in ("api", "contracts", "apply", "planning", "prune", "status", "inspect", "validation")
+    }
+    for module in BACKEND_MODULES:
+        offenders = sorted(_imported_modules(module) & use_case_modules)
+        assert not offenders, (module.relative_to(REPOSITORY_ROOT), offenders)
+
+
+def test_reconciliation_owns_its_scheduler_adapters() -> None:
+    """Phase 3 dissolved `libs/services/backends`; it must not come back."""
+
+    assert not (REPOSITORY_ROOT / "libs" / "services" / "backends").exists()
+    for name in ("wrapper_renderer.py", "state_store.py"):
+        assert not (REPOSITORY_ROOT / "libs" / "services" / name).exists(), name
+    assert not (REPOSITORY_ROOT / "libs" / "domain" / "diffing.py").exists()
+
+    module_root = REPOSITORY_ROOT / "libs" / "capabilities" / "reconciliation"
+    for relative in (
+        "adapters/cron.py",
+        "adapters/launchd.py",
+        "adapters/process.py",
+        "domain.py",
+        "ports.py",
+        "registry.py",
+        "state_store.py",
+        "wrapper.py",
+    ):
+        assert (module_root / relative).is_file(), relative
+
+
+def test_domain_package_is_a_leaf_with_no_capability_dependency() -> None:
+    """`libs/domain` holds manifest value types; diffing belongs to a module."""
+
+    for path in sorted((REPOSITORY_ROOT / "libs" / "domain").rglob("*.py")):
+        offenders = sorted(
+            name for name in _imported_modules(path) if name.startswith(CAPABILITY_PACKAGE)
+        )
+        assert not offenders, (path.relative_to(REPOSITORY_ROOT), offenders)
 
 
 def test_typer_shell_uses_the_sdk_not_action_implementations() -> None:
@@ -239,7 +300,6 @@ def test_typer_shell_uses_the_sdk_not_action_implementations() -> None:
     forbidden_prefixes = (
         "xcron_libs.actions",
         "xcron_libs.capabilities",
-        "xcron_libs.services.backends",
     )
 
     assert "xcron_libs" in imported
@@ -305,7 +365,6 @@ def test_domain_does_not_depend_on_channels_or_application_layers() -> None:
         "xcron_libs.capabilities",
         "xcron_libs.runtime",
         "xcron_libs.sdk",
-        "xcron_libs.services.backends",
     )
     for module in DOMAIN_MODULES:
         imported = _imported_modules(module)

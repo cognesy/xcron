@@ -12,7 +12,7 @@ from xcron_libs.capabilities.reconciliation.apply import apply_project
 from xcron_libs.capabilities.reconciliation.inspect import inspect_job
 from xcron_libs.capabilities.reconciliation.planning import plan_project
 from xcron_libs.capabilities.reconciliation.prune import prune_project
-from xcron_libs.capabilities.reconciliation.scheduler_registry import (
+from xcron_libs.capabilities.reconciliation.registry import (
     SchedulerRegistry,
     default_scheduler_registry,
 )

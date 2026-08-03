@@ -10,14 +10,14 @@ from xcron_libs.capabilities.reconciliation.contracts import (
     PlanProjectResult,
     SchedulerRuntimeOptions,
 )
-from xcron_libs.capabilities.reconciliation.scheduler_registry import (
+from xcron_libs.capabilities.reconciliation.registry import (
     SchedulerRegistry,
     default_scheduler_registry,
 )
 from xcron_libs.capabilities.reconciliation.status import status_project
 from xcron_libs.services.metrics import MetricsService
 from xcron_libs.services.observability import get_logger, instrument_action
-from xcron_libs.services.state_store import resolve_project_state_path
+from xcron_libs.capabilities.reconciliation.state_store import resolve_project_state_path
 
 LOGGER = get_logger(__name__)
 

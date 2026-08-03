@@ -7,7 +7,7 @@ import textwrap
 import pytest
 
 from xcron_libs.actions.validate_project import validate_project
-from xcron_libs.services.backends.launchd_service import (
+from xcron_libs.capabilities.reconciliation.adapters.launchd import (
     collect_launchd_project_state,
     parse_calendar_field,
     render_launchd_job,

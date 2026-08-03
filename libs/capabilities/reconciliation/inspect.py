@@ -12,12 +12,13 @@ from xcron_libs.capabilities.reconciliation.contracts import (
     SchedulerInspection,
     SchedulerRuntimeOptions,
 )
-from xcron_libs.capabilities.reconciliation.scheduler_registry import (
+from xcron_libs.capabilities.reconciliation.registry import (
     SchedulerRegistry,
     default_scheduler_registry,
 )
 from xcron_libs.capabilities.reconciliation.status import status_project
-from xcron_libs.domain import NormalizedJob, StatusEntry
+from xcron_libs.capabilities.reconciliation.domain import StatusEntry
+from xcron_libs.domain import NormalizedJob
 from xcron_libs.services.observability import get_logger, instrument_action
 
 

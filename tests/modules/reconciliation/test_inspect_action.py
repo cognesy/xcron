@@ -6,7 +6,7 @@ from xcron_libs.actions.inspect_job import inspect_job
 from xcron_libs.actions.validate_project import validate_project
 from xcron_libs.capabilities.reconciliation.api import SchedulerRegistry
 from xcron_libs.capabilities.reconciliation.contracts import SchedulerInspection
-from xcron_libs.domain import ProjectState, StatusKind
+from xcron_libs.capabilities.reconciliation.domain import ProjectState, StatusKind
 
 
 def test_inspect_job_builds_launchd_raw_detail_sections(tmp_path) -> None:

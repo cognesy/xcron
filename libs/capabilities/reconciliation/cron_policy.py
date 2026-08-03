@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-from xcron_libs.domain import (
-    NormalizedJob,
-    PlanChange,
-    PlanChangeKind,
-    ScheduleKind,
-)
+from xcron_libs.capabilities.reconciliation.domain import PlanChange, PlanChangeKind
+from xcron_libs.domain import NormalizedJob, ScheduleKind
 
 
 def cron_schedule_errors(jobs: tuple[NormalizedJob, ...]) -> tuple[PlanChange, ...]:

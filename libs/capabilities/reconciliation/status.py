@@ -8,15 +8,15 @@ from xcron_libs.capabilities.reconciliation.contracts import (
     SchedulerRuntimeOptions,
     StatusProjectResult,
 )
-from xcron_libs.capabilities.reconciliation.scheduler_registry import (
+from xcron_libs.capabilities.reconciliation.registry import (
     SchedulerRegistry,
     default_scheduler_registry,
 )
 from xcron_libs.capabilities.reconciliation.validation import validate_project
-from xcron_libs.domain import build_project_plan, build_status_entries
+from xcron_libs.capabilities.reconciliation.domain import build_project_plan, build_status_entries
 from xcron_libs.services.metrics import MetricsService
 from xcron_libs.services.observability import get_logger, instrument_action
-from xcron_libs.services.state_store import default_backend_for_current_platform
+from xcron_libs.capabilities.reconciliation.registry import default_backend_for_current_platform
 
 LOGGER = get_logger(__name__)
 

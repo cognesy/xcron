@@ -1,53 +1,22 @@
-"""Derived local state storage for xcron-managed project metadata."""
+"""Persistence of ``project-state.json``, the reconciliation module's state file.
+
+This module owns the on-disk record of what xcron last deployed for one
+project. Where the state root lives is a shared concern resolved by
+:mod:`xcron_libs.services.state_paths`; what goes inside it is not.
+"""
 
 from __future__ import annotations
 
 from dataclasses import asdict
 from datetime import datetime, timezone
 import json
-import os
 from pathlib import Path
-import sys
 
-from xcron_libs.domain.diffing import DeployedJobState, ProjectState
+from xcron_libs.capabilities.reconciliation.domain import DeployedJobState, ProjectState
+from xcron_libs.services.state_paths import resolve_project_state_dir
 
 
-STATE_ENV_VAR = "XCRON_STATE_ROOT"
 STATE_FILENAME = "project-state.json"
-
-
-def default_backend_for_current_platform(platform: str | None = None) -> str:
-    """Return the backend xcron should target on the current platform."""
-    selected = sys.platform if platform is None else platform
-    if selected.startswith("darwin"):
-        return "launchd"
-    if selected.startswith("linux"):
-        return "cron"
-    raise ValueError(f"unsupported platform for xcron prototype: {selected}")
-
-
-def resolve_state_root(
-    platform: str | None = None,
-    home: Path | None = None,
-    env: dict[str, str] | None = None,
-) -> Path:
-    """Resolve the machine-local derived state root for xcron."""
-    env_map = os.environ if env is None else env
-    override = env_map.get(STATE_ENV_VAR)
-    if override:
-        return Path(override).expanduser().resolve()
-
-    selected_home = Path.home() if home is None else Path(home)
-    selected = sys.platform if platform is None else platform
-    if selected.startswith(("darwin", "linux")):
-        return (selected_home / ".xcron").resolve()
-    raise ValueError(f"unsupported platform for xcron prototype: {selected}")
-
-
-def resolve_project_state_dir(project_id: str, state_root: Path | None = None) -> Path:
-    """Resolve the per-project derived state directory."""
-    root = resolve_state_root() if state_root is None else Path(state_root).expanduser().resolve()
-    return root / "projects" / project_id
 
 
 def resolve_project_state_path(project_id: str, state_root: Path | None = None) -> Path:

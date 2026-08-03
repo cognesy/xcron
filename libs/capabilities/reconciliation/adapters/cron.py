@@ -7,12 +7,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 import re
 
-from xcron_libs.capabilities.reconciliation.contracts import DeploymentPlan
-from xcron_libs.domain import DeployedJobState, NormalizedJob, ProjectState, ScheduleKind
+from xcron_libs.capabilities.reconciliation.ports import DeploymentPlan
+from xcron_libs.capabilities.reconciliation.domain import DeployedJobState, ProjectState
+from xcron_libs.domain import NormalizedJob, ScheduleKind
 from xcron_libs.services.logging_paths import resolve_runtime_paths, runtime_event_log_path_for_wrapper, runtime_log_paths_for_wrapper
-from xcron_libs.services.observability import get_logger, run_logged_subprocess
-from xcron_libs.services.state_store import save_project_state
-from xcron_libs.services.wrapper_renderer import render_wrapper, write_wrapper
+from xcron_libs.capabilities.reconciliation.adapters.process import run_logged_subprocess
+from xcron_libs.services.observability import get_logger
+from xcron_libs.capabilities.reconciliation.state_store import save_project_state
+from xcron_libs.capabilities.reconciliation.wrapper import render_wrapper, write_wrapper
 
 
 BEGIN_MARKER_PREFIX = "# BEGIN XCRON project="

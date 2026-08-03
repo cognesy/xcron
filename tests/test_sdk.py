@@ -12,7 +12,7 @@ import pytest
 from xcron_libs import ClientClosedError, HookError, Xcron
 from xcron_libs.capabilities.agent_hooks.contracts import ExecutableNotFoundError
 from xcron_libs.capabilities.reconciliation.api import SchedulerRegistry
-from xcron_libs.domain import PlanChange, PlanChangeKind, ProjectState
+from xcron_libs.capabilities.reconciliation.contracts import PlanChange, PlanChangeKind, ProjectState
 
 
 def _write_project(root: Path) -> Path:

@@ -10,10 +10,12 @@ Top-level layout:
 - `apps/cli/` contains the thin Typer/output channel;
 - `libs/capabilities/` contains capability-owned use cases:
   `reconciliation`, `jobs`, `operations`, `agent_hooks`, and `home`;
-- `libs/domain/` contains canonical models, normalization, identities, and
-  desired-vs-deployed diffing;
-- `libs/services/` contains reusable low-level mechanisms and native scheduler
-  adapters;
+- `libs/domain/` contains manifest value types, normalization, and identities;
+  desired-vs-deployed diffing belongs to the reconciliation module;
+- `libs/services/` contains only genuinely shared low-level mechanisms:
+  hashing, schema validation, manifest editing, observability, metrics,
+  logging configuration, and derived-state path resolution. Native scheduler
+  adapters are not here; they belong to the reconciliation module;
 - `libs/runtime/` composes the deterministic first-party provider set;
 - `libs/sdk/` exposes the typed `Xcron` client for embedders and CLI use; and
 - `libs/actions/` is a compatibility import facade for the previous action
@@ -22,9 +24,9 @@ Top-level layout:
 The dependency direction is:
 
 ```text
-apps/cli -> xcron_libs.Xcron -> capability actions -> domain + ports
-runtime  -> explicit scheduler registry -> native scheduler adapters
-adapters -> reconciliation contracts + domain
+apps/cli -> xcron_libs.Xcron -> module api/contracts -> module internals
+runtime  -> explicit scheduler registry -> module-owned scheduler adapters
+adapters -> reconciliation ports + reconciliation domain
 ```
 
 Rules:
@@ -88,9 +90,10 @@ of what each module hides, owns, and is allowed to depend on;
 `tests/test_reconciliation_architecture.py` enforces the surface, the
 initializer, and the `allowed_dependencies` line of every card.
 
-Only `agent_hooks` currently satisfies the full Level 1 bar. The other four
-have the public surface and the declared dependency edges but not yet a single
-state owner or a module-owned test lane; their `isolation_level` says so.
+`agent_hooks` and `reconciliation` own their implementation outright and have
+module-owned test lanes. `home`, `jobs`, and `operations` have the public
+surface and the declared dependency edges but not yet a single state owner;
+each card's `isolation_level` says which.
 
 ```yaml
 module: xcron_libs.capabilities.agent_hooks
@@ -173,21 +176,32 @@ owned_state:
   - launchd plists under the selected LaunchAgents directory
   - xcron-owned crontab entries
   - generated job wrapper scripts
-owned_resources: [SchedulerBackend registry, native scheduler artifacts]
+owned_resources:
+  - the SchedulerBackend registry and its first-party adapters
+  - native scheduler artifacts
+  - the launchctl and crontab subprocess boundary
+owned_code:
+  - adapters/ (cron, launchd, and their logged-subprocess boundary)
+  - domain.py (desired-vs-deployed diffing)
+  - ports.py (the SchedulerBackend port and its values)
+  - registry.py (adapter registry and default-backend selection)
+  - state_store.py (project-state.json persistence)
+  - wrapper.py (job wrapper rendering)
 allowed_dependencies:
-  - libs/domain
-  - libs/services (hashing, schema validation, state store, backends)
+  - libs/domain (manifest value types)
+  - libs/services (hashing, schema validation, observability, state_paths)
 cross_module_flows:
-  - SchedulerBackend is an inbound port; adapters live in libs/services/backends
+  - SchedulerBackend is an inbound port; adapters are module-private
 failure_behavior: >
   Validation failures short-circuit before any mutation; an unknown backend
   raises UnknownSchedulerBackendError.
 isolation_level: >
-  1 (surface only) - workspace resolution and manifest mechanics split out in
-  phases 4-5, and the metrics write path moves behind an OutcomeRecorder port
+  1 (surface plus owned implementation) - workspace resolution and manifest
+  mechanics split out in phases 4-5, and the metrics write path moves behind an
+  OutcomeRecorder port
 verification:
-  - tests/test_validation.py, tests/test_planning.py, tests/test_status_projection.py
-  - tests/test_launchd_backend.py, tests/test_cron_backend.py
+  - tests/modules/reconciliation/ (module-owned lane, including a fake-backend
+    lane that imports only api, contracts, and ports)
   - tests/test_reconciliation_architecture.py
 ```
 
@@ -285,8 +299,7 @@ Implemented prototype components:
   hooks, and home APIs
 - CLI thin shells that call the SDK rather than embedding backend logic
 - Typer-based command declaration and command grouping
-- Pydantic response envelopes plus mapper helpers in CLI-owned projection leaf
-  modules under `libs/services/`
+- Pydantic response envelopes plus mapper helpers under `apps/cli/`
 - unified machine/human output rendering:
   - TOON for machine-facing output
   - Rich-backed help and human-facing presentation paths

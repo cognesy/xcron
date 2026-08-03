@@ -197,6 +197,48 @@ uv run pytest tests/test_cron_backend.py tests/test_launchd_backend.py \
 Move the same tests into `tests/modules/reconciliation/` in this phase and add
 a fake-backend lane that imports no sibling implementation.
 
+### Phase 3 result (2026-08-04)
+
+Done, with one deliberate departure from step 2. `libs/services/` fell from
+3,855 lines to 1,210; `reconciliation` grew to 2,944 and now owns everything
+its decision depends on: `adapters/{cron,launchd,process}.py`, `domain.py`
+(the former `libs/domain/diffing.py`), `ports.py`, `registry.py`,
+`state_store.py`, and `wrapper.py`. `libs/services/backends/` is gone.
+
+**Departure — `state_store` split rather than moved.** The plan said move it
+whole, but `libs/services/logging_paths.py` and `operations` both need
+`resolve_state_root`/`resolve_project_state_dir`, and moving those into
+reconciliation would have forced `operations` to import a sibling's internals.
+So *where* derived state lives stayed shared, in the new
+`libs/services/state_paths.py` (39 lines), and *what goes in it* moved:
+`project-state.json` load/save/delete is now reconciliation's. This preserves
+the intent of the step — one owner per file — while keeping the declared edge
+set intact. `default_backend_for_current_platform` moved to `registry.py`,
+where backend selection already lives; all three call sites were reconciliation.
+
+`contracts.py` split as planned: `ports.py` holds `DeploymentPlan`,
+`SchedulerRuntimeOptions`, `SchedulerInspection`, and the `SchedulerBackend`
+Protocol; `contracts.py` holds the use-case results and re-exports the port
+values that appear inside them, so a caller still needs one import. The two
+adapters now import `ports`, never `contracts` — a new test enforces exactly
+that, since an adapter seeing a use-case result is the failure mode this split
+exists to prevent.
+
+`libs/domain/` no longer imports a capability. It had been re-exporting the
+diffing names, which pointed the dependency arrow backwards the moment diffing
+moved; a new test pins `libs/domain` as a leaf.
+
+Tests moved to `tests/modules/reconciliation/` (8 files), and the scanner now
+treats `tests/modules/<module>/` as part of the module, so a module-owned lane
+may exercise internals while nothing else may. The new
+`test_fake_backend_lane.py` drives plan, status, apply, prune, and the typed
+unknown-backend error through an in-memory `FakeScheduler`, importing only
+`api`, `contracts`, and `ports`.
+
+- `./scripts/verify-core.sh`: 200 passed (was 191 — 6 fake-backend cases plus
+  3 new structural contracts).
+- CLI golden: 36/36 files byte-identical to the Phase 0 baseline.
+
 ## Phase 4 — extract `manifest`, `shared`, and the metrics owner
 
 1. Create `capabilities/manifest/` from `manifest_editor`, `schema_validator`,

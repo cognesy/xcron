@@ -10,15 +10,15 @@ from xcron_libs.capabilities.reconciliation.cron_policy import (
     cron_incompatible_reason,
     cron_schedule_errors,
 )
-from xcron_libs.capabilities.reconciliation.scheduler_registry import (
+from xcron_libs.capabilities.reconciliation.registry import (
     SchedulerRegistry,
+    default_backend_for_current_platform,
     default_scheduler_registry,
 )
-from xcron_libs.domain.diffing import PlanChange, PlanChangeKind, ProjectPlan, build_project_plan
+from xcron_libs.capabilities.reconciliation.domain import PlanChange, PlanChangeKind, ProjectPlan, build_project_plan
 from xcron_libs.domain.models import NormalizedJob
 from xcron_libs.services.observability import get_logger, instrument_action
-from xcron_libs.services.state_store import (
-    default_backend_for_current_platform,
+from xcron_libs.capabilities.reconciliation.state_store import (
     load_project_state,
     resolve_project_state_path,
 )

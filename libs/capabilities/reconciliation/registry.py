@@ -1,8 +1,13 @@
-"""Explicit registry of first-party native scheduler adapters."""
+"""Explicit registry of first-party native scheduler adapters.
+
+This module also owns backend *selection*: which native scheduler xcron targets
+when the caller does not name one.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+import sys
 from typing import Mapping, Sequence
 
 from xcron_libs.capabilities.reconciliation.contracts import (
@@ -13,15 +18,16 @@ from xcron_libs.capabilities.reconciliation.contracts import (
     UnknownSchedulerBackendError,
 )
 from xcron_libs.capabilities.reconciliation.cron_policy import cron_schedule_errors
-from xcron_libs.domain import NormalizedJob, PlanChange, ProjectState
-from xcron_libs.services.backends.cron_service import (
+from xcron_libs.capabilities.reconciliation.domain import PlanChange, ProjectState
+from xcron_libs.domain import NormalizedJob
+from xcron_libs.capabilities.reconciliation.adapters.cron import (
     CronInspection,
     apply_cron_plan,
     collect_cron_project_state,
     inspect_cron_project,
     prune_cron_project,
 )
-from xcron_libs.services.backends.launchd_service import (
+from xcron_libs.capabilities.reconciliation.adapters.launchd import (
     LaunchdInspection,
     apply_launchd_plan,
     collect_launchd_project_state,
@@ -201,3 +207,13 @@ def _cron_inspection(item: CronInspection) -> SchedulerInspection:
         event_log_path=item.event_log_path,
         raw_entry=item.raw_entry,
     )
+
+
+def default_backend_for_current_platform(platform: str | None = None) -> str:
+    """Return the backend xcron should target on the current platform."""
+    selected = sys.platform if platform is None else platform
+    if selected.startswith("darwin"):
+        return "launchd"
+    if selected.startswith("linux"):
+        return "cron"
+    raise ValueError(f"unsupported platform for xcron prototype: {selected}")

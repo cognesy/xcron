@@ -14,7 +14,7 @@ from xcron_libs.capabilities.reconciliation.contracts import ValidateProjectResu
 from xcron_libs.services.logging_paths import resolve_runtime_paths
 from xcron_libs.services.metrics import MetricsService
 from xcron_libs.services.observability import get_logger, instrument_action
-from xcron_libs.services.state_store import resolve_state_root
+from xcron_libs.services.state_paths import resolve_state_root
 
 
 LOGGER = get_logger(__name__)
