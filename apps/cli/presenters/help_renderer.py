@@ -9,7 +9,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 
 
-HELP_PACKAGE = "xcron_resources.help"
+HELP_PACKAGE = "xcron_cli.resources.help"
 
 
 def load_help_body(help_key: str) -> str:

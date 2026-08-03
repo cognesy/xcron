@@ -6,9 +6,9 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
-from xcron_libs.services.axi_presenter import collapse_home_path, truncate_text
-from xcron_libs.services.cli_contracts import CommandContract
-from xcron_libs.services.cli_responses import (
+from xcron_cli.presenters.axi_presenter import collapse_home_path, truncate_text
+from xcron_cli.contracts import CommandContract
+from xcron_cli.responses import (
     ErrorDetail,
     ErrorResponse,
     HomeJobsSummary,

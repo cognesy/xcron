@@ -140,6 +140,36 @@ uv run xcron --help && uv run xcron jobs --help && uv run xcron inspect --help
 
 Help output must be byte-identical to the pre-phase capture.
 
+### Phase 2 result (2026-08-04)
+
+Done, and it was the pure move the plan predicted: 1,299 lines changed path,
+not content. `cli_contracts` → `apps/cli/contracts.py`, `cli_responses` →
+`apps/cli/responses.py`, `cli_mappers` → `apps/cli/mappers.py`, and
+`axi_presenter`, `toon_renderer`, `tmux_renderer`, `help_renderer` →
+`apps/cli/presenters/`. `resources/help/` → `apps/cli/resources/help/`, so the
+15 authored help pages are now packaged data of the channel that renders them
+rather than of a shared `xcron_resources` package.
+
+`pyproject.toml` gained `xcron_cli.presenters`, `xcron_cli.resources`,
+`xcron_cli.resources.help`, and `xcron_cli.resources.help.jobs`, and the
+help package-data keys moved off `xcron_resources`. `xcron_resources` now
+carries only `logging` and `schemas`, which are genuinely library-owned.
+
+The new contract is `test_no_library_module_imports_the_cli_channel`: every
+`.py` file under `libs/` is parsed and may not import `xcron_cli` in any form.
+`test_cli_projection_modules_live_in_the_cli_channel` pins the move itself so
+the cluster cannot drift back. Three older tests listed the individual
+projection modules as forbidden prefixes; those entries are now subsumed by the
+`xcron_cli` prefix and were removed rather than rewritten.
+
+- `./scripts/verify-core.sh`: 191 passed (was 189 — 2 new contracts).
+- CLI golden: 36/36 files byte-identical to the Phase 0 baseline.
+- Wheel check: built, installed into a clean venv, and all 15 help pages load
+  from `xcron_cli.resources.help`. The installed `--help` differs from the
+  baseline only in Typer's metavar rendering (`TEXT` vs `<str>`), because the
+  clean venv resolved typer 0.27.1 against the project's pinned 0.23.2. That
+  difference is not caused by this phase.
+
 ## Phase 3 — reconciliation absorbs its adapters
 
 1. Move `backends/cron_service` → `reconciliation/adapters/cron.py` and

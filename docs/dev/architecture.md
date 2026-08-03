@@ -49,13 +49,13 @@ Rules:
 - `libs/services/__init__.py` stays non-aggregating. Callers import explicit
   leaf modules so capability/SDK imports cannot transitively load CLI response
   models or rendering dependencies.
-- CLI projection leaf modules (`cli_contracts`, `cli_mappers`,
-  `cli_responses`, `toon_renderer`, and `tmux_renderer`) remain physically in
-  `libs/services/` during the brownfield migration. They are owned by the CLI
-  channel through import direction: the projection leaf modules may depend on
-  one another, but production entry into that cluster comes from `apps/cli/`.
-  Capability, domain, runtime, SDK, and backend code must not import them.
-  Physical location alone does not make them reusable product services.
+- The CLI projection cluster lives inside the channel that owns it:
+  `apps/cli/contracts.py`, `apps/cli/mappers.py`, `apps/cli/responses.py`, and
+  `apps/cli/presenters/` (AXI field selection, TOON, tmux, and Rich help).
+  Authored help pages are packaged data of that channel, under
+  `apps/cli/resources/help/`. Nothing under `libs/` may import `xcron_cli` in
+  any import form; `tests/test_reconciliation_architecture.py` enforces this
+  across every file in `libs/`.
 
 ## Verified Level 1 module
 
@@ -290,7 +290,7 @@ Implemented prototype components:
 - unified machine/human output rendering:
   - TOON for machine-facing output
   - Rich-backed help and human-facing presentation paths
-- resource-backed runtime help under `resources/help/`
+- resource-backed runtime help under `apps/cli/resources/help/`
 - repo-local Codex and Claude hook adapters plus install/status/repair flows
 
 Verification model:

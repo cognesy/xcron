@@ -122,11 +122,6 @@ def test_sdk_modules_do_not_import_cli_or_renderers() -> None:
         "xcron_cli",
         "typer",
         "rich",
-        "xcron_libs.services.cli_contracts",
-        "xcron_libs.services.cli_mappers",
-        "xcron_libs.services.cli_responses",
-        "xcron_libs.services.toon_renderer",
-        "xcron_libs.services.tmux_renderer",
     )
 
     for path in sdk_dir.glob("*.py"):
@@ -167,7 +162,7 @@ def test_importing_public_sdk_does_not_load_cli_or_response_modules() -> None:
             (
                 "import sys; import xcron_libs; "
                 "forbidden = {'typer', 'xcron_cli', "
-                "'xcron_libs.services.cli_responses'}; "
+                "'xcron_cli.responses'}; "
                 "loaded = forbidden.intersection(sys.modules); "
                 "assert not loaded, sorted(loaded)"
             ),

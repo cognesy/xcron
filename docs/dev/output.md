@@ -25,7 +25,7 @@ xcron currently supports exactly two stdout formats:
 
 There is no `jsonl` mode and no separate `text` mode in xcron's command output
 path. Runtime help is rendered separately through
-[`libs/services/help_renderer.py`](/Users/ddebowczyk/projects/xcron/libs/services/help_renderer.py).
+[`apps/cli/presenters/help_renderer.py`](/Users/ddebowczyk/projects/xcron/apps/cli/presenters/help_renderer.py).
 
 ## Command DX
 
@@ -116,7 +116,7 @@ Implications:
 Normal responses use this pipeline:
 
 | Format | Pipeline |
-|--------|----------|
+| --- | --- |
 | `toon` | `response.to_payload()` -> contract field selection -> `render_toon()` |
 | `json` | `response.to_payload()` -> contract field selection -> `json.dumps(...)` |
 
@@ -140,7 +140,7 @@ That is why the output layer is easy to unit test.
 ## Response Model Inventory
 
 All command output now flows through typed Pydantic response models in
-[`libs/services/cli_responses.py`](/Users/ddebowczyk/projects/xcron/libs/services/cli_responses.py).
+[`apps/cli/responses.py`](/Users/ddebowczyk/projects/xcron/apps/cli/responses.py).
 
 Current top-level response types:
 
@@ -172,7 +172,7 @@ Representative row/nested types:
 ## Command Contracts
 
 Contracts live in
-[`libs/services/cli_contracts.py`](/Users/ddebowczyk/projects/xcron/libs/services/cli_contracts.py).
+[`apps/cli/contracts.py`](/Users/ddebowczyk/projects/xcron/apps/cli/contracts.py).
 They define:
 
 - `default_fields`
@@ -260,7 +260,7 @@ an invalid `--output` value.
 
 Help rendering is no longer part of the output renderer module. The only Rich
 Markdown rendering path now lives in
-[`libs/services/help_renderer.py`](/Users/ddebowczyk/projects/xcron/libs/services/help_renderer.py).
+[`apps/cli/presenters/help_renderer.py`](/Users/ddebowczyk/projects/xcron/apps/cli/presenters/help_renderer.py).
 
 That separation is deliberate:
 
@@ -274,14 +274,15 @@ apps/cli/
   output.py       - Output class + normalize_for_output
   typer_app.py    - Typer commands and bootstrap usage-error path
   common.py       - shared CLI option helpers
-
-libs/services/
-  cli_responses.py   - typed CLI response models
-  cli_contracts.py   - field-selection contracts
-  cli_mappers.py     - action result -> response model translation
-  axi_presenter.py   - field filtering and truncation helpers
-  help_renderer.py   - authored Markdown help rendering
-  toon_renderer.py   - TOON adapter
+  responses.py    - typed CLI response models
+  contracts.py    - field-selection contracts
+  mappers.py      - action result -> response model translation
+  presenters/
+    axi_presenter.py   - field filtering and truncation helpers
+    help_renderer.py   - authored Markdown help rendering
+    toon_renderer.py   - TOON adapter
+    tmux_renderer.py   - tmux adapter
+  resources/help/ - authored Markdown command help (packaged data)
 ```
 
 Removed in the refactor:
@@ -313,8 +314,8 @@ Important cases covered by tests:
 
 ## Practical Rules For Future Changes
 
-- Add or change response shape in `cli_responses.py`
-- Update the matching contract in `cli_contracts.py`
-- Keep action-to-response translation in `cli_mappers.py`
+- Add or change response shape in `apps/cli/responses.py`
+- Update the matching contract in `apps/cli/contracts.py`
+- Keep action-to-response translation in `apps/cli/mappers.py`
 - Keep stdout writes inside `Output.print()` / `Output.error()`
 - Extend `help_renderer.py` only for authored help, not normal command output

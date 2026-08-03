@@ -190,7 +190,7 @@ packages = [ ... 21 hand-listed packages including "xcron_libs.infra" ... ]
 - **Public import names expose repository layout.** The distribution is
   `xcron`, but consumers import `xcron_libs`, `xcron_cli`, and
   `xcron_resources`, mapped from `libs/`, `apps/cli/`, and `resources/`.
-- **Packaged resources are shared**, not module-owned: `xcron_resources.help`
+- **Packaged resources are shared**, not module-owned: `xcron_cli.resources.help`
   is CLI-owned, `xcron_resources.schemas` is manifest-owned, and
   `xcron_resources.logging` is observability-owned.
 

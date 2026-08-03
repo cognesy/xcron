@@ -10,19 +10,19 @@ from typing import Any, Literal, NoReturn, cast
 import typer
 
 from xcron_cli.common import selected_output_format
-from xcron_libs.services.axi_presenter import parse_fields_csv, select_fields
-from xcron_libs.services.cli_contracts import (
+from xcron_cli.presenters.axi_presenter import parse_fields_csv, select_fields
+from xcron_cli.contracts import (
     CommandContract,
     get_command_contract,
     validate_requested_fields,
 )
-from xcron_libs.services.cli_responses import (
+from xcron_cli.responses import (
     ErrorDetail,
     ErrorResponse,
     PayloadConvertible,
 )
-from xcron_libs.services.tmux_renderer import render_tmux
-from xcron_libs.services.toon_renderer import render_toon
+from xcron_cli.presenters.tmux_renderer import render_tmux
+from xcron_cli.presenters.toon_renderer import render_toon
 
 OutputFormat = Literal["json", "toon", "tmux"]
 

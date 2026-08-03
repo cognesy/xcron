@@ -34,6 +34,10 @@ xcron = "xcron_cli.typer_app:run"
 include-package-data = true
 packages = [
   "xcron_cli",
+  "xcron_cli.presenters",
+  "xcron_cli.resources",
+  "xcron_cli.resources.help",
+  "xcron_cli.resources.help.jobs",
   "xcron_libs",
   "xcron_libs.actions",
   "xcron_libs.capabilities",
@@ -49,8 +53,6 @@ packages = [
   "xcron_libs.services",
   "xcron_libs.services.backends",
   "xcron_resources",
-  "xcron_resources.help",
-  "xcron_resources.help.jobs",
   "xcron_resources.logging",
   "xcron_resources.schemas",
 ]
@@ -61,8 +63,8 @@ xcron_libs = "libs"
 xcron_resources = "resources"
 
 [tool.setuptools.package-data]
-"xcron_resources.help" = ["*.md", "jobs/*.md"]
-"xcron_resources.help.jobs" = ["*.md"]
+"xcron_cli.resources.help" = ["*.md", "jobs/*.md"]
+"xcron_cli.resources.help.jobs" = ["*.md"]
 "xcron_resources.logging" = ["*.yaml"]
 "xcron_resources.schemas" = ["*.yaml"]
 

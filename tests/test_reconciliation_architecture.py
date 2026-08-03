@@ -246,16 +246,51 @@ def test_typer_shell_uses_the_sdk_not_action_implementations() -> None:
     assert not any(name.startswith(forbidden_prefixes) for name in imported)
 
 
+def test_no_library_module_imports_the_cli_channel() -> None:
+    """`xcron_cli` owns its projections; `libs/` may never reach back into it."""
+
+    for path in sorted((REPOSITORY_ROOT / "libs").rglob("*.py")):
+        imported = _imported_modules(path)
+        offenders = sorted(
+            name for name in imported if name == "xcron_cli" or name.startswith("xcron_cli.")
+        )
+        assert not offenders, (path.relative_to(REPOSITORY_ROOT), offenders)
+
+
+def test_cli_projection_modules_live_in_the_cli_channel() -> None:
+    """The projection cluster moved out of `libs/services` and stays out."""
+
+    services_root = REPOSITORY_ROOT / "libs" / "services"
+    for name in (
+        "cli_contracts.py",
+        "cli_responses.py",
+        "cli_mappers.py",
+        "axi_presenter.py",
+        "toon_renderer.py",
+        "tmux_renderer.py",
+        "help_renderer.py",
+    ):
+        assert not (services_root / name).exists(), name
+
+    cli_root = REPOSITORY_ROOT / "apps" / "cli"
+    for relative in (
+        "contracts.py",
+        "responses.py",
+        "mappers.py",
+        "presenters/axi_presenter.py",
+        "presenters/toon_renderer.py",
+        "presenters/tmux_renderer.py",
+        "presenters/help_renderer.py",
+        "resources/help/root.md",
+    ):
+        assert (cli_root / relative).is_file(), relative
+
+
 def test_capabilities_do_not_depend_on_the_cli_or_rendering_boundary() -> None:
     forbidden_prefixes = (
         "xcron_cli",
         "typer",
         "rich",
-        "xcron_libs.services.toon_renderer",
-        "xcron_libs.services.tmux_renderer",
-        "xcron_libs.services.cli_contracts",
-        "xcron_libs.services.cli_mappers",
-        "xcron_libs.services.cli_responses",
     )
     for module in CAPABILITY_MODULES:
         imported = _imported_modules(module)
@@ -282,9 +317,6 @@ def test_runtime_is_composition_only_and_channel_independent() -> None:
         "xcron_cli",
         "xcron_libs.actions",
         "xcron_libs.sdk",
-        "xcron_libs.services.cli_contracts",
-        "xcron_libs.services.cli_mappers",
-        "xcron_libs.services.cli_responses",
     )
     for module in RUNTIME_MODULES:
         imported = _imported_modules(module)

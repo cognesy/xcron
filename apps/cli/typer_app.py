@@ -19,8 +19,8 @@ from xcron_cli.common import (
 )
 from xcron_cli.output import Output
 from xcron_libs import UnknownBackendError, Xcron, XcronError
-from xcron_libs.services.axi_presenter import collapse_home_path
-from xcron_libs.services.cli_mappers import (
+from xcron_cli.presenters.axi_presenter import collapse_home_path
+from xcron_cli.mappers import (
     map_apply_response,
     map_home_response,
     map_inspect_response,
@@ -36,7 +36,7 @@ from xcron_libs.services.cli_mappers import (
     map_status_response,
     map_validation_response,
 )
-from xcron_libs.services.cli_responses import (
+from xcron_cli.responses import (
     ClaudeHookStatusResponse,
     CodexHookStatusResponse,
     HookInstallResponse,
@@ -44,8 +44,8 @@ from xcron_libs.services.cli_responses import (
     HookStatusResponse,
     InitResponse,
 )
-from xcron_libs.services.help_renderer import load_help_body
-from xcron_libs.services.toon_renderer import render_toon
+from xcron_cli.presenters.help_renderer import load_help_body
+from xcron_cli.presenters.toon_renderer import render_toon
 
 
 app = typer.Typer(
@@ -103,7 +103,7 @@ def _build_output(ctx: typer.Context, contract_name: str, output_format: str | N
 
 
 def _emit_bootstrap_usage_error(message: str, *, output_format: str) -> NoReturn:
-    from xcron_libs.services.tmux_renderer import render_tmux
+    from xcron_cli.presenters.tmux_renderer import render_tmux
 
     payload = {
         "kind": "error",

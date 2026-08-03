@@ -53,7 +53,7 @@ libs/services/backends/   launchd_service, cron_service
 libs/domain/              Pydantic domain models, normalization, diffing
 libs/infra/               infra placeholder helpers
 resources/schemas/        schedules.schema.yaml (manifest schema)
-resources/help/           packaged Markdown command help
+apps/cli/resources/help/           packaged Markdown command help
 resources/logging/        default structlog logging config
 resources/templates/      AXI command/test templates
 resources/examples/       example projects (basic, disabled-job)
@@ -112,9 +112,9 @@ which the later Go rewrite is expected to preserve.
 - `tmux` is supported for selected commands such as `xcron logs` and
   `xcron inspect` views that benefit from tmux pane formatting.
 - Convert to TOON/JSON/tmux only at the output boundary. Internal logic returns
-  Pydantic response models from `libs/services/cli_responses.py`.
+  Pydantic response models from `apps/cli/responses.py`.
 - `--fields` is validated up front against the per-command `CommandContract`
-  in `libs/services/cli_contracts.py`. Invalid fields become structured usage
+  in `apps/cli/contracts.py`. Invalid fields become structured usage
   errors, not silent no-ops.
 - `--full` expands truncated snippet payloads in detail-heavy commands,
   primarily `inspect`.
@@ -134,8 +134,9 @@ When changing CLI behavior, inspect and update:
 - `apps/cli/typer_app.py` (Typer commands and bootstrap usage-error path)
 - `apps/cli/output.py` (`Output` class, normalization, field selection)
 - `apps/cli/common.py` (shared option/env helpers)
-- `libs/services/cli_contracts.py`, `cli_responses.py`, `cli_mappers.py`
-- `resources/help/*.md` (authored runtime help)
+- `apps/cli/contracts.py`, `apps/cli/responses.py`, `apps/cli/mappers.py`
+- `apps/cli/presenters/` (AXI, TOON, tmux, and Rich help renderers)
+- `apps/cli/resources/help/*.md` (authored runtime help)
 - `tests/test_cli_*` and `tests/test_typer_cli.py`
 
 See `docs/dev/output.md` for the full output design.
@@ -220,7 +221,7 @@ Backend artifacts:
 Useful environment overrides (covered by tests; safe for isolated runs):
 
 | Variable | Purpose |
-|----------|---------|
+| --- | --- |
 | `XCRON_HOME` | default project root used when `--project` is not passed |
 | `XCRON_STATE_ROOT` | derived state root (wrappers, logs, locks, project-state.json) |
 | `XCRON_LAUNCH_AGENTS_DIR` | plist output directory (launchd) |
@@ -324,15 +325,16 @@ execution, and `prune`. See `tests/integration/README.md`.
 - Keep tests focused on the changed layer (action, service, mapper, contract,
   renderer, backend).
 - CLI/output changes need updates in `tests/test_cli_*.py`,
-  `tests/test_typer_cli.py`, and the matching `cli_contracts`/`cli_mappers`
-  tests.
-- New response shapes require a `cli_responses.py` model and a matching
-  `cli_contracts.py` entry; both belong to the same change.
+  `tests/test_typer_cli.py`, and the matching `apps/cli/contracts.py`
+  and `apps/cli/mappers.py` tests.
+- New response shapes require an `apps/cli/responses.py` model and a matching
+  `apps/cli/contracts.py` entry; both belong to the same change.
 - Backend changes need `tests/test_launchd_backend.py` /
   `tests/test_cron_backend.py` updates.
 - Wrapper / runtime-log changes need
   `tests/test_wrapper_renderer.py` and `tests/test_cli_logs.py`.
-- For documentation-only changes that touch `resources/help/` or skills, run
+- For documentation-only changes that touch `apps/cli/resources/help/` or
+  skills, run
   the help and skill smoke tests (`tests/test_help_renderer.py`,
   `tests/test_typer_cli.py`) and `git diff --check` at minimum.
 - Do not unconditionally invoke `launchctl` or write the user crontab from new
@@ -353,7 +355,7 @@ root; treat it as a legacy stub, not a current skill.
 When editing skills, run a help/CLI smoke and `git diff --check`. There is no
 repo-local skill validator script wired in today; do not invent one.
 
-Authored runtime help is packaged under `resources/help/`. The default logging
+Authored runtime help is packaged under `apps/cli/resources/help/`. The default logging
 config is packaged under `resources/logging/default.yaml`. Both are loaded via
 `importlib.resources` from installed wheels — keep filenames and the
 `pyproject.toml` `package-data` glob in sync.
