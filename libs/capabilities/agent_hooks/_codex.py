@@ -1,24 +1,13 @@
-"""Repo-local Codex hook/config integration."""
+"""Private Codex hook file adapter."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 from pathlib import Path
 from typing import Any
 
-from xcron_libs.services.hook_paths import CODEX_CONFIG_RELATIVE_PATH, CODEX_HOOKS_RELATIVE_PATH
-
-
-@dataclass(frozen=True)
-class CodexHookStatus:
-    config_path: str
-    hooks_path: str
-    config_exists: bool
-    hooks_exists: bool
-    feature_enabled: bool
-    session_start_matches: bool
-    session_end_matches: bool
+from ._paths import CODEX_CONFIG_RELATIVE_PATH, CODEX_HOOKS_RELATIVE_PATH
+from .contracts import CodexHookStatus
 
 
 def ensure_codex_hooks(project_root: Path, executable: Path) -> tuple[bool, CodexHookStatus]:
@@ -136,6 +125,3 @@ def _codex_hook_matches(hooks: dict[str, Any], event_name: str, command: str) ->
     if not isinstance(entries, list):
         return False
     return any(isinstance(entry, dict) and entry.get("command") == command for entry in entries)
-
-
-__all__ = ["CodexHookStatus", "ensure_codex_hooks", "inspect_codex_hooks"]

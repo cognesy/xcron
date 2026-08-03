@@ -3,26 +3,22 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from xcron_libs.services.hook_installer import (
-    CODEX_CONFIG_RELATIVE_PATH,
-    CODEX_HOOKS_RELATIVE_PATH,
-    CLAUDE_SETTINGS_RELATIVE_PATH,
-    capture_session_end,
-    ensure_agent_hooks,
-    inspect_agent_hooks,
+from xcron_libs.capabilities.agent_hooks.api import (
+    install_agent_hooks,
+    record_session_end,
+    status_agent_hooks,
 )
 
 
-def test_ensure_agent_hooks_creates_repo_local_configs_and_repairs_paths(tmp_path) -> None:
+def test_install_repairs_exact_hook_payloads_and_is_idempotent(tmp_path) -> None:
     first_executable = tmp_path / "bin" / "xcron-a"
     first_executable.parent.mkdir(parents=True)
     first_executable.write_text("", encoding="utf-8")
 
-    result = ensure_agent_hooks(tmp_path, executable_path=first_executable)
-
-    codex_config = tmp_path / CODEX_CONFIG_RELATIVE_PATH
-    codex_hooks = tmp_path / CODEX_HOOKS_RELATIVE_PATH
-    claude_settings = tmp_path / CLAUDE_SETTINGS_RELATIVE_PATH
+    result = install_agent_hooks(tmp_path, executable_path=first_executable)
+    codex_config = Path(result.codex_config_path)
+    codex_hooks = Path(result.codex_hooks_path)
+    claude_settings = Path(result.claude_settings_path)
 
     assert codex_config.exists()
     assert codex_hooks.exists()
@@ -40,7 +36,7 @@ def test_ensure_agent_hooks_creates_repo_local_configs_and_repairs_paths(tmp_pat
 
     second_executable = tmp_path / "bin" / "xcron-b"
     second_executable.write_text("", encoding="utf-8")
-    repaired = ensure_agent_hooks(tmp_path, executable_path=second_executable)
+    repaired = install_agent_hooks(tmp_path, executable_path=second_executable)
 
     repaired_codex_payload = json.loads(codex_hooks.read_text(encoding="utf-8"))
     repaired_claude_payload = json.loads(claude_settings.read_text(encoding="utf-8"))
@@ -51,8 +47,8 @@ def test_ensure_agent_hooks_creates_repo_local_configs_and_repairs_paths(tmp_pat
     assert repaired.changed_files
 
 
-def test_capture_session_end_appends_jsonl_record(tmp_path) -> None:
-    log_path = capture_session_end(tmp_path)
+def test_session_end_appends_jsonl_record(tmp_path) -> None:
+    log_path = Path(record_session_end(tmp_path).log_path)
 
     assert log_path.exists()
     lines = log_path.read_text(encoding="utf-8").splitlines()
@@ -62,13 +58,13 @@ def test_capture_session_end_appends_jsonl_record(tmp_path) -> None:
     assert "timestamp" in payload
 
 
-def test_inspect_agent_hooks_reports_repo_local_status_and_path_health(tmp_path) -> None:
+def test_status_reports_repo_local_hook_state(tmp_path) -> None:
     executable = tmp_path / "bin" / "xcron"
     executable.parent.mkdir(parents=True)
     executable.write_text("", encoding="utf-8")
 
-    ensure_agent_hooks(tmp_path, executable_path=executable)
-    status = inspect_agent_hooks(tmp_path, executable_path=executable)
+    install_agent_hooks(tmp_path, executable_path=executable)
+    status = status_agent_hooks(tmp_path, executable_path=executable)
 
     assert status.codex.config_exists is True
     assert status.codex.hooks_exists is True

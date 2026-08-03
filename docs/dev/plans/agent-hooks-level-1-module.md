@@ -47,7 +47,8 @@ libs/services/claude_hooks.py
 libs/services/hook_paths.py
 libs/sdk/hooks.py
 apps/cli/typer_app.py
-tests/test_hook_installer.py
+tests/modules/agent_hooks/test_api.py
+tests/modules/agent_hooks/test_payloads.py
 tests/test_cli_hooks.py
 ```
 
@@ -100,9 +101,7 @@ libs/capabilities/agent_hooks/
 
 tests/modules/agent_hooks/
   test_api.py
-  test_codex_adapter.py
-  test_claude_adapter.py
-  test_state_ownership.py
+  test_payloads.py
 ```
 
 The following old horizontal implementation paths are removed after callers
@@ -213,6 +212,19 @@ the existing hook CLI smoke without relying on an editable install.
 - The focused module lane, full suite, and installed-wheel smoke pass.
 - The old action and service implementation paths are absent.
 - Documentation claims Level 1 only for the evidence actually established.
+
+## Execution evidence
+
+The five migration stones are tracked under epic `xcron-0wu`. Stones 1 through 4
+established the contracts, moved the implementation, migrated callers, removed
+legacy paths, and added executable isolation checks. Verification completed with:
+
+- 27 tests in the focused module/channel/architecture lane;
+- 165 tests in `./scripts/verify-core.sh`;
+- `xpack verify --output json --full` with zero blockers and zero warnings;
+- an isolated wheel install importing both `agent_hooks.api` and
+  `agent_hooks.contracts` outside the checkout; and
+- Markdown lint plus `git diff --check` passing.
 
 ## Constraints and Non-Goals
 

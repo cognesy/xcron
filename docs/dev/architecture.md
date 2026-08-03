@@ -57,6 +57,31 @@ Rules:
   Capability, domain, runtime, SDK, and backend code must not import them.
   Physical location alone does not make them reusable product services.
 
+## Verified Level 1 module
+
+`xcron_libs.capabilities.agent_hooks` is the first capability with executable
+Level 1 isolation evidence. It owns the repository-local Codex and Claude hook
+lifecycle and file-format decision, including these four state paths:
+
+- `.codex/config.toml`
+- `.codex/hooks.json`
+- `.claude/settings.json`
+- `session-history.jsonl`
+
+Its only cross-module entrypoints are `agent_hooks.api` and
+`agent_hooks.contracts`. The SDK `HooksAPI` is the sole product/channel adapter;
+the CLI reaches hooks through that SDK. The implementation is standard-library
+only and imports no sibling capability, SDK, CLI, presentation, or global
+service implementation. AST checks cover direct, submodule, root-`from`, and
+aliased forbidden imports, with planted negative examples. A focused module
+test lane covers payload preservation, idempotency, typed failures, and exact
+state ownership.
+
+This is a Level 1 code-module result, not a new distribution, dependency set,
+process boundary, plugin system, or service deployment. `reconciliation`,
+`jobs`, `operations`, and `home` remain capability groupings or migration-in-
+progress; this result does not claim they are isolated modules.
+
 Current model decisions:
 
 - schedule manifests live under `resources/schedules/`

@@ -45,7 +45,6 @@ from xcron_libs.services.cli_responses import (
     InitResponse,
 )
 from xcron_libs.services.help_renderer import load_help_body
-from xcron_libs.services.hook_installer import resolve_xcron_executable
 from xcron_libs.services.toon_renderer import render_toon
 
 
@@ -175,17 +174,13 @@ def main_callback(
     out = _build_output(ctx, "home", output_format)
     with _open_client(project, schedule=schedule, backend=backend, out=out) as client:
         result = client.schedules.plan()
+        executable = client.hooks.resolve_executable()
     if not result.valid or result.plan is None or result.validation.normalized_manifest is None:
         out.error(
             "project home view unavailable because validation failed",
             details=validation_details(result.validation.errors + result.validation.warnings),
             hints=list(out.contract.default_hints),
         )
-
-    try:
-        executable = str(resolve_xcron_executable())
-    except RuntimeError:
-        executable = "xcron"
 
     out.print(
         map_home_response(
@@ -706,7 +701,7 @@ def logs_clear_command(
 @hooks_app.command("install")
 def hooks_install_command(ctx: typer.Context, output_format: Optional[str] = typer.Option(None, "--output", "-o")) -> None:
     out = _build_output(ctx, "hooks.install", output_format)
-    with Xcron.open(Path.cwd()) as client:
+    with _open_client(Path.cwd(), out=out) as client:
         result = client.hooks.install()
     out.print(HookInstallResponse(kind="hooks.install", changed=len(result.changed_files), files=result.changed_files))
 
@@ -714,7 +709,7 @@ def hooks_install_command(ctx: typer.Context, output_format: Optional[str] = typ
 @hooks_app.command("status")
 def hooks_status_command(ctx: typer.Context, output_format: Optional[str] = typer.Option(None, "--output", "-o")) -> None:
     out = _build_output(ctx, "hooks.status", output_format)
-    with Xcron.open(Path.cwd()) as client:
+    with _open_client(Path.cwd(), out=out) as client:
         result = client.hooks.status()
     out.print(
         HookStatusResponse(
@@ -742,7 +737,7 @@ def hooks_status_command(ctx: typer.Context, output_format: Optional[str] = type
 @hooks_app.command("repair")
 def hooks_repair_command(ctx: typer.Context, output_format: Optional[str] = typer.Option(None, "--output", "-o")) -> None:
     out = _build_output(ctx, "hooks.install", output_format)
-    with Xcron.open(Path.cwd()) as client:
+    with _open_client(Path.cwd(), out=out) as client:
         result = client.hooks.repair()
     out.print(HookInstallResponse(kind="hooks.install", changed=len(result.changed_files), files=result.changed_files))
 
@@ -750,15 +745,16 @@ def hooks_repair_command(ctx: typer.Context, output_format: Optional[str] = type
 @hooks_app.command("session-start", hidden=True)
 def hooks_session_start_command(ctx: typer.Context, output_format: Optional[str] = typer.Option(None, "--output", "-o")) -> None:
     out = _build_output(ctx, "hooks.session-start", output_format)
-    with Xcron.open(Path.cwd()) as client:
+    with _open_client(Path.cwd(), out=out) as client:
         result = client.schedules.plan()
+        executable = client.hooks.resolve_executable()
     if not result.valid or result.plan is None or result.validation.normalized_manifest is None:
         out.error("session-start context unavailable", hints=["Run `xcron validate` in this project"])
 
     out.print(
         map_home_response(
             result,
-            executable=str(resolve_xcron_executable()),
+            executable=executable,
             contract=out.contract,
             include_plan_changes=False,
         )
@@ -768,7 +764,7 @@ def hooks_session_start_command(ctx: typer.Context, output_format: Optional[str]
 @hooks_app.command("session-end", hidden=True)
 def hooks_session_end_command(ctx: typer.Context, output_format: Optional[str] = typer.Option(None, "--output", "-o")) -> None:
     out = _build_output(ctx, "hooks.session-end", output_format)
-    with Xcron.open(Path.cwd()) as client:
+    with _open_client(Path.cwd(), out=out) as client:
         log_path = client.hooks.session_end()
     out.print(HookSessionEndResponse(kind="hooks.session_end", log=str(log_path)))
 

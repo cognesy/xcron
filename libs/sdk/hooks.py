@@ -3,17 +3,21 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Callable
+from typing import Callable, TypeVar
 
-from xcron_libs.capabilities.agent_hooks import (
-    HookInstallResult,
-    HookStatusResult,
+from xcron_libs.capabilities.agent_hooks.api import (
     install_agent_hooks,
     record_session_end,
     repair_agent_hooks,
+    resolve_xcron_executable,
     status_agent_hooks,
 )
+from xcron_libs.capabilities.agent_hooks.contracts import AgentHooksError, HookInstallResult, HookStatusResult
+from xcron_libs.sdk.errors import HookError
 from xcron_libs.sdk.options import XcronOptions
+
+
+ResultT = TypeVar("ResultT")
 
 
 class HooksAPI:
@@ -26,26 +30,41 @@ class HooksAPI:
     def install(
         self, *, executable_path: str | Path | None = None
     ) -> HookInstallResult:
-        self._guard()
-        return install_agent_hooks(self._project_root(), executable_path=executable_path)
+        return self._call(
+            lambda: install_agent_hooks(self._project_root(), executable_path=executable_path)
+        )
 
     def status(
         self, *, executable_path: str | Path | None = None
     ) -> HookStatusResult:
-        self._guard()
-        return status_agent_hooks(self._project_root(), executable_path=executable_path)
+        return self._call(
+            lambda: status_agent_hooks(self._project_root(), executable_path=executable_path)
+        )
 
     def repair(
         self, *, executable_path: str | Path | None = None
     ) -> HookInstallResult:
-        self._guard()
-        return repair_agent_hooks(
-            self._project_root(), executable_path=executable_path
+        return self._call(
+            lambda: repair_agent_hooks(
+                self._project_root(), executable_path=executable_path
+            )
         )
 
     def session_end(self) -> Path:
+        result = self._call(lambda: record_session_end(self._project_root()))
+        return Path(result.log_path)
+
+    def resolve_executable(self) -> str:
+        """Resolve the executable used by installed hook commands."""
+
+        return self._call(resolve_xcron_executable)
+
+    def _call(self, operation: Callable[[], ResultT]) -> ResultT:
         self._guard()
-        return record_session_end(self._project_root())
+        try:
+            return operation()
+        except AgentHooksError as exc:
+            raise HookError(str(exc)) from exc
 
     def _project_root(self) -> Path:
         return self._options.project_path or Path.cwd().resolve()

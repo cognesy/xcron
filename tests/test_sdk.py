@@ -9,7 +9,8 @@ import sys
 
 import pytest
 
-from xcron_libs import ClientClosedError, Xcron
+from xcron_libs import ClientClosedError, HookError, Xcron
+from xcron_libs.capabilities.agent_hooks.contracts import ExecutableNotFoundError
 from xcron_libs.capabilities.reconciliation import SchedulerRegistry
 from xcron_libs.domain import PlanChange, PlanChangeKind, ProjectState
 
@@ -142,6 +143,20 @@ def test_sdk_modules_do_not_import_cli_or_renderers() -> None:
             for alias in node.names
         )
         assert not any(name.startswith(forbidden) for name in imports), path
+
+
+def test_sdk_translates_agent_hooks_failures(monkeypatch, tmp_path: Path) -> None:
+    import importlib
+
+    hooks_module = importlib.import_module("xcron_libs.sdk.hooks")
+
+    def fail(*_args, **_kwargs):
+        raise ExecutableNotFoundError("missing xcron")
+
+    monkeypatch.setattr(hooks_module, "status_agent_hooks", fail)
+    with Xcron.open(tmp_path) as client:
+        with pytest.raises(HookError, match="missing xcron"):
+            client.hooks.status()
 
 
 def test_importing_public_sdk_does_not_load_cli_or_response_modules() -> None:

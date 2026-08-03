@@ -11,6 +11,11 @@ from xcron_libs.capabilities.reconciliation import SchedulerRegistry, SchedulerR
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+AGENT_HOOKS_ROOT = "xcron_libs.capabilities.agent_hooks"
+AGENT_HOOKS_PUBLIC = {
+    f"{AGENT_HOOKS_ROOT}.api",
+    f"{AGENT_HOOKS_ROOT}.contracts",
+}
 BACKEND_MODULES = tuple(sorted((REPOSITORY_ROOT / "libs" / "services" / "backends").glob("*_service.py")))
 CAPABILITY_MODULES = tuple(sorted((REPOSITORY_ROOT / "libs" / "capabilities").rglob("*.py")))
 DOMAIN_MODULES = tuple(sorted((REPOSITORY_ROOT / "libs" / "domain").rglob("*.py")))
@@ -31,6 +36,81 @@ def _imported_modules(path: Path) -> set[str]:
         elif isinstance(node, ast.ImportFrom) and node.module is not None:
             imports.add(node.module)
     return imports
+
+
+def _agent_hooks_import_violations(source: str) -> set[str]:
+    """Return agent-hooks imports that bypass its public API/contracts."""
+
+    tree = ast.parse(source)
+    violations: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == AGENT_HOOKS_ROOT or alias.name.startswith(f"{AGENT_HOOKS_ROOT}."):
+                    if alias.name not in AGENT_HOOKS_PUBLIC:
+                        violations.add(alias.name)
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            module = node.module
+            if module == AGENT_HOOKS_ROOT:
+                for alias in node.names:
+                    if alias.name not in {"api", "contracts"}:
+                        violations.add(f"{module}.{alias.name}")
+            elif module.startswith(f"{AGENT_HOOKS_ROOT}."):
+                if module not in AGENT_HOOKS_PUBLIC:
+                    violations.add(module)
+                else:
+                    for alias in node.names:
+                        if alias.name.startswith("_"):
+                            violations.add(f"{module}.{alias.name}")
+    return violations
+
+
+def test_agent_hooks_public_surface_checker_has_planted_negative_examples() -> None:
+    forbidden = (
+        "import xcron_libs.capabilities.agent_hooks._codex",
+        "import xcron_libs.capabilities.agent_hooks._codex as private_hooks",
+        "from xcron_libs.capabilities.agent_hooks import _codex",
+        "from xcron_libs.capabilities.agent_hooks import _codex as private_hooks",
+        "from xcron_libs.capabilities.agent_hooks._codex import CodexHookStatus",
+        "from xcron_libs.capabilities.agent_hooks._codex import CodexHookStatus as Status",
+    )
+    allowed = (
+        "import xcron_libs.capabilities.agent_hooks.api as hooks_api",
+        "from xcron_libs.capabilities.agent_hooks import api as hooks_api",
+        "from xcron_libs.capabilities.agent_hooks.api import install_agent_hooks",
+        "from xcron_libs.capabilities.agent_hooks.contracts import HookInstallResult as Result",
+    )
+
+    for source in forbidden:
+        assert _agent_hooks_import_violations(source), source
+    for source in allowed:
+        assert _agent_hooks_import_violations(source) == set(), source
+
+
+def test_agent_hooks_module_has_no_sibling_or_channel_imports() -> None:
+    module_root = REPOSITORY_ROOT / "libs" / "capabilities" / "agent_hooks"
+    own_modules = {"_claude", "_codex", "_paths", "contracts"}
+    forbidden_prefixes = (
+        "xcron_cli",
+        "xcron_libs.sdk",
+        "xcron_libs.services",
+        "xcron_libs.capabilities.",
+        "typer",
+        "rich",
+    )
+
+    for path in sorted(module_root.glob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ImportFrom):
+                if isinstance(node, ast.Import):
+                    assert not any(alias.name.startswith(forbidden_prefixes) for alias in node.names), path
+                continue
+            if node.level:
+                assert node.level == 1, path
+                assert node.module in own_modules, (path, node.module)
+            elif node.module:
+                assert not node.module.startswith(forbidden_prefixes), (path, node.module)
 
 
 def test_scheduler_adapters_do_not_import_actions_or_sdk() -> None:

@@ -1,21 +1,13 @@
-"""Repo-local Claude hook/config integration."""
+"""Private Claude hook file adapter."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 from pathlib import Path
 from typing import Any
 
-from xcron_libs.services.hook_paths import CLAUDE_SETTINGS_RELATIVE_PATH
-
-
-@dataclass(frozen=True)
-class ClaudeHookStatus:
-    settings_path: str
-    settings_exists: bool
-    session_start_matches: bool
-    stop_matches: bool
+from ._paths import CLAUDE_SETTINGS_RELATIVE_PATH
+from .contracts import ClaudeHookStatus
 
 
 def ensure_claude_hooks(project_root: Path, executable: Path) -> tuple[bool, ClaudeHookStatus]:
@@ -107,6 +99,3 @@ def _claude_hook_matches(hooks: dict[str, Any], event_name: str, command: str) -
             if isinstance(hook, dict) and hook.get("command") == command:
                 return True
     return False
-
-
-__all__ = ["ClaudeHookStatus", "ensure_claude_hooks", "inspect_claude_hooks"]

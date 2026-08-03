@@ -11,3 +11,7 @@ class ClientClosedError(XcronError):
 
 class UnknownBackendError(XcronError):
     """Raised when the selected scheduler backend is not registered."""
+
+
+class HookError(XcronError):
+    """Raised when the agent-hooks capability cannot complete an operation."""
