@@ -58,8 +58,11 @@ smoke, and full core suite.
 2. Replace direct action imports/calls with a short CLI client helper that
    opens `Xcron` from resolved project options and maps typed SDK errors at the
    output boundary.
-3. Keep `Output`, contracts, mappers, TOON/JSON/tmux rendering, stdout/stderr,
-   and exit codes exactly at `apps/cli`.
+3. Keep `Output`, stdout/stderr, and exit-code decisions in `apps/cli`. Retain
+   the existing contracts, mappers, and TOON/JSON/tmux renderers as CLI-owned
+   leaf modules under `libs/services/`; enforce the boundary by allowing only
+   that projection cluster and the CLI channel to consume those modules in
+   production code.
 4. Add CLI-to-SDK wiring tests and retain existing CLI contract cases.
 
 Verification: `uv run xcron --help`, `uv run xcron jobs --help`, focused CLI

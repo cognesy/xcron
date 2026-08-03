@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from xcron_libs.capabilities.reconciliation import SchedulerRegistry
+from xcron_libs.capabilities.reconciliation import SchedulerRegistry, SchedulerRuntimeOptions
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -43,9 +43,14 @@ def test_scheduler_adapters_do_not_import_actions_or_sdk() -> None:
 
 def test_typer_shell_uses_the_sdk_not_action_implementations() -> None:
     imported = _imported_modules(REPOSITORY_ROOT / "apps" / "cli" / "typer_app.py")
+    forbidden_prefixes = (
+        "xcron_libs.actions",
+        "xcron_libs.capabilities",
+        "xcron_libs.services.backends",
+    )
 
     assert "xcron_libs" in imported
-    assert not any(name.startswith("xcron_libs.actions") for name in imported)
+    assert not any(name.startswith(forbidden_prefixes) for name in imported)
 
 
 def test_capabilities_do_not_depend_on_the_cli_or_rendering_boundary() -> None:
@@ -118,3 +123,26 @@ def test_scheduler_registry_rejects_duplicate_and_unknown_identities() -> None:
     registry = SchedulerRegistry((First(),))
     with pytest.raises(ValueError, match="unsupported scheduler backend: absent"):
         registry.require("absent")
+
+
+def test_scheduler_runtime_options_normalize_direct_caller_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    options = SchedulerRuntimeOptions.create(
+        state_root="state",
+        launch_agents_dir=Path("agents"),
+        launchctl_domain="gui/501",
+        crontab_path="cron/tab",
+        manage_launchctl=False,
+        manage_crontab=False,
+    )
+
+    assert options.state_root == tmp_path / "state"
+    assert options.launch_agents_dir == tmp_path / "agents"
+    assert options.launchctl_domain == "gui/501"
+    assert options.crontab_path == tmp_path / "cron" / "tab"
+    assert options.manage_launchctl is False
+    assert options.manage_crontab is False

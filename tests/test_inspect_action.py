@@ -64,7 +64,7 @@ def test_inspect_job_builds_launchd_raw_detail_sections(tmp_path, monkeypatch) -
         qualified_id="inspect-launchd.ping_job",
         job_id="ping_job",
         label="com.xcron.inspect-launchd.ping_job",
-        artifact_path=tmp_path / "LaunchAgents" / "com.xcron.inspect-launchd.ping_job.plist",
+        artifact_path=str(tmp_path / "LaunchAgents" / "com.xcron.inspect-launchd.ping_job.plist"),
         wrapper_path=tmp_path / "state-root" / "projects" / "inspect-launchd" / "wrappers" / "inspect-launchd.ping_job.sh",
         desired_hash="desired-hash",
         definition_hash="definition-hash",

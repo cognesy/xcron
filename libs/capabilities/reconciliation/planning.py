@@ -9,13 +9,16 @@ from xcron_libs.capabilities.reconciliation.validation import (
     ValidateProjectResult,
     validate_project,
 )
-from xcron_libs.capabilities.reconciliation.contracts import cron_schedule_errors
+from xcron_libs.capabilities.reconciliation.cron_policy import (
+    cron_incompatible_reason,
+    cron_schedule_errors,
+)
 from xcron_libs.capabilities.reconciliation.scheduler_registry import (
     SchedulerRegistry,
     default_scheduler_registry,
 )
 from xcron_libs.domain.diffing import PlanChange, PlanChangeKind, ProjectPlan, build_project_plan
-from xcron_libs.domain.models import NormalizedJob, ScheduleKind
+from xcron_libs.domain.models import NormalizedJob
 from xcron_libs.services.observability import get_logger, instrument_action
 from xcron_libs.services.state_store import (
     default_backend_for_current_platform,
@@ -24,26 +27,6 @@ from xcron_libs.services.state_store import (
 )
 
 LOGGER = get_logger(__name__)
-
-
-def cron_incompatible_reason(job: NormalizedJob) -> str | None:
-    """Return a reason string if this job's schedule cannot be expressed with cron, else None."""
-    if job.schedule.kind is not ScheduleKind.EVERY:
-        return None
-    value = job.schedule.value
-    suffix = value[-1]
-    amount = int(value[:-1])
-    if suffix == "s":
-        return (
-            f"cron cannot schedule sub-minute intervals (every={value}); "
-            "use a minute-or-longer interval or switch to the launchd backend"
-        )
-    if suffix == "w" and amount > 1:
-        return (
-            f"cron cannot express multi-week intervals (every={value}); "
-            "use a cron expression instead"
-        )
-    return None
 
 
 def collect_cron_schedule_errors(jobs: tuple[NormalizedJob, ...]) -> tuple[PlanChange, ...]:
@@ -111,12 +94,12 @@ def plan_project(
     )
     schedule_errors = selected_scheduler.schedule_errors(validation.normalized_manifest.jobs)
     if schedule_errors:
-            plan = ProjectPlan(
-                backend=plan.backend,
-                manifest=plan.manifest,
-                changes=plan.changes + schedule_errors,
-                state=plan.state,
-            )
+        plan = ProjectPlan(
+            backend=plan.backend,
+            manifest=plan.manifest,
+            changes=plan.changes + schedule_errors,
+            state=plan.state,
+        )
     LOGGER.info(
         "project_plan_built",
         project_id=validation.normalized_manifest.project_id,

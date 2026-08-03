@@ -7,3 +7,7 @@ class XcronError(Exception):
 
 class ClientClosedError(XcronError):
     """Raised when an API is used after its owning client is closed."""
+
+
+class UnknownBackendError(XcronError):
+    """Raised when the selected scheduler backend is not registered."""

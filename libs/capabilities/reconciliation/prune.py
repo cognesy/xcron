@@ -59,11 +59,11 @@ def prune_project(
 
     selected_backend = backend or default_backend_for_current_platform(platform=platform)
     project_id = validation.normalized_manifest.project_id
-    options = SchedulerRuntimeOptions(
-        state_root=Path(state_root).expanduser().resolve() if state_root is not None else None,
-        launch_agents_dir=Path(launch_agents_dir).expanduser().resolve() if launch_agents_dir is not None else None,
+    options = SchedulerRuntimeOptions.create(
+        state_root=state_root,
+        launch_agents_dir=launch_agents_dir,
         launchctl_domain=launchctl_domain,
-        crontab_path=Path(crontab_path).expanduser().resolve() if crontab_path is not None else None,
+        crontab_path=crontab_path,
         manage_launchctl=manage_launchctl,
         manage_crontab=manage_crontab,
     )

@@ -49,6 +49,13 @@ Rules:
 - `libs/services/__init__.py` stays non-aggregating. Callers import explicit
   leaf modules so capability/SDK imports cannot transitively load CLI response
   models or rendering dependencies.
+- CLI projection leaf modules (`cli_contracts`, `cli_mappers`,
+  `cli_responses`, `toon_renderer`, and `tmux_renderer`) remain physically in
+  `libs/services/` during the brownfield migration. They are owned by the CLI
+  channel through import direction: the projection leaf modules may depend on
+  one another, but production entry into that cluster comes from `apps/cli/`.
+  Capability, domain, runtime, SDK, and backend code must not import them.
+  Physical location alone does not make them reusable product services.
 
 Current model decisions:
 
@@ -61,6 +68,19 @@ Current model decisions:
 
 The Python prototype should preserve these boundaries so the later Go rewrite
 can keep the same external contract and internal separation of concerns.
+
+## Migration compatibility
+
+`xcron_libs.actions` remains an import-compatible facade for the prior action
+module paths. The former `xcron_libs.services` package-root aggregate is not
+part of that promise: its re-exports were removed deliberately. Callers must
+replace imports such as `from xcron_libs.services import get_logger` with the
+owning leaf-module import, such as
+`from xcron_libs.services.observability import get_logger`.
+
+This is an intentional internal compatibility break. It prevents a low-level
+package import from eagerly loading unrelated CLI projections and makes actual
+module ownership visible at each call site.
 
 ## Distribution shape
 
@@ -105,7 +125,8 @@ Implemented prototype components:
   hooks, and home APIs
 - CLI thin shells that call the SDK rather than embedding backend logic
 - Typer-based command declaration and command grouping
-- Pydantic response envelopes plus mapper helpers at the CLI edge
+- Pydantic response envelopes plus mapper helpers in CLI-owned projection leaf
+  modules under `libs/services/`
 - unified machine/human output rendering:
   - TOON for machine-facing output
   - Rich-backed help and human-facing presentation paths

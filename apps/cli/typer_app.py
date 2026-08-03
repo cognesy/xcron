@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from contextlib import contextmanager
-from importlib.metadata import version as distribution_version
+from importlib.metadata import PackageNotFoundError, version as distribution_version
 from pathlib import Path
 from typing import Iterator, List, NoReturn, Optional
 
@@ -18,7 +18,7 @@ from xcron_cli.common import (
     validation_details,
 )
 from xcron_cli.output import Output
-from xcron_libs import Xcron
+from xcron_libs import UnknownBackendError, Xcron, XcronError
 from xcron_libs.services.axi_presenter import collapse_home_path
 from xcron_libs.services.cli_mappers import (
     map_apply_response,
@@ -74,7 +74,11 @@ def _version_callback(value: bool) -> None:
     """Print the installed distribution version without opening a project."""
     if not value:
         return
-    typer.echo(f"xcron {distribution_version('xcron')}")
+    try:
+        installed_version = distribution_version("xcron")
+    except PackageNotFoundError:
+        installed_version = "unknown"
+    typer.echo(f"xcron {installed_version}")
     raise typer.Exit()
 
 
@@ -122,20 +126,30 @@ def _open_client(
     *,
     schedule: str | None = None,
     backend: str | None = None,
+    out: Output | None = None,
 ) -> Iterator[Xcron]:
     """Open one SDK client from the shared CLI options and environment."""
-    with Xcron.open(
-        resolve_project_path(project),
-        schedule_name=schedule,
-        backend=backend,
-        state_root=env_path("XCRON_STATE_ROOT"),
-        launch_agents_dir=env_path("XCRON_LAUNCH_AGENTS_DIR"),
-        launchctl_domain=env_string("XCRON_LAUNCHCTL_DOMAIN"),
-        crontab_path=env_path("XCRON_CRONTAB_PATH"),
-        manage_launchctl=env_flag("XCRON_MANAGE_LAUNCHCTL", default=True),
-        manage_crontab=env_flag("XCRON_MANAGE_CRONTAB", default=True),
-    ) as client:
-        yield client
+    try:
+        with Xcron.open(
+            resolve_project_path(project),
+            schedule_name=schedule,
+            backend=backend,
+            state_root=env_path("XCRON_STATE_ROOT"),
+            launch_agents_dir=env_path("XCRON_LAUNCH_AGENTS_DIR"),
+            launchctl_domain=env_string("XCRON_LAUNCHCTL_DOMAIN"),
+            crontab_path=env_path("XCRON_CRONTAB_PATH"),
+            manage_launchctl=env_flag("XCRON_MANAGE_LAUNCHCTL", default=True),
+            manage_crontab=env_flag("XCRON_MANAGE_CRONTAB", default=True),
+        ) as client:
+            yield client
+    except UnknownBackendError as exc:
+        if out is None:
+            raise
+        out.error(str(exc), code="usage_error", exit_code=2)
+    except XcronError as exc:
+        if out is None:
+            raise
+        out.error(str(exc))
 
 
 @app.callback()
@@ -159,7 +173,7 @@ def main_callback(
         return
 
     out = _build_output(ctx, "home", output_format)
-    with _open_client(project, schedule=schedule, backend=backend) as client:
+    with _open_client(project, schedule=schedule, backend=backend, out=out) as client:
         result = client.schedules.plan()
     if not result.valid or result.plan is None or result.validation.normalized_manifest is None:
         out.error(
@@ -223,7 +237,7 @@ def validate_command(
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     out = _build_output(ctx, "validate", output_format)
-    with _open_client(project, schedule=schedule) as client:
+    with _open_client(project, schedule=schedule, out=out) as client:
         result = client.schedules.validate()
     if not result.valid or result.hashes is None or result.normalized_manifest is None:
         out.error(
@@ -251,7 +265,7 @@ def plan_command(
     schedule = _shared_option(ctx, "schedule", schedule)
     backend = _shared_option(ctx, "backend", backend)
     out = _build_output(ctx, "plan", output_format)
-    with _open_client(project, schedule=schedule, backend=backend) as client:
+    with _open_client(project, schedule=schedule, backend=backend, out=out) as client:
         result = client.schedules.plan()
     if not result.valid:
         out.error(
@@ -279,7 +293,7 @@ def status_command(
     schedule = _shared_option(ctx, "schedule", schedule)
     backend = _shared_option(ctx, "backend", backend)
     out = _build_output(ctx, "status", output_format)
-    with _open_client(project, schedule=schedule, backend=backend) as client:
+    with _open_client(project, schedule=schedule, backend=backend, out=out) as client:
         result = client.schedules.status()
     if not result.valid or result.plan is None:
         out.error(
@@ -309,7 +323,7 @@ def inspect_command(
     schedule = _shared_option(ctx, "schedule", schedule)
     backend = _shared_option(ctx, "backend", backend)
     out = _build_output(ctx, "inspect", output_format)
-    with _open_client(project, schedule=schedule, backend=backend) as client:
+    with _open_client(project, schedule=schedule, backend=backend, out=out) as client:
         result = client.schedules.inspect(job_id)
     if not result.valid:
         details = validation_details(result.status.validation.errors + result.status.validation.warnings)
@@ -336,7 +350,7 @@ def apply_command(
     schedule = _shared_option(ctx, "schedule", schedule)
     backend = _shared_option(ctx, "backend", backend)
     out = _build_output(ctx, "apply", output_format)
-    with _open_client(project, schedule=schedule, backend=backend) as client:
+    with _open_client(project, schedule=schedule, backend=backend, out=out) as client:
         result = client.schedules.apply()
     if not result.valid:
         out.error(
@@ -364,7 +378,7 @@ def prune_command(
     schedule = _shared_option(ctx, "schedule", schedule)
     backend = _shared_option(ctx, "backend", backend)
     out = _build_output(ctx, "prune", output_format)
-    with _open_client(project, schedule=schedule, backend=backend) as client:
+    with _open_client(project, schedule=schedule, backend=backend, out=out) as client:
         result = client.schedules.prune()
     if not result.valid:
         out.error(result.error or "project prune failed", hints=list(out.contract.default_hints))
@@ -386,7 +400,7 @@ def jobs_list_command(
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     out = _build_output(ctx, "jobs.list", output_format)
-    with _open_client(project, schedule=schedule) as client:
+    with _open_client(project, schedule=schedule, out=out) as client:
         result = client.jobs.list()
     if not result.valid:
         details = []
@@ -414,7 +428,7 @@ def jobs_show_command(
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     out = _build_output(ctx, "jobs.show", output_format)
-    with _open_client(project, schedule=schedule) as client:
+    with _open_client(project, schedule=schedule, out=out) as client:
         result = client.jobs.show(job_id)
     if not result.valid:
         details = []
@@ -475,7 +489,7 @@ def jobs_add_command(
             payload["env"] = parsed_env
     except ValueError as exc:
         out.error(str(exc), code="usage_error", exit_code=2)
-    with _open_client(project, schedule=schedule) as client:
+    with _open_client(project, schedule=schedule, out=out) as client:
         result = client.jobs.add(payload)
     if not result.valid:
         details = []
@@ -503,7 +517,7 @@ def _run_jobs_mutation(
     output_format: str | None,
 ) -> None:
     out = _build_output(ctx, contract_name, output_format)
-    with _open_client(project, schedule=schedule) as client:
+    with _open_client(project, schedule=schedule, out=out) as client:
         result = getattr(client.jobs, operation)(job_id)
     if not result.valid:
         details = []
@@ -620,7 +634,7 @@ def jobs_update_command(
     if not updates and not clear_fields:
         out.error("at least one update field or clear flag is required", code="usage_error", exit_code=2)
 
-    with _open_client(project, schedule=schedule) as client:
+    with _open_client(project, schedule=schedule, out=out) as client:
         result = client.jobs.update(
             job_id,
             updates=updates,
@@ -653,7 +667,7 @@ def logs_list_command(
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     out = _build_output(ctx, "logs.list", output_format)
-    with _open_client(project, schedule=schedule) as client:
+    with _open_client(project, schedule=schedule, out=out) as client:
         result = client.operations.list_logs(job_filter=job)
     if not result.valid:
         details = []
@@ -678,7 +692,7 @@ def logs_clear_command(
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     out = _build_output(ctx, "logs.clear", output_format)
-    with _open_client(project, schedule=schedule) as client:
+    with _open_client(project, schedule=schedule, out=out) as client:
         result = client.operations.clear_logs(job_filter=job, dry_run=not apply)
     if not result.valid:
         details = []

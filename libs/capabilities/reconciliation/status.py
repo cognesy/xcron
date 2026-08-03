@@ -65,10 +65,10 @@ def status_project(
 
     selected_backend = backend or default_backend_for_current_platform(platform=platform)
     project_id = validation.normalized_manifest.project_id
-    options = SchedulerRuntimeOptions(
-        launch_agents_dir=Path(launch_agents_dir).expanduser().resolve() if launch_agents_dir is not None else None,
+    options = SchedulerRuntimeOptions.create(
+        launch_agents_dir=launch_agents_dir,
         launchctl_domain=launchctl_domain,
-        crontab_path=Path(crontab_path).expanduser().resolve() if crontab_path is not None else None,
+        crontab_path=crontab_path,
     )
     scheduler = (scheduler_registry or default_scheduler_registry()).require(selected_backend)
     actual_state = scheduler.collect_project_state(project_id, options=options)

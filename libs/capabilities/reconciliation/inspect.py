@@ -99,10 +99,10 @@ def inspect_job(
 
     target_qualified_id = desired_job.qualified_id if desired_job is not None else job_identifier
     status_entry = next((item for item in status.statuses if item.qualified_id == target_qualified_id), None)
-    options = SchedulerRuntimeOptions(
-        launch_agents_dir=Path(launch_agents_dir).expanduser().resolve() if launch_agents_dir is not None else None,
+    options = SchedulerRuntimeOptions.create(
+        launch_agents_dir=launch_agents_dir,
         launchctl_domain=launchctl_domain,
-        crontab_path=Path(crontab_path).expanduser().resolve() if crontab_path is not None else None,
+        crontab_path=crontab_path,
     )
     inspections = registry.require(status.backend).inspect_project(
         status.validation.normalized_manifest.project_id,

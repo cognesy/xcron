@@ -52,11 +52,11 @@ def apply_project(
     metrics = MetricsService()
     metrics.increment("apply.calls")
     registry = scheduler_registry or default_scheduler_registry()
-    options = SchedulerRuntimeOptions(
-        state_root=Path(state_root).expanduser().resolve() if state_root is not None else None,
-        launch_agents_dir=Path(launch_agents_dir).expanduser().resolve() if launch_agents_dir is not None else None,
+    options = SchedulerRuntimeOptions.create(
+        state_root=state_root,
+        launch_agents_dir=launch_agents_dir,
         launchctl_domain=launchctl_domain,
-        crontab_path=Path(crontab_path).expanduser().resolve() if crontab_path is not None else None,
+        crontab_path=crontab_path,
         manage_launchctl=manage_launchctl,
         manage_crontab=manage_crontab,
     )
@@ -106,12 +106,17 @@ def apply_project(
         if schedule_errors:
             metrics.increment("apply.failed")
             LOGGER.error(
-                "apply_cron_incompatible_schedules",
+                "apply_backend_incompatible_schedules",
                 project_id=plan_result.plan.manifest.project_id,
+                backend=plan_result.backend,
                 incompatible_jobs=[e.qualified_id for e in schedule_errors],
                 reasons=[e.reason for e in schedule_errors],
             )
-            return ApplyProjectResult(valid=False, backend="cron", plan_result=plan_result)
+            return ApplyProjectResult(
+                valid=False,
+                backend=plan_result.backend,
+                plan_result=plan_result,
+            )
 
     if plan_result.plan is None or plan_result.validation.hashes is None:
         raise RuntimeError("valid apply plan unexpectedly missing deployment data")

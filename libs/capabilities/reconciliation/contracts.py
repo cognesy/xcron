@@ -14,10 +14,8 @@ from typing import Any, Mapping, Protocol
 from xcron_libs.domain import (
     NormalizedJob,
     PlanChange,
-    PlanChangeKind,
     ProjectPlan,
     ProjectState,
-    ScheduleKind,
 )
 
 
@@ -44,6 +42,27 @@ class SchedulerRuntimeOptions:
     manage_launchctl: bool = True
     manage_crontab: bool = True
 
+    @classmethod
+    def create(
+        cls,
+        *,
+        state_root: str | Path | None = None,
+        launch_agents_dir: str | Path | None = None,
+        launchctl_domain: str | None = None,
+        crontab_path: str | Path | None = None,
+        manage_launchctl: bool = True,
+        manage_crontab: bool = True,
+    ) -> SchedulerRuntimeOptions:
+        """Normalize direct/legacy path inputs at the scheduler-port boundary."""
+        return cls(
+            state_root=_resolve_path(state_root),
+            launch_agents_dir=_resolve_path(launch_agents_dir),
+            launchctl_domain=launchctl_domain,
+            crontab_path=_resolve_path(crontab_path),
+            manage_launchctl=manage_launchctl,
+            manage_crontab=manage_crontab,
+        )
+
 
 @dataclass(frozen=True)
 class SchedulerInspection:
@@ -51,7 +70,7 @@ class SchedulerInspection:
 
     qualified_id: str
     job_id: str | None
-    artifact_path: str | Path | None
+    artifact_path: str | None
     wrapper_path: Path | None
     enabled: bool
     desired_hash: str | None
@@ -99,37 +118,5 @@ class SchedulerBackend(Protocol):
         """Return backend-specific schedule incompatibilities for planning."""
 
 
-def cron_schedule_errors(jobs: tuple[NormalizedJob, ...]) -> tuple[PlanChange, ...]:
-    """Return errors for portable schedules that cron cannot express."""
-    errors: list[PlanChange] = []
-    for job in jobs:
-        reason = _cron_incompatible_reason(job)
-        if reason is not None:
-            errors.append(
-                PlanChange(
-                    kind=PlanChangeKind.ERROR,
-                    qualified_id=job.qualified_id,
-                    reason=reason,
-                    desired_job=job,
-                )
-            )
-    return tuple(errors)
-
-
-def _cron_incompatible_reason(job: NormalizedJob) -> str | None:
-    if job.schedule.kind is not ScheduleKind.EVERY:
-        return None
-    value = job.schedule.value
-    suffix = value[-1]
-    amount = int(value[:-1])
-    if suffix == "s":
-        return (
-            f"cron cannot schedule sub-minute intervals (every={value}); "
-            "use a minute-or-longer interval or switch to the launchd backend"
-        )
-    if suffix == "w" and amount > 1:
-        return (
-            f"cron cannot express multi-week intervals (every={value}); "
-            "use a cron expression instead"
-        )
-    return None
+def _resolve_path(value: str | Path | None) -> Path | None:
+    return Path(value).expanduser().resolve() if value is not None else None

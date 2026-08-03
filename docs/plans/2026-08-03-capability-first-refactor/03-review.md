@@ -26,13 +26,23 @@ explicitly designated this checkout as the migrator.
   preserved the existing dirty working set in a Dolt commit before advancing
   the database from schema v46 to v53 and pushing it to the configured remote.
 
+## Migration compatibility
+
+Compatibility is intentionally limited to the `xcron_libs.actions` module
+paths, which remain thin re-exports. The old `xcron_libs.services` package-root
+aggregate was removed; imports such as
+`from xcron_libs.services import ValidationMessage` are no longer supported.
+Migrating callers must import from the owning leaf module instead. This break is
+deliberate because restoring the aggregate would transitively load unrelated
+CLI projection models through low-level service imports.
+
 ## Risks and mitigations
 
 | Risk | Mitigation |
 | --- | --- |
 | A contract move changes plan/apply semantics | Reuse `ProjectPlan` and verify planner/status/backend tests before and after each move. |
 | SDK becomes a second implementation | Compose existing capability actions only; CLI and SDK share the same registry/runtime. |
-| CLI refactor changes AXI behaviour | Leave mappers/output in `apps/cli`; preserve existing CLI tests and help smokes. |
+| CLI refactor changes AXI behaviour | Keep `Output` in `apps/cli`, retain projection leaf modules under `libs/services`, and preserve existing CLI tests and help smokes. |
 | Compatibility breaks current importers | Maintain `xcron_libs.actions` re-exports and test the legacy imports. |
 | Over-engineered extension framework | Keep a first-party typed registry; require a concrete independent dependency/release/failure case before considering process isolation. |
 | Folder renames claim more than they enforce | Add targeted import/AST architecture tests for every essential boundary. |
@@ -47,7 +57,9 @@ The refactor is complete when the following are true:
 3. `Xcron.open(...)` provides grouped typed APIs and keeps a CLI-free public
    import surface.
 4. CLI commands use the SDK/composition helper and all output conversion stays
-   at the CLI boundary.
+   owned by the CLI boundary. Projection-only contracts, mappers, and renderers
+   may remain leaf modules under `libs/services`, but production entry into
+   that projection cluster is limited to `apps/cli`.
 5. Existing command, manifest, planning, status, apply, and scheduler
    contracts remain compatible.
 6. Import-boundary, SDK, backend, and CLI tests pass with the deterministic

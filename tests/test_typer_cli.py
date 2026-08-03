@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import json
 import os
 import textwrap
-from importlib.metadata import version as distribution_version
+from importlib.metadata import PackageNotFoundError, version as distribution_version
 
 from typer.testing import CliRunner
 
@@ -50,6 +51,18 @@ def test_version_is_a_project_and_backend_free_liveness_probe(monkeypatch) -> No
     assert result.stdout == f"xcron {distribution_version('xcron')}\n"
 
 
+def test_version_survives_missing_distribution_metadata(monkeypatch) -> None:
+    def missing_distribution(_name: str) -> str:
+        raise PackageNotFoundError
+
+    monkeypatch.setattr("xcron_cli.typer_app.distribution_version", missing_distribution)
+
+    result = runner.invoke(app, ["--version"])
+
+    assert result.exit_code == 0
+    assert result.stdout == "xcron unknown\n"
+
+
 def test_typer_validate_command_uses_existing_action_and_output_contract(tmp_path) -> None:
     project = _make_project(tmp_path)
 
@@ -68,6 +81,27 @@ def test_typer_plan_command_uses_existing_action_and_output_contract(tmp_path) -
     assert result.exit_code == 0
     assert "backend:" in result.stdout
     assert "changes[1,]{kind,id,reason}:" in result.stdout
+
+
+def test_unknown_backend_is_a_structured_usage_error(tmp_path) -> None:
+    project = _make_project(tmp_path)
+    structured_runner = CliRunner(mix_stderr=False)
+
+    result = structured_runner.invoke(
+        app,
+        ["plan", "--project", str(project), "--backend", "bogus", "--output", "json"],
+    )
+
+    assert result.exit_code == 2
+    assert json.loads(result.stdout) == {
+        "code": "usage_error",
+        "details": [],
+        "help": [],
+        "kind": "error",
+        "message": "unsupported scheduler backend: bogus (available: cron, launchd)",
+    }
+    assert "Traceback" not in result.stdout
+    assert "Traceback" not in result.stderr
 
 
 def test_typer_status_and_inspect_commands_use_existing_action_and_output_contract(tmp_path, monkeypatch) -> None:

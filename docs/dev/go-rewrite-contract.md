@@ -20,8 +20,13 @@ breaking change process.
 - default backend selection by host platform
 - optional backend override via CLI
 - project-scoped operation by default
+- global `--version` remains a project- and scheduler-free liveness probe that
+  prints `xcron <version>` and exits successfully
 - `status` remains an operator-facing state view using concepts such as
   `ok`, `missing`, `drift`, `disabled`, `extra`, and `error`
+- default `status` output retains integer `desired` and `deployed` counts
+  alongside the human-readable count summary and per-job status rows; both
+  integer fields remain selectable through `--fields`
 - `inspect` remains a detailed single-job view exposing normalized desired
   fields, deployed artifact/log paths, and backend-native raw detail
 - `jobs` commands remain manifest-editing operations; backend reconciliation

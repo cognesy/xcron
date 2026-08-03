@@ -5,7 +5,6 @@ from xcron_libs.capabilities.reconciliation.contracts import (
     SchedulerBackend,
     SchedulerInspection,
     SchedulerRuntimeOptions,
-    cron_schedule_errors,
 )
 from xcron_libs.capabilities.reconciliation.apply import ApplyProjectResult, apply_project
 from xcron_libs.capabilities.reconciliation.inspect import (
@@ -50,7 +49,6 @@ __all__ = [
     "StatusProjectResult",
     "ValidateProjectResult",
     "apply_project",
-    "cron_schedule_errors",
     "default_scheduler_registry",
     "inspect_job",
     "plan_project",

@@ -11,6 +11,7 @@ import pytest
 
 from xcron_libs import ClientClosedError, Xcron
 from xcron_libs.capabilities.reconciliation import SchedulerRegistry
+from xcron_libs.domain import PlanChange, PlanChangeKind, ProjectState
 
 
 def _write_project(root: Path) -> Path:
@@ -69,6 +70,49 @@ def test_sdk_accepts_an_explicit_scheduler_registry(tmp_path: Path) -> None:
 
     assert result.valid is True
     assert result.backend == "test"
+
+
+def test_apply_preserves_injected_backend_name_for_schedule_errors(tmp_path: Path) -> None:
+    project = _write_project(tmp_path / "project")
+
+    class ConstrainedScheduler:
+        name = "constrained"
+
+        def collect_project_state(self, project_id, *, options):
+            return ProjectState(
+                project_id=project_id,
+                backend=self.name,
+                manifest_hash=None,
+            )
+
+        def inspect_project(self, project_id, *, options, include_native_detail=False):
+            return tuple()
+
+        def schedule_errors(self, jobs):
+            job = jobs[0]
+            return (
+                PlanChange(
+                    kind=PlanChangeKind.ERROR,
+                    qualified_id=job.qualified_id,
+                    reason="schedule is unsupported by constrained backend",
+                    desired_job=job,
+                ),
+            )
+
+        def apply(self, deployment, *, options):
+            raise AssertionError("apply must not run when schedule validation fails")
+
+    registry = SchedulerRegistry((ConstrainedScheduler(),))
+    with Xcron.open(
+        project,
+        backend="constrained",
+        scheduler_registry=registry,
+    ) as client:
+        result = client.schedules.apply()
+
+    assert result.valid is False
+    assert result.backend == "constrained"
+    assert result.plan_result.backend == "constrained"
 
 
 def test_sdk_modules_do_not_import_cli_or_renderers() -> None:

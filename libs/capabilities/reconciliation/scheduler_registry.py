@@ -10,8 +10,8 @@ from xcron_libs.capabilities.reconciliation.contracts import (
     SchedulerBackend,
     SchedulerInspection,
     SchedulerRuntimeOptions,
-    cron_schedule_errors,
 )
+from xcron_libs.capabilities.reconciliation.cron_policy import cron_schedule_errors
 from xcron_libs.domain import NormalizedJob, PlanChange, ProjectState
 from xcron_libs.services.backends.cron_service import (
     CronInspection,
@@ -27,6 +27,18 @@ from xcron_libs.services.backends.launchd_service import (
     inspect_launchd_project,
     prune_launchd_project,
 )
+
+
+class UnknownSchedulerBackendError(ValueError):
+    """Raised when a scheduler identity is absent from the active registry."""
+
+    def __init__(self, backend_name: str, available: tuple[str, ...]) -> None:
+        self.backend_name = backend_name
+        self.available = available
+        available_text = ", ".join(available) or "none"
+        super().__init__(
+            f"unsupported scheduler backend: {backend_name} (available: {available_text})"
+        )
 
 
 @dataclass(frozen=True)
@@ -155,10 +167,7 @@ class SchedulerRegistry:
         try:
             return self._backends[backend_name]
         except KeyError as exc:
-            available = ", ".join(sorted(self._backends)) or "none"
-            raise ValueError(
-                f"unsupported scheduler backend: {backend_name} (available: {available})"
-            ) from exc
+            raise UnknownSchedulerBackendError(backend_name, self.names) from exc
 
     @property
     def names(self) -> tuple[str, ...]:
@@ -174,7 +183,7 @@ def _launchd_inspection(item: LaunchdInspection) -> SchedulerInspection:
     return SchedulerInspection(
         qualified_id=item.qualified_id,
         job_id=item.job_id,
-        artifact_path=item.plist_path,
+        artifact_path=str(item.plist_path),
         wrapper_path=item.wrapper_path,
         enabled=item.enabled,
         desired_hash=item.desired_hash,
