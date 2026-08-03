@@ -4,7 +4,7 @@ import textwrap
 
 import pytest
 
-from xcron_libs.services import (
+from xcron_libs.services.manifest_editor import (
     ManifestEditValidationError,
     add_manifest_job,
     get_manifest_job,

@@ -6,12 +6,15 @@ import textwrap
 from xcron_libs.actions.inspect_job import inspect_job
 from xcron_libs.actions.status_project import StatusProjectResult
 from xcron_libs.actions.validate_project import validate_project
+from xcron_libs.capabilities.reconciliation import (
+    SchedulerInspection,
+    SchedulerRegistry,
+)
 from xcron_libs.domain import ProjectState, StatusKind, build_project_plan, build_status_entries
-from xcron_libs.services.backends.launchd_service import LaunchdInspection
 
 
 def test_inspect_job_builds_launchd_raw_detail_sections(tmp_path, monkeypatch) -> None:
-    inspect_job_module = importlib.import_module("xcron_libs.actions.inspect_job")
+    inspect_job_module = importlib.import_module("xcron_libs.capabilities.reconciliation.inspect")
     project = tmp_path / "project"
     project.mkdir()
     schedule_dir = project / "resources" / "schedules"
@@ -57,11 +60,11 @@ def test_inspect_job_builds_launchd_raw_detail_sections(tmp_path, monkeypatch) -
         statuses=build_status_entries(plan),
         inspections=tuple(),
     )
-    inspection = LaunchdInspection(
+    inspection = SchedulerInspection(
         qualified_id="inspect-launchd.ping_job",
         job_id="ping_job",
         label="com.xcron.inspect-launchd.ping_job",
-        plist_path=tmp_path / "LaunchAgents" / "com.xcron.inspect-launchd.ping_job.plist",
+        artifact_path=tmp_path / "LaunchAgents" / "com.xcron.inspect-launchd.ping_job.plist",
         wrapper_path=tmp_path / "state-root" / "projects" / "inspect-launchd" / "wrappers" / "inspect-launchd.ping_job.sh",
         desired_hash="desired-hash",
         definition_hash="definition-hash",
@@ -75,9 +78,21 @@ def test_inspect_job_builds_launchd_raw_detail_sections(tmp_path, monkeypatch) -
     )
 
     monkeypatch.setattr(inspect_job_module, "status_project", lambda *args, **kwargs: status_result)
-    monkeypatch.setattr(inspect_job_module, "inspect_launchd_project", lambda *args, **kwargs: (inspection,))
 
-    result = inspect_job("ping_job", project, backend="launchd")
+    class LaunchdInspectionBackend:
+        name = "launchd"
+
+        def inspect_project(self, *args, **kwargs):
+            return (inspection,)
+
+    registry = SchedulerRegistry((LaunchdInspectionBackend(),))
+
+    result = inspect_job(
+        "ping_job",
+        project,
+        backend="launchd",
+        scheduler_registry=registry,
+    )
 
     assert result.valid is True
     assert result.status_entry is not None

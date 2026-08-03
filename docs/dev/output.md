@@ -185,7 +185,9 @@ They define:
 
 Representative shapes:
 
-- `status` uses `list_key="statuses"` with row fields `kind`, `id`, `reason`
+- `status` uses integer `desired` / `deployed` machine counts alongside the
+  human `count` summary, and `list_key="statuses"` with row fields `kind`, `id`,
+  `reason`
 - `inspect` uses nested `desired` / `deployed` objects
 - `home` mixes nested `jobs` with collection-style `plan_summary` and
   `plan_changes`

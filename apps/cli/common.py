@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Sequence
 
-from xcron_libs.services import ValidationMessage
+from xcron_libs.services.schema_validator import ValidationMessage
 
 VALID_OUTPUT_FORMATS = ("json", "toon", "tmux")
 

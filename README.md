@@ -36,6 +36,7 @@ jobs:
 Operate from the project root:
 
 ```sh
+uv run xcron --version
 uv run xcron validate
 uv run xcron plan
 uv run xcron apply

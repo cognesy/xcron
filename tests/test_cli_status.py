@@ -103,10 +103,14 @@ def test_status_supports_json_output_format_for_jq_style_consumers(tmp_path, mon
 
     monkeypatch.setenv("XCRON_CRONTAB_PATH", str(crontab_path))
     assert main(["status", "--project", str(project), "--backend", "cron", "--output", "json"]) == 0
-    payload = json.loads(capsys.readouterr().out)
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
 
     assert payload["backend"] == "cron"
     assert payload["count"] == "1 of 1"
+    assert payload["desired"] == 1
+    assert payload["deployed"] == 1
+    assert "action_started" not in captured.out
     assert payload["statuses"] == [
         {
             "id": "status-demo.ping_job",

@@ -258,6 +258,18 @@ Equivalent direct invocation:
 uv run pytest
 ```
 
+Installed-distribution lane (builds a wheel, installs it into an isolated
+environment, and invokes the installed console script outside the source
+checkout):
+
+```bash
+uv run --project ../xpack xpack verify "$(pwd)" --output json --full
+```
+
+The smoke definitions live in `.xpack/config.toml`. Keep this lane distinct
+from `uv run xcron` checks: only the installed-wheel lane detects stale console
+script targets or missing packaged resources.
+
 Optional `xqa` pilot (delegates to the same core lane):
 
 ```bash

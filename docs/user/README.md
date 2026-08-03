@@ -76,6 +76,10 @@ Sample manifests live under `resources/examples/*/resources/schedules/`.
 
 Run inside the project or pass `--project /path/to/project`.
 
+Use `xcron --version` as a cheap installation/liveness probe. It prints the
+installed distribution version and exits without reading a project manifest or
+contacting a scheduler backend.
+
 ```sh
 xcron
 xcron validate
@@ -278,10 +282,18 @@ Example:
 ```text
 backend: cron
 count: 2 of 2
+desired: 2
+deployed: 1
 statuses[2,]{kind,id,reason}:
   ok,example-basic.sync_docs,desired definition and actual backend state are aligned
   disabled,example-basic.cleanup_tmp,job is disabled in desired state
 ```
+
+`count` remains the compact human summary. Automation should use the integer
+`desired` and `deployed` fields rather than parsing that string. `statuses.kind`
+is a closed vocabulary: `ok`, `missing`, `drift`, `disabled`, `extra`, or
+`error`. JSON output contains only the response payload on stdout; structured
+logs and backend diagnostics remain on stderr.
 
 ## Inspect
 

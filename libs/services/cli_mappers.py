@@ -20,6 +20,8 @@ from xcron_libs.services.cli_responses import (
     LogFileRow,
     LogsClearResponse,
     LogsListResponse,
+    MetricsResetResponse,
+    MetricsResponse,
     MutationResponse,
     PlanChangeRow,
     PlanResponse,
@@ -116,6 +118,8 @@ def map_status_response(result: Any, *, contract: CommandContract) -> StatusResp
     return StatusResponse(
         backend=result.backend,
         count=f"{len(result.statuses)} of {len(result.statuses)}",
+        desired=sum(entry.desired_job is not None for entry in result.statuses),
+        deployed=sum(entry.deployed_job is not None for entry in result.statuses),
         statuses=tuple(
             StatusRow(
                 kind=entry.kind.value,
@@ -262,6 +266,27 @@ def map_logs_clear_response(result: Any, *, contract: CommandContract) -> LogsCl
     )
 
 
+def map_metrics_response(result: Any) -> MetricsResponse:
+    return MetricsResponse(
+        path=result.path,
+        version=result.version,
+        created_at=result.created_at,
+        updated_at=result.updated_at,
+        counters=dict(result.counters),
+    )
+
+
+def map_metrics_reset_response(result: Any) -> MetricsResetResponse:
+    return MetricsResetResponse(
+        path=result.path,
+        version=result.version,
+        created_at=result.created_at,
+        updated_at=result.updated_at,
+        counters=dict(result.counters),
+        previous_counters=dict(result.previous_counters),
+    )
+
+
 def map_prune_response(result: Any, *, contract: CommandContract) -> MutationResponse:
     return MutationResponse(
         kind=contract.name,
@@ -281,6 +306,8 @@ __all__ = [
     "map_jobs_list_response",
     "map_logs_clear_response",
     "map_logs_list_response",
+    "map_metrics_reset_response",
+    "map_metrics_response",
     "map_jobs_mutation_response",
     "map_jobs_show_response",
     "map_plan_response",

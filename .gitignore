@@ -69,6 +69,7 @@ pip-wheel-metadata/
 .xqa/state/
 
 # SQLite / local databases
+.qmd/
 *.db
 *.db-journal
 *.db-wal

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
+from importlib.metadata import version as distribution_version
 from pathlib import Path
-from typing import List, NoReturn, Optional
+from typing import Iterator, List, NoReturn, Optional
 
 import typer
 
@@ -16,37 +18,9 @@ from xcron_cli.common import (
     validation_details,
 )
 from xcron_cli.output import Output
-from xcron_libs.actions import (
-    add_job,
-    apply_project,
-    clear_logs,
-    disable_job,
-    enable_job,
-    init_home,
-    inspect_job,
-    list_jobs,
-    list_logs,
-    plan_project,
-    prune_project,
-    remove_job,
-    reset_metrics,
-    show_job,
-    show_metrics,
-    status_project,
-    update_job,
-    validate_project,
-)
-from xcron_libs.services import (
-    capture_session_end,
-    collapse_home_path,
-    ensure_agent_hooks,
-    InitResponse,
-    HookInstallResponse,
-    HookSessionEndResponse,
-    HookStatusResponse,
-    CodexHookStatusResponse,
-    ClaudeHookStatusResponse,
-    load_help_body,
+from xcron_libs import Xcron
+from xcron_libs.services.axi_presenter import collapse_home_path
+from xcron_libs.services.cli_mappers import (
     map_apply_response,
     map_home_response,
     map_inspect_response,
@@ -55,14 +29,24 @@ from xcron_libs.services import (
     map_jobs_show_response,
     map_logs_clear_response,
     map_logs_list_response,
+    map_metrics_reset_response,
+    map_metrics_response,
     map_plan_response,
     map_prune_response,
     map_status_response,
     map_validation_response,
-    inspect_agent_hooks,
-    render_toon,
-    resolve_xcron_executable,
 )
+from xcron_libs.services.cli_responses import (
+    ClaudeHookStatusResponse,
+    CodexHookStatusResponse,
+    HookInstallResponse,
+    HookSessionEndResponse,
+    HookStatusResponse,
+    InitResponse,
+)
+from xcron_libs.services.help_renderer import load_help_body
+from xcron_libs.services.hook_installer import resolve_xcron_executable
+from xcron_libs.services.toon_renderer import render_toon
 
 
 app = typer.Typer(
@@ -84,6 +68,14 @@ logs_app = typer.Typer(
 )
 hooks_app = typer.Typer(help="Manage repo-local Codex and Claude hook integration.", rich_markup_mode="markdown")
 metrics_app = typer.Typer(help="Inspect and reset persisted runtime metrics.", rich_markup_mode="markdown")
+
+
+def _version_callback(value: bool) -> None:
+    """Print the installed distribution version without opening a project."""
+    if not value:
+        return
+    typer.echo(f"xcron {distribution_version('xcron')}")
+    raise typer.Exit()
 
 
 def _shared_option(ctx: typer.Context, key: str, value):
@@ -108,7 +100,7 @@ def _build_output(ctx: typer.Context, contract_name: str, output_format: str | N
 
 
 def _emit_bootstrap_usage_error(message: str, *, output_format: str) -> NoReturn:
-    from xcron_libs.services import render_tmux
+    from xcron_libs.services.tmux_renderer import render_tmux
 
     payload = {
         "kind": "error",
@@ -124,9 +116,38 @@ def _emit_bootstrap_usage_error(message: str, *, output_format: str) -> NoReturn
     raise typer.Exit(code=2)
 
 
+@contextmanager
+def _open_client(
+    project: str | None = None,
+    *,
+    schedule: str | None = None,
+    backend: str | None = None,
+) -> Iterator[Xcron]:
+    """Open one SDK client from the shared CLI options and environment."""
+    with Xcron.open(
+        resolve_project_path(project),
+        schedule_name=schedule,
+        backend=backend,
+        state_root=env_path("XCRON_STATE_ROOT"),
+        launch_agents_dir=env_path("XCRON_LAUNCH_AGENTS_DIR"),
+        launchctl_domain=env_string("XCRON_LAUNCHCTL_DOMAIN"),
+        crontab_path=env_path("XCRON_CRONTAB_PATH"),
+        manage_launchctl=env_flag("XCRON_MANAGE_LAUNCHCTL", default=True),
+        manage_crontab=env_flag("XCRON_MANAGE_CRONTAB", default=True),
+    ) as client:
+        yield client
+
+
 @app.callback()
 def main_callback(
     ctx: typer.Context,
+    version: Optional[bool] = typer.Option(
+        None,
+        "--version",
+        callback=_version_callback,
+        is_eager=True,
+        help="Print the installed xcron version and exit without reading project or scheduler state.",
+    ),
     project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
     schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
     backend: Optional[str] = typer.Option(None, help="Override the backend instead of using the platform default."),
@@ -138,12 +159,8 @@ def main_callback(
         return
 
     out = _build_output(ctx, "home", output_format)
-    result = plan_project(
-        resolve_project_path(project),
-        schedule_name=schedule,
-        backend=backend,
-        state_root=env_path("XCRON_STATE_ROOT"),
-    )
+    with _open_client(project, schedule=schedule, backend=backend) as client:
+        result = client.schedules.plan()
     if not result.valid or result.plan is None or result.validation.normalized_manifest is None:
         out.error(
             "project home view unavailable because validation failed",
@@ -183,7 +200,8 @@ def init_command(
 ) -> None:
     """Initialize ~/.xcron/ with a starter schedule manifest."""
     out = _build_output(ctx, "init", output_format)
-    result = init_home()
+    with Xcron.open() as client:
+        result = client.home.initialize()
     out.print(InitResponse(
         kind="init",
         xcron_home=result.xcron_home,
@@ -205,7 +223,8 @@ def validate_command(
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     out = _build_output(ctx, "validate", output_format)
-    result = validate_project(resolve_project_path(project), schedule_name=schedule)
+    with _open_client(project, schedule=schedule) as client:
+        result = client.schedules.validate()
     if not result.valid or result.hashes is None or result.normalized_manifest is None:
         out.error(
             "project validation failed",
@@ -232,12 +251,8 @@ def plan_command(
     schedule = _shared_option(ctx, "schedule", schedule)
     backend = _shared_option(ctx, "backend", backend)
     out = _build_output(ctx, "plan", output_format)
-    result = plan_project(
-        resolve_project_path(project),
-        schedule_name=schedule,
-        backend=backend,
-        state_root=env_path("XCRON_STATE_ROOT"),
-    )
+    with _open_client(project, schedule=schedule, backend=backend) as client:
+        result = client.schedules.plan()
     if not result.valid:
         out.error(
             "project planning failed",
@@ -264,14 +279,8 @@ def status_command(
     schedule = _shared_option(ctx, "schedule", schedule)
     backend = _shared_option(ctx, "backend", backend)
     out = _build_output(ctx, "status", output_format)
-    result = status_project(
-        resolve_project_path(project),
-        schedule_name=schedule,
-        backend=backend,
-        launch_agents_dir=env_path("XCRON_LAUNCH_AGENTS_DIR"),
-        launchctl_domain=env_string("XCRON_LAUNCHCTL_DOMAIN"),
-        crontab_path=env_path("XCRON_CRONTAB_PATH"),
-    )
+    with _open_client(project, schedule=schedule, backend=backend) as client:
+        result = client.schedules.status()
     if not result.valid or result.plan is None:
         out.error(
             "project status inspection failed",
@@ -300,15 +309,8 @@ def inspect_command(
     schedule = _shared_option(ctx, "schedule", schedule)
     backend = _shared_option(ctx, "backend", backend)
     out = _build_output(ctx, "inspect", output_format)
-    result = inspect_job(
-        job_id,
-        resolve_project_path(project),
-        schedule_name=schedule,
-        backend=backend,
-        launch_agents_dir=env_path("XCRON_LAUNCH_AGENTS_DIR"),
-        launchctl_domain=env_string("XCRON_LAUNCHCTL_DOMAIN"),
-        crontab_path=env_path("XCRON_CRONTAB_PATH"),
-    )
+    with _open_client(project, schedule=schedule, backend=backend) as client:
+        result = client.schedules.inspect(job_id)
     if not result.valid:
         details = validation_details(result.status.validation.errors + result.status.validation.warnings)
         if result.error and not details:
@@ -334,17 +336,8 @@ def apply_command(
     schedule = _shared_option(ctx, "schedule", schedule)
     backend = _shared_option(ctx, "backend", backend)
     out = _build_output(ctx, "apply", output_format)
-    result = apply_project(
-        resolve_project_path(project),
-        schedule_name=schedule,
-        backend=backend,
-        state_root=env_path("XCRON_STATE_ROOT"),
-        launch_agents_dir=env_path("XCRON_LAUNCH_AGENTS_DIR"),
-        launchctl_domain=env_string("XCRON_LAUNCHCTL_DOMAIN"),
-        crontab_path=env_path("XCRON_CRONTAB_PATH"),
-        manage_launchctl=env_flag("XCRON_MANAGE_LAUNCHCTL", default=True),
-        manage_crontab=env_flag("XCRON_MANAGE_CRONTAB", default=True),
-    )
+    with _open_client(project, schedule=schedule, backend=backend) as client:
+        result = client.schedules.apply()
     if not result.valid:
         out.error(
             "project apply failed",
@@ -371,17 +364,8 @@ def prune_command(
     schedule = _shared_option(ctx, "schedule", schedule)
     backend = _shared_option(ctx, "backend", backend)
     out = _build_output(ctx, "prune", output_format)
-    result = prune_project(
-        resolve_project_path(project),
-        schedule_name=schedule,
-        backend=backend,
-        state_root=env_path("XCRON_STATE_ROOT"),
-        launch_agents_dir=env_path("XCRON_LAUNCH_AGENTS_DIR"),
-        launchctl_domain=env_string("XCRON_LAUNCHCTL_DOMAIN"),
-        crontab_path=env_path("XCRON_CRONTAB_PATH"),
-        manage_launchctl=env_flag("XCRON_MANAGE_LAUNCHCTL", default=True),
-        manage_crontab=env_flag("XCRON_MANAGE_CRONTAB", default=True),
-    )
+    with _open_client(project, schedule=schedule, backend=backend) as client:
+        result = client.schedules.prune()
     if not result.valid:
         out.error(result.error or "project prune failed", hints=list(out.contract.default_hints))
 
@@ -402,7 +386,8 @@ def jobs_list_command(
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     out = _build_output(ctx, "jobs.list", output_format)
-    result = list_jobs(resolve_project_path(project), schedule_name=schedule)
+    with _open_client(project, schedule=schedule) as client:
+        result = client.jobs.list()
     if not result.valid:
         details = []
         if result.validation is not None:
@@ -429,7 +414,8 @@ def jobs_show_command(
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     out = _build_output(ctx, "jobs.show", output_format)
-    result = show_job(job_id, resolve_project_path(project), schedule_name=schedule)
+    with _open_client(project, schedule=schedule) as client:
+        result = client.jobs.show(job_id)
     if not result.valid:
         details = []
         if result.validation is not None:
@@ -489,7 +475,8 @@ def jobs_add_command(
             payload["env"] = parsed_env
     except ValueError as exc:
         out.error(str(exc), code="usage_error", exit_code=2)
-    result = add_job(payload, resolve_project_path(project), schedule_name=schedule)
+    with _open_client(project, schedule=schedule) as client:
+        result = client.jobs.add(payload)
     if not result.valid:
         details = []
         if result.validation is not None:
@@ -508,7 +495,7 @@ def _run_jobs_mutation(
     ctx: typer.Context,
     contract_name: str,
     changed_outcome: str,
-    fn,
+    operation: str,
     *,
     job_id: str,
     project: Optional[str],
@@ -516,7 +503,8 @@ def _run_jobs_mutation(
     output_format: str | None,
 ) -> None:
     out = _build_output(ctx, contract_name, output_format)
-    result = fn(job_id, resolve_project_path(project), schedule_name=schedule)
+    with _open_client(project, schedule=schedule) as client:
+        result = getattr(client.jobs, operation)(job_id)
     if not result.valid:
         details = []
         if result.validation is not None:
@@ -539,7 +527,7 @@ def jobs_remove_command(
 ) -> None:
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
-    _run_jobs_mutation(ctx, "jobs.remove", "removed", remove_job, job_id=job_id, project=project, schedule=schedule, output_format=output_format)
+    _run_jobs_mutation(ctx, "jobs.remove", "removed", "remove", job_id=job_id, project=project, schedule=schedule, output_format=output_format)
 
 
 jobs_remove_command.__doc__ = load_help_body("jobs/remove")
@@ -556,7 +544,7 @@ def jobs_enable_command(
 ) -> None:
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
-    _run_jobs_mutation(ctx, "jobs.enable", "enabled", enable_job, job_id=job_id, project=project, schedule=schedule, output_format=output_format)
+    _run_jobs_mutation(ctx, "jobs.enable", "enabled", "enable", job_id=job_id, project=project, schedule=schedule, output_format=output_format)
 
 
 jobs_enable_command.__doc__ = load_help_body("jobs/enable")
@@ -573,7 +561,7 @@ def jobs_disable_command(
 ) -> None:
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
-    _run_jobs_mutation(ctx, "jobs.disable", "disabled", disable_job, job_id=job_id, project=project, schedule=schedule, output_format=output_format)
+    _run_jobs_mutation(ctx, "jobs.disable", "disabled", "disable", job_id=job_id, project=project, schedule=schedule, output_format=output_format)
 
 
 jobs_disable_command.__doc__ = load_help_body("jobs/disable")
@@ -632,13 +620,12 @@ def jobs_update_command(
     if not updates and not clear_fields:
         out.error("at least one update field or clear flag is required", code="usage_error", exit_code=2)
 
-    result = update_job(
-        job_id,
-        resolve_project_path(project),
-        schedule_name=schedule,
-        updates=updates,
-        clear_fields=tuple(clear_fields),
-    )
+    with _open_client(project, schedule=schedule) as client:
+        result = client.jobs.update(
+            job_id,
+            updates=updates,
+            clear_fields=tuple(clear_fields),
+        )
     if not result.valid:
         details = []
         if result.validation is not None:
@@ -666,12 +653,8 @@ def logs_list_command(
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     out = _build_output(ctx, "logs.list", output_format)
-    result = list_logs(
-        resolve_project_path(project),
-        schedule_name=schedule,
-        job_filter=job,
-        state_root=env_path("XCRON_STATE_ROOT"),
-    )
+    with _open_client(project, schedule=schedule) as client:
+        result = client.operations.list_logs(job_filter=job)
     if not result.valid:
         details = []
         if result.validation is not None:
@@ -695,13 +678,8 @@ def logs_clear_command(
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     out = _build_output(ctx, "logs.clear", output_format)
-    result = clear_logs(
-        resolve_project_path(project),
-        schedule_name=schedule,
-        job_filter=job,
-        state_root=env_path("XCRON_STATE_ROOT"),
-        dry_run=not apply,
-    )
+    with _open_client(project, schedule=schedule) as client:
+        result = client.operations.clear_logs(job_filter=job, dry_run=not apply)
     if not result.valid:
         details = []
         if result.validation is not None:
@@ -714,14 +692,16 @@ def logs_clear_command(
 @hooks_app.command("install")
 def hooks_install_command(ctx: typer.Context, output_format: Optional[str] = typer.Option(None, "--output", "-o")) -> None:
     out = _build_output(ctx, "hooks.install", output_format)
-    result = ensure_agent_hooks(Path.cwd())
+    with Xcron.open(Path.cwd()) as client:
+        result = client.hooks.install()
     out.print(HookInstallResponse(kind="hooks.install", changed=len(result.changed_files), files=result.changed_files))
 
 
 @hooks_app.command("status")
 def hooks_status_command(ctx: typer.Context, output_format: Optional[str] = typer.Option(None, "--output", "-o")) -> None:
     out = _build_output(ctx, "hooks.status", output_format)
-    result = inspect_agent_hooks(Path.cwd())
+    with Xcron.open(Path.cwd()) as client:
+        result = client.hooks.status()
     out.print(
         HookStatusResponse(
             kind="hooks.status",
@@ -747,13 +727,17 @@ def hooks_status_command(ctx: typer.Context, output_format: Optional[str] = type
 
 @hooks_app.command("repair")
 def hooks_repair_command(ctx: typer.Context, output_format: Optional[str] = typer.Option(None, "--output", "-o")) -> None:
-    hooks_install_command(ctx, output_format)
+    out = _build_output(ctx, "hooks.install", output_format)
+    with Xcron.open(Path.cwd()) as client:
+        result = client.hooks.repair()
+    out.print(HookInstallResponse(kind="hooks.install", changed=len(result.changed_files), files=result.changed_files))
 
 
 @hooks_app.command("session-start", hidden=True)
 def hooks_session_start_command(ctx: typer.Context, output_format: Optional[str] = typer.Option(None, "--output", "-o")) -> None:
     out = _build_output(ctx, "hooks.session-start", output_format)
-    result = plan_project(Path.cwd(), state_root=None)
+    with Xcron.open(Path.cwd()) as client:
+        result = client.schedules.plan()
     if not result.valid or result.plan is None or result.validation.normalized_manifest is None:
         out.error("session-start context unavailable", hints=["Run `xcron validate` in this project"])
 
@@ -770,7 +754,8 @@ def hooks_session_start_command(ctx: typer.Context, output_format: Optional[str]
 @hooks_app.command("session-end", hidden=True)
 def hooks_session_end_command(ctx: typer.Context, output_format: Optional[str] = typer.Option(None, "--output", "-o")) -> None:
     out = _build_output(ctx, "hooks.session-end", output_format)
-    log_path = capture_session_end(Path.cwd())
+    with Xcron.open(Path.cwd()) as client:
+        log_path = client.hooks.session_end()
     out.print(HookSessionEndResponse(kind="hooks.session_end", log=str(log_path)))
 
 
@@ -782,7 +767,9 @@ def metrics_show_command(
 ) -> None:
     """Show persisted xcron runtime metrics."""
     out = _build_output(ctx, "metrics.show", output_format)
-    out.print(show_metrics())
+    with Xcron.open() as client:
+        result = client.operations.show_metrics()
+    out.print(map_metrics_response(result))
 
 
 @metrics_app.command("reset")
@@ -793,7 +780,9 @@ def metrics_reset_command(
 ) -> None:
     """Reset persisted xcron runtime metrics."""
     out = _build_output(ctx, "metrics.reset", output_format)
-    out.print(reset_metrics())
+    with Xcron.open() as client:
+        result = client.operations.reset_metrics()
+    out.print(map_metrics_reset_response(result))
 
 
 app.add_typer(jobs_app, name="jobs")

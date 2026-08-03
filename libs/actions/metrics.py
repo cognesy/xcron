@@ -1,13 +1,5 @@
-"""Runtime metrics actions."""
+"""Compatibility imports for the runtime metrics capability."""
 
-from __future__ import annotations
+from xcron_libs.capabilities.operations.metrics import reset_metrics, show_metrics
 
-from xcron_libs.services import MetricsResetResponse, MetricsResponse, MetricsService
-
-
-def show_metrics() -> MetricsResponse:
-    return MetricsResponse(**MetricsService().show())
-
-
-def reset_metrics() -> MetricsResetResponse:
-    return MetricsResetResponse(**MetricsService().reset())
+__all__ = ["reset_metrics", "show_metrics"]

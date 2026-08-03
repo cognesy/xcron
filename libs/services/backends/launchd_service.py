@@ -10,7 +10,7 @@ import plistlib
 import re
 from typing import Any
 
-from xcron_libs.actions.plan_project import PlanProjectResult
+from xcron_libs.capabilities.reconciliation.contracts import DeploymentPlan
 from xcron_libs.domain import DeployedJobState, NormalizedJob, PlanChangeKind, ProjectState, ScheduleKind
 from xcron_libs.services.logging_paths import resolve_runtime_paths, runtime_event_log_path_for_wrapper, runtime_log_paths_for_wrapper
 from xcron_libs.services.observability import check_output_logged, get_logger, run_logged_subprocess
@@ -223,7 +223,7 @@ def write_launchd_job(rendered: LaunchdRenderedJob) -> LaunchdRenderedJob:
 
 
 def apply_launchd_plan(
-    plan_result: PlanProjectResult,
+    deployment: DeploymentPlan,
     *,
     state_root: Path | None = None,
     launch_agents_dir: Path | None = None,
@@ -231,18 +231,16 @@ def apply_launchd_plan(
     manage_launchctl: bool = True,
 ) -> ProjectState:
     """Apply a project plan to launchd and persist derived project state."""
-    if not plan_result.valid or plan_result.plan is None:
-        raise ValueError("cannot apply invalid plan result to launchd")
-    if plan_result.backend != "launchd":
-        raise ValueError(f"launchd backend received non-launchd plan: {plan_result.backend}")
+    if deployment.backend != "launchd":
+        raise ValueError(f"launchd backend received non-launchd plan: {deployment.backend}")
 
     selected_domain = launchd_domain_target() if domain_target is None else domain_target
     selected_agents_dir = resolve_launch_agents_dir() if launch_agents_dir is None else Path(launch_agents_dir).expanduser().resolve()
 
-    desired_jobs = {job.qualified_id: job for job in plan_result.plan.manifest.jobs}
-    desired_hashes = plan_result.validation.hashes.job_hashes
-    desired_definition_hashes = plan_result.validation.hashes.job_definition_hashes
-    change_by_id = {change.qualified_id: change for change in plan_result.changes}
+    desired_jobs = {job.qualified_id: job for job in deployment.plan.manifest.jobs}
+    desired_hashes = deployment.job_hashes
+    desired_definition_hashes = deployment.job_definition_hashes
+    change_by_id = {change.qualified_id: change for change in deployment.plan.changes}
 
     rendered_by_id: dict[str, LaunchdRenderedJob] = {}
     for qualified_id, desired_job in desired_jobs.items():
@@ -258,7 +256,7 @@ def apply_launchd_plan(
         )
         rendered_by_id[qualified_id] = write_launchd_job(rendered)
 
-    for change in plan_result.changes:
+    for change in deployment.plan.changes:
         label = build_launchd_label(change.desired_job) if change.desired_job is not None else change.deployed_job.label
         if change.kind in (PlanChangeKind.CREATE, PlanChangeKind.UPDATE, PlanChangeKind.DRIFT):
             if manage_launchctl:
@@ -308,7 +306,7 @@ def apply_launchd_plan(
 
     state_jobs = []
     timestamp = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-    for job in plan_result.plan.manifest.jobs:
+    for job in deployment.plan.manifest.jobs:
         rendered = rendered_by_id.get(job.qualified_id)
         runtime_paths = resolve_runtime_paths(job, state_root=state_root)
         plist_path = rendered.plist_path if rendered is not None else selected_agents_dir / f"{build_launchd_label(job)}.plist"
@@ -333,17 +331,17 @@ def apply_launchd_plan(
         )
 
     state = ProjectState(
-        project_id=plan_result.plan.manifest.project_id,
+        project_id=deployment.plan.manifest.project_id,
         backend="launchd",
-        manifest_hash=plan_result.validation.hashes.manifest_hash,
+        manifest_hash=deployment.manifest_hash,
         jobs=tuple(sorted(state_jobs, key=lambda item: item.qualified_id)),
         updated_at=timestamp,
     )
     save_project_state(state, state_root=state_root)
     LOGGER.info(
         "launchd_plan_applied",
-        project_id=plan_result.plan.manifest.project_id,
-        change_count=len(plan_result.changes),
+        project_id=deployment.plan.manifest.project_id,
+        change_count=len(deployment.plan.changes),
         applied_job_count=len(state.jobs),
         manage_launchctl=manage_launchctl,
         domain_target=selected_domain,

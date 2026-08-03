@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import re
 
-from xcron_libs.actions.plan_project import PlanProjectResult
+from xcron_libs.capabilities.reconciliation.contracts import DeploymentPlan
 from xcron_libs.domain import DeployedJobState, NormalizedJob, ProjectState, ScheduleKind
 from xcron_libs.services.logging_paths import resolve_runtime_paths, runtime_event_log_path_for_wrapper, runtime_log_paths_for_wrapper
 from xcron_libs.services.observability import get_logger, run_logged_subprocess
@@ -262,21 +262,19 @@ def collect_cron_project_state(project_id: str, *, crontab_path: Path | None = N
 
 
 def apply_cron_plan(
-    plan_result: PlanProjectResult,
+    deployment: DeploymentPlan,
     *,
     state_root: Path | None = None,
     crontab_path: Path | None = None,
     manage_crontab: bool = True,
 ) -> ProjectState:
     """Apply a project plan to cron and persist derived project state."""
-    if not plan_result.valid or plan_result.plan is None:
-        raise ValueError("cannot apply invalid plan result to cron")
-    if plan_result.backend != "cron":
-        raise ValueError(f"cron backend received non-cron plan: {plan_result.backend}")
+    if deployment.backend != "cron":
+        raise ValueError(f"cron backend received non-cron plan: {deployment.backend}")
 
-    manifest = plan_result.plan.manifest
-    desired_hashes = plan_result.validation.hashes.job_hashes
-    definition_hashes = plan_result.validation.hashes.job_definition_hashes
+    manifest = deployment.plan.manifest
+    desired_hashes = deployment.job_hashes
+    definition_hashes = deployment.job_definition_hashes
     current_content = read_crontab(crontab_path=crontab_path) if manage_crontab else ""
 
     if manifest.jobs:
@@ -320,7 +318,7 @@ def apply_cron_plan(
     state = ProjectState(
         project_id=manifest.project_id,
         backend="cron",
-        manifest_hash=plan_result.validation.hashes.manifest_hash,
+        manifest_hash=deployment.manifest_hash,
         jobs=tuple(sorted(state_jobs, key=lambda item: item.qualified_id)),
         updated_at=timestamp,
     )
@@ -328,7 +326,7 @@ def apply_cron_plan(
     LOGGER.info(
         "cron_plan_applied",
         project_id=manifest.project_id,
-        change_count=len(plan_result.changes),
+        change_count=len(deployment.plan.changes),
         applied_job_count=len(state.jobs),
         manage_crontab=manage_crontab,
     )

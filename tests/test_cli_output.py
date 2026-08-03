@@ -64,6 +64,8 @@ def test_output_render_json_filters_list_row_fields_from_requested_fields() -> N
     response = StatusResponse(
         backend="cron",
         count="2 of 2",
+        desired=2,
+        deployed=1,
         statuses=(
             StatusRow(kind="ok", id="demo.sync", reason="aligned"),
             StatusRow(kind="disabled", id="demo.cleanup", reason="disabled"),

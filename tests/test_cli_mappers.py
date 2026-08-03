@@ -79,8 +79,8 @@ def test_map_status_response_builds_typed_rows() -> None:
                 kind=SimpleNamespace(value="ok"),
                 qualified_id="demo.sync",
                 reason="aligned",
-                desired_job=None,
-                deployed_job=None,
+                desired_job=SimpleNamespace(schedule=SimpleNamespace(kind=SimpleNamespace(value="cron"), value="0 * * * *")),
+                deployed_job=SimpleNamespace(last_applied_at="2026-08-03T00:00:00Z"),
             ),
             SimpleNamespace(
                 kind=SimpleNamespace(value="disabled"),
@@ -95,6 +95,8 @@ def test_map_status_response_builds_typed_rows() -> None:
     response = map_status_response(result, contract=contract)
 
     assert response.count == "2 of 2"
+    assert response.desired == 1
+    assert response.deployed == 1
     assert response.statuses[0].kind == "ok"
     assert response.statuses[1].id == "demo.pause"
 

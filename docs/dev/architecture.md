@@ -1,20 +1,54 @@
 # xcron Architecture
 
-This prototype follows the repository and code-architecture rules defined in
-`SPEC.md`.
+This prototype keeps the public product contract in `SPEC.md` while organizing
+application work by capability. The implementation is deliberately a small
+brownfield step: it retains low-level services where they are useful, but makes
+the high-level ownership and scheduler boundary explicit.
 
 Top-level layout:
 
-- `apps/` contains runnable thin shells
-- `libs/` contains reusable actions, services, domain logic, and infra helpers
-- `resources/` contains schemas, templates, and other static assets
-- `docs/` contains developer and user documentation
+- `apps/cli/` contains the thin Typer/output channel;
+- `libs/capabilities/` contains capability-owned use cases:
+  `reconciliation`, `jobs`, `operations`, `agent_hooks`, and `home`;
+- `libs/domain/` contains canonical models, normalization, identities, and
+  desired-vs-deployed diffing;
+- `libs/services/` contains reusable low-level mechanisms and native scheduler
+  adapters;
+- `libs/runtime/` composes the deterministic first-party provider set;
+- `libs/sdk/` exposes the typed `Xcron` client for embedders and CLI use; and
+- `libs/actions/` is a compatibility import facade for the previous action
+  paths.
 
-Code-architecture rules:
+The dependency direction is:
 
-- thin shells translate inputs to action parameters
-- actions coordinate use cases
-- services provide context-independent capabilities
+```text
+apps/cli -> xcron_libs.Xcron -> capability actions -> domain + ports
+runtime  -> explicit scheduler registry -> native scheduler adapters
+adapters -> reconciliation contracts + domain
+```
+
+Rules:
+
+- CLI code parses Typer input, opens `Xcron`, maps typed results/errors through
+  `Output`, and chooses exit codes. It does not import action implementations,
+  native backend functions, or output encoders below its channel boundary.
+- Capabilities own use-case policy and return typed results. They do not import
+  `xcron_cli`, Typer, Rich, TOON, JSON, or tmux renderers.
+- `reconciliation` owns the typed scheduler port, backend-neutral
+  `DeploymentPlan` and `SchedulerInspection` contracts, and registry selection.
+  Backends must never import an action result or the SDK.
+- `runtime` composes only. It owns immutable resolved invocation options and
+  the scheduler registry, owns no product policy, and provides the same
+  first-party provider set to all channels.
+- `Xcron` is a synchronous context-managed SDK. It owns no native scheduler
+  connection today, has idempotent `close()`, rejects use after close, and does
+  not import CLI/output code. See [sdk.md](sdk.md) for its public surface and
+  lifecycle contract.
+- `libs/actions` preserves compatibility for current callers while code moves;
+  it must not grow new business logic.
+- `libs/services/__init__.py` stays non-aggregating. Callers import explicit
+  leaf modules so capability/SDK imports cannot transitively load CLI response
+  models or rendering dependencies.
 
 Current model decisions:
 
@@ -28,6 +62,29 @@ Current model decisions:
 The Python prototype should preserve these boundaries so the later Go rewrite
 can keep the same external contract and internal separation of concerns.
 
+## Distribution shape
+
+`xcron` deliberately ships as one root Python distribution. The root
+`pyproject.toml` maps `apps/cli` to `xcron_cli`, `libs` to `xcron_libs`, and
+`resources` to `xcron_resources`; its `xcron` console script targets
+`xcron_cli.typer_app:run`. `apps/cli` therefore does not have a second
+`pyproject.toml`.
+
+The CLI channel, native SDK, capability implementation, and packaged runtime
+resources share one version, dependency graph, and release lifecycle. Splitting
+the CLI into a separate distribution would introduce a cross-distribution
+dependency on the SDK/capabilities and a second release/install boundary
+without providing independent ownership, dependencies, or release cadence.
+Reconsider the split only if one of those operational boundaries becomes real.
+
+Older xpack versions warned about the root entry point and missing app-local
+metadata. Those warnings are accepted when using such a version because the
+single-distribution mapping is intentional, not accidental. Current xpack
+recognizes both the scoped root entry point and `apps/cli` package mapping as
+passing x-style structures: the live structure check reports six passes and no
+warnings. `.xpack/config.toml` remains the installed-wheel verification
+contract.
+
 Implemented prototype components:
 
 - validation, normalization, and stable hashing
@@ -40,7 +97,13 @@ Implemented prototype components:
 - richer `inspect` results that expose normalized desired data plus
   backend-native detail
 - nested `jobs` CLI group for manifest-side job management
-- CLI thin shells that call actions rather than embedding backend logic
+- capability-owned reconciliation, manifest jobs, runtime operations, home,
+  and agent-hook use cases, with legacy `libs/actions` import shims
+- explicit `cron`/`launchd` scheduler registry and backend-neutral deployment
+  and scheduler-inspection contracts
+- embeddable `Xcron.open(...)` SDK with grouped schedules, jobs, operations,
+  hooks, and home APIs
+- CLI thin shells that call the SDK rather than embedding backend logic
 - Typer-based command declaration and command grouping
 - Pydantic response envelopes plus mapper helpers at the CLI edge
 - unified machine/human output rendering:

@@ -13,6 +13,15 @@ from xcron_libs.services.state_store import save_project_state
 
 
 def test_status_projection_maps_plan_changes_to_spec_vocabulary(tmp_path) -> None:
+    assert tuple(kind.value for kind in StatusKind) == (
+        "ok",
+        "missing",
+        "drift",
+        "disabled",
+        "extra",
+        "error",
+    )
+
     project = tmp_path / "project"
     project.mkdir()
     schedule_dir = project / "resources" / "schedules"

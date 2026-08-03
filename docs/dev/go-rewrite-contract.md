@@ -41,13 +41,25 @@ breaking change process.
 ## Architectural Contract
 
 - thin shells stay in `apps/`
-- use-case actions stay in `libs/actions/`
-- reusable capabilities stay in `libs/services/`
+- use-case actions are capability-owned under `libs/capabilities/`; legacy
+  `libs/actions/` imports may remain as compatibility facades during a staged
+  migration
+- reusable low-level mechanisms and native scheduler adapters stay in
+  `libs/services/`
+- scheduler adapters consume a backend-neutral contract and never import a
+  coordinating action result
+- scheduler adapters return a normalized inspection contract rather than
+  leaking provider-specific result types into capability orchestration
+- runtime composition stays explicit and channel-independent; it owns resolved
+  invocation options and the provider registry, not product policy
+- a public SDK may compose the same capability actions, but it must not import
+  CLI/output code or duplicate business policy; capability results remain
+  independent of output envelopes and renderers
 - schemas/examples/templates stay in `resources/`
 - docs stay in `docs/`
 
 The Go rewrite can change package details but should not collapse the thin
-shell -> action -> service separation.
+channel -> capability action -> adapter/domain separation.
 
 ## Areas Allowed To Improve
 

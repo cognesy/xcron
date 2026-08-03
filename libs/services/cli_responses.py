@@ -104,6 +104,8 @@ class PlanResponse(PayloadConvertible):
 class StatusResponse(PayloadConvertible):
     backend: Optional[str]
     count: str
+    desired: int
+    deployed: int
     statuses: tuple[StatusRow, ...]
     help: tuple[str, ...] = ()
 

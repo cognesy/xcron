@@ -4,6 +4,7 @@ import textwrap
 
 from xcron_libs.actions.apply_project import apply_project
 from xcron_libs.actions.plan_project import plan_project
+from xcron_libs.capabilities.reconciliation import DeploymentPlan
 from xcron_libs.services.backends.cron_service import apply_cron_plan, inspect_cron_project, prune_cron_project
 
 
@@ -41,7 +42,22 @@ def test_cron_backend_apply_inspect_and_prune(tmp_path) -> None:
     crontab_path.write_text("# unmanaged\nMAILTO=user@example.com\n", encoding="utf-8")
 
     plan = plan_project(project, backend="cron", state_root=state_root, platform="linux")
-    state = apply_cron_plan(plan, state_root=state_root, crontab_path=crontab_path, manage_crontab=True)
+    assert plan.plan is not None
+    assert plan.validation.hashes is not None
+    deployment = DeploymentPlan(
+        backend="cron",
+        plan=plan.plan,
+        state_path=plan.state_path or "",
+        manifest_hash=plan.validation.hashes.manifest_hash,
+        job_hashes=plan.validation.hashes.job_hashes,
+        job_definition_hashes=plan.validation.hashes.job_definition_hashes,
+    )
+    state = apply_cron_plan(
+        deployment,
+        state_root=state_root,
+        crontab_path=crontab_path,
+        manage_crontab=True,
+    )
     content = crontab_path.read_text(encoding="utf-8")
     inspections = inspect_cron_project("cron-demo", crontab_path=crontab_path)
 

@@ -73,8 +73,8 @@ APPLY_CONTRACT = CommandContract(
 
 STATUS_CONTRACT = CommandContract(
     name="status",
-    default_fields=("backend", "count", "statuses"),
-    allowed_fields=("backend", "count", "statuses", "help"),
+    default_fields=("backend", "count", "desired", "deployed", "statuses"),
+    allowed_fields=("backend", "count", "desired", "deployed", "statuses", "help"),
     list_key="statuses",
     list_row_fields=("kind", "id", "reason", "schedule", "last_applied_at", "next_run"),
     default_hints=(

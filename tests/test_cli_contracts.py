@@ -8,6 +8,7 @@ def test_cli_contract_registry_exposes_representative_command_metadata() -> None
     inspect = get_command_contract("inspect")
     jobs_list = get_command_contract("jobs.list")
     metrics = get_command_contract("metrics.show")
+    status = get_command_contract("status")
 
     assert "plan_summary" in home.allowed_fields
 
@@ -19,3 +20,5 @@ def test_cli_contract_registry_exposes_representative_command_metadata() -> None
     assert jobs_list.list_key == "jobs"
     assert jobs_list.list_row_fields == ("job_id", "enabled", "schedule", "command")
     assert "counters" in metrics.allowed_fields
+    assert "desired" in status.default_fields
+    assert "deployed" in status.default_fields

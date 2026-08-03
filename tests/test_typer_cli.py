@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import textwrap
+from importlib.metadata import version as distribution_version
 
 from typer.testing import CliRunner
 
@@ -35,6 +36,18 @@ def _make_project(tmp_path):
         encoding="utf-8",
     )
     return project
+
+
+def test_version_is_a_project_and_backend_free_liveness_probe(monkeypatch) -> None:
+    def fail_if_opened(*args, **kwargs):
+        raise AssertionError("--version must not open the SDK or scheduler")
+
+    monkeypatch.setattr("xcron_cli.typer_app._open_client", fail_if_opened)
+
+    result = runner.invoke(app, ["--version"])
+
+    assert result.exit_code == 0
+    assert result.stdout == f"xcron {distribution_version('xcron')}\n"
 
 
 def test_typer_validate_command_uses_existing_action_and_output_contract(tmp_path) -> None:
