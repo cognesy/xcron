@@ -14,7 +14,7 @@ from typing import Any, Mapping
 
 from xcron_libs.capabilities.reconciliation.contracts import ValidateProjectResult
 from xcron_libs.domain import NormalizedJob
-from xcron_libs.services.schema_validator import ValidationMessage
+from xcron_libs.capabilities.manifest.contracts import ValidationMessage
 
 
 @dataclass(frozen=True)

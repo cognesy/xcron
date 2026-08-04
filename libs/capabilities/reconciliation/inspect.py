@@ -16,10 +16,11 @@ from xcron_libs.capabilities.reconciliation.registry import (
     SchedulerRegistry,
     default_scheduler_registry,
 )
+from xcron_libs.capabilities.reconciliation.ports import OutcomeRecorder
 from xcron_libs.capabilities.reconciliation.status import status_project
 from xcron_libs.capabilities.reconciliation.domain import StatusEntry
 from xcron_libs.domain import NormalizedJob
-from xcron_libs.services.observability import get_logger, instrument_action
+from xcron_libs.shared.observability import get_logger, instrument_action
 
 
 LOGGER = get_logger(__name__)
@@ -37,6 +38,7 @@ def inspect_job(
     launchctl_domain: str | None = None,
     crontab_path: str | Path | None = None,
     scheduler_registry: SchedulerRegistry | None = None,
+    outcome_recorder: OutcomeRecorder | None = None,
 ) -> InspectJobResult:
     """Inspect one desired/deployed job in the selected backend."""
     registry = scheduler_registry or default_scheduler_registry()
@@ -49,6 +51,7 @@ def inspect_job(
         launchctl_domain=launchctl_domain,
         crontab_path=crontab_path,
         scheduler_registry=registry,
+        outcome_recorder=outcome_recorder,
     )
     if not status.valid or status.plan is None:
         LOGGER.warning(

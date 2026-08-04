@@ -17,7 +17,7 @@ from xcron_libs.capabilities.reconciliation.registry import (
 )
 from xcron_libs.capabilities.reconciliation.domain import PlanChange, PlanChangeKind, ProjectPlan, build_project_plan
 from xcron_libs.domain.models import NormalizedJob
-from xcron_libs.services.observability import get_logger, instrument_action
+from xcron_libs.shared.observability import get_logger, instrument_action
 from xcron_libs.capabilities.reconciliation.state_store import (
     load_project_state,
     resolve_project_state_path,

@@ -4,22 +4,23 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from xcron_libs.capabilities.reconciliation.contracts import ValidateProjectResult
-from xcron_libs.domain import normalize_manifest
-from xcron_libs.services.config_loader import (
-    LoadedManifestDocument,
-    ManifestLoadError,
+from xcron_libs.capabilities.manifest.api import (
     attach_parsed_manifest,
+    build_manifest_hashes,
     load_project_manifest,
-)
-from xcron_libs.services.hash_service import build_manifest_hashes
-from xcron_libs.services.observability import get_logger, instrument_action
-from xcron_libs.services.schema_validator import (
-    ValidationMessage,
     split_validation_messages,
     validate_schema,
     validate_semantics,
 )
+from xcron_libs.capabilities.manifest.contracts import (
+    LoadedManifestDocument,
+    ManifestLoadError,
+    ValidationMessage,
+)
+from xcron_libs.capabilities.reconciliation.contracts import ValidateProjectResult
+from xcron_libs.capabilities.workspace.contracts import WorkspaceError
+from xcron_libs.domain import normalize_manifest
+from xcron_libs.shared.observability import get_logger, instrument_action
 
 LOGGER = get_logger(__name__)
 
@@ -33,7 +34,7 @@ def validate_project(
     """Load, validate, normalize, and hash one project's selected manifest."""
     try:
         document = load_project_manifest(project_path, schedule_name=schedule_name)
-    except ManifestLoadError as exc:
+    except (WorkspaceError, ManifestLoadError) as exc:
         project_root = Path.cwd() if project_path is None else Path(project_path).expanduser()
         LOGGER.warning(
             "manifest_load_failed",

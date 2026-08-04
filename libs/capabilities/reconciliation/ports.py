@@ -1,4 +1,9 @@
-"""The scheduler port reconciliation defines and its adapters implement.
+"""The ports reconciliation defines and its adapters implement.
+
+`SchedulerBackend` is how reconciliation reaches a native scheduler.
+`OutcomeRecorder` is how it reports what happened without knowing who counts
+it — the composition root supplies an adapter over the operations module, so
+reconciliation never writes another capability's state file.
 
 An adapter depends on this module and on
 :mod:`xcron_libs.capabilities.reconciliation.domain`; it never sees a use-case
@@ -116,6 +121,25 @@ class SchedulerBackend(Protocol):
 
     def schedule_errors(self, jobs: tuple[NormalizedJob, ...]) -> tuple[PlanChange, ...]:
         """Return backend-specific schedule incompatibilities for planning."""
+
+
+class OutcomeRecorder(Protocol):
+    """Where reconciliation reports operational outcomes it does not own."""
+
+    def record(self, counter: str, amount: int = 1) -> None:
+        """Record one outcome. Implementations must never raise."""
+
+
+class NullOutcomeRecorder:
+    """The default: reconciliation runs fully with no evidence sink attached.
+
+    Recording is not part of convergence. A caller that wants counters wires a
+    real recorder through the composition root; a caller that does not gets
+    identical scheduler behaviour and no side effect.
+    """
+
+    def record(self, counter: str, amount: int = 1) -> None:
+        return None
 
 
 def _resolve_path(value: str | Path | None) -> Path | None:

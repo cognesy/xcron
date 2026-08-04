@@ -12,9 +12,9 @@ from typing import Any, Mapping, Sequence
 import yaml
 
 from xcron_libs.domain.models import ProjectManifest
-from xcron_libs.services.config_loader import LoadedManifestDocument, attach_parsed_manifest, load_project_manifest
-from xcron_libs.services.observability import get_logger
-from xcron_libs.services.schema_validator import (
+from xcron_libs.capabilities.manifest._loader import LoadedManifestDocument, attach_parsed_manifest, load_project_manifest
+from xcron_libs.shared.observability import get_logger
+from xcron_libs.capabilities.manifest._schema import (
     ValidationMessage,
     split_validation_messages,
     validate_schema,

@@ -47,14 +47,13 @@ Other boundaries:
 
 ```text
 apps/cli/                 Typer shell, Output class, AXI output boundary
-libs/actions/             one use case per command/workflow
-libs/services/            reusable services
-libs/services/backends/   launchd_service, cron_service
-libs/domain/              Pydantic domain models, normalization, diffing
-libs/infra/               infra placeholder helpers
-resources/schemas/        schedules.schema.yaml (manifest schema)
-apps/cli/resources/help/           packaged Markdown command help
-resources/logging/        default structlog logging config
+libs/actions/             compatibility import shims for the old action paths
+libs/capabilities/        one module per owned decision (see docs/dev/architecture.md)
+libs/shared/              strict leaf: structlog wiring and logging config
+libs/domain/              Pydantic domain models and normalization
+libs/runtime/             composition root and cross-capability adapters
+libs/sdk/                 the typed Xcron client
+apps/cli/resources/help/  packaged Markdown command help
 resources/templates/      AXI command/test templates
 resources/examples/       example projects (basic, disabled-job)
 resources/skills/         repo-local agent skills (use-xcron, admin-xcron)
@@ -72,10 +71,14 @@ Dependency direction:
 
 ```text
 apps/cli
-  -> libs/actions
-  -> libs/services (incl. libs/services/backends)
-  -> libs/domain
+  -> libs/sdk (Xcron)
+  -> libs/capabilities/<module>/{api,contracts}
+  -> module internals
+  -> libs/domain, libs/shared          (leaves only)
 ```
+
+The permitted cross-module edges and the module cards live in
+[docs/dev/architecture.md](docs/dev/architecture.md), which is authoritative.
 
 Rules:
 
@@ -88,15 +91,18 @@ Rules:
   `status_project`, `apply_project`, `prune_project`, `inspect_job`,
   `manage_jobs`, `manage_logs`, `metrics`, `init_home`. Actions coordinate
   services and return structured `*Result` types.
-- `libs/services` provides reusable capabilities: config/manifest loading,
-  schema and semantic validation, manifest editing, hashing, wrapper rendering,
-  state persistence, AXI presentation/contracts/mappers, structured logging,
-  hook installers, scheduler backends.
-- `libs/services/backends` hides launchd plist generation/loading and cron
-  managed-block handling behind narrow service interfaces.
-- `libs/domain` contains Pydantic models, normalization, plan/status diffing,
-  and qualified-id helpers. Domain code must not import from `apps`.
-- Services do not call actions or shell code.
+- `libs/capabilities/<module>` owns one decision behind `api.py` plus
+  `contracts.py`. Nothing outside a module may import below those two files.
+  `workspace` owns paths and scoping, `manifest` owns the YAML format,
+  `reconciliation` owns convergence and its scheduler adapters, `jobs` owns
+  job-level use cases, `operations` owns logs and metrics, `agent_hooks` owns
+  the repo-local hook files.
+- `libs/shared` is a strict leaf. It may not import a capability, run a
+  workflow, or persist anything.
+- `libs/domain` contains Pydantic models, normalization, and qualified-id
+  helpers. Domain code must not import from `apps` or from a capability.
+- `libs/runtime` composes only, and owns every adapter that joins two
+  capabilities.
 - Keep arrays/dicts at the YAML/output boundary; use typed Pydantic models
   internally.
 

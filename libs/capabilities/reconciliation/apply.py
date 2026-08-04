@@ -15,8 +15,8 @@ from xcron_libs.capabilities.reconciliation.registry import (
     default_scheduler_registry,
 )
 from xcron_libs.capabilities.reconciliation.status import status_project
-from xcron_libs.services.metrics import MetricsService
-from xcron_libs.services.observability import get_logger, instrument_action
+from xcron_libs.capabilities.reconciliation.ports import NullOutcomeRecorder, OutcomeRecorder
+from xcron_libs.shared.observability import get_logger, instrument_action
 from xcron_libs.capabilities.reconciliation.state_store import resolve_project_state_path
 
 LOGGER = get_logger(__name__)
@@ -36,10 +36,11 @@ def apply_project(
     manage_launchctl: bool = True,
     manage_crontab: bool = True,
     scheduler_registry: SchedulerRegistry | None = None,
+    outcome_recorder: OutcomeRecorder | None = None,
 ) -> ApplyProjectResult:
     """Apply one project's desired state using the selected backend."""
-    metrics = MetricsService()
-    metrics.increment("apply.calls")
+    outcomes = outcome_recorder or NullOutcomeRecorder()
+    outcomes.record("apply.calls")
     registry = scheduler_registry or default_scheduler_registry()
     options = SchedulerRuntimeOptions.create(
         state_root=state_root,
@@ -58,9 +59,10 @@ def apply_project(
         launchctl_domain=launchctl_domain,
         crontab_path=crontab_path,
         scheduler_registry=registry,
+        outcome_recorder=outcomes,
     )
     if not status_result.valid or status_result.backend is None or status_result.plan is None:
-        metrics.increment("apply.failed")
+        outcomes.record("apply.failed")
         LOGGER.warning(
             "apply_status_failed",
             backend=status_result.backend,
@@ -93,7 +95,7 @@ def apply_project(
     if plan_result.plan is not None:
         schedule_errors = scheduler.schedule_errors(plan_result.plan.manifest.jobs)
         if schedule_errors:
-            metrics.increment("apply.failed")
+            outcomes.record("apply.failed")
             LOGGER.error(
                 "apply_backend_incompatible_schedules",
                 project_id=plan_result.plan.manifest.project_id,
@@ -127,8 +129,8 @@ def apply_project(
         applied_job_count=len(applied_state.jobs),
         state_path=plan_result.state_path,
     )
-    metrics.increment("apply.succeeded")
-    metrics.increment("jobs.applied", len(applied_state.jobs))
+    outcomes.record("apply.succeeded")
+    outcomes.record("jobs.applied", len(applied_state.jobs))
     return ApplyProjectResult(
         valid=True,
         backend=plan_result.backend,

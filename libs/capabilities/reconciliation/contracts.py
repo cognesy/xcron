@@ -4,9 +4,10 @@ This module is one of the two entry points outside code may import; the other
 is :mod:`xcron_libs.capabilities.reconciliation.api`. It owns the use-case
 results the module's public API returns, plus the stable errors it raises.
 
-The scheduler port itself lives in
-:mod:`xcron_libs.capabilities.reconciliation.ports`; the port values that appear
-inside a public result are re-exported here so callers need only one import.
+The ports themselves live in
+:mod:`xcron_libs.capabilities.reconciliation.ports`; the port values a caller
+must name — to supply a scheduler, or an outcome recorder — are re-exported
+here so callers need only one import.
 
 Nothing here depends on a channel, renderer, or CLI response type.
 """
@@ -24,15 +25,16 @@ from xcron_libs.capabilities.reconciliation.domain import (
     StatusEntry,
     StatusKind,
 )
+from xcron_libs.capabilities.manifest.contracts import ManifestHashes, ValidationMessage
 from xcron_libs.capabilities.reconciliation.ports import (
     DeploymentPlan,
+    NullOutcomeRecorder,
+    OutcomeRecorder,
     SchedulerBackend,
     SchedulerInspection,
     SchedulerRuntimeOptions,
 )
 from xcron_libs.domain import NormalizedJob, NormalizedManifest
-from xcron_libs.services.hash_service import ManifestHashes
-from xcron_libs.services.schema_validator import ValidationMessage
 
 __all__ = [
     "ApplyProjectResult",
@@ -41,6 +43,8 @@ __all__ = [
     "InspectField",
     "InspectJobResult",
     "InspectSnippet",
+    "NullOutcomeRecorder",
+    "OutcomeRecorder",
     "PlanChange",
     "PlanChangeKind",
     "PlanProjectResult",

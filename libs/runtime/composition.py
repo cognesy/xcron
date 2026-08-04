@@ -5,11 +5,25 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from xcron_libs.capabilities.operations.api import record_outcome
 from xcron_libs.capabilities.reconciliation.api import (
     SchedulerRegistry,
     default_scheduler_registry,
 )
+from xcron_libs.capabilities.reconciliation.contracts import OutcomeRecorder
 from xcron_libs.runtime.options import XcronOptions
+
+
+class MetricsOutcomeRecorder:
+    """Adapt reconciliation's `OutcomeRecorder` port onto the operations module.
+
+    This class is the only place the two capabilities meet. Reconciliation has
+    no edge to operations; the composition root owns the wiring, so either side
+    can be replaced without the other knowing.
+    """
+
+    def record(self, counter: str, amount: int = 1) -> None:
+        record_outcome(counter, amount)
 
 
 @dataclass(frozen=True)
@@ -18,6 +32,7 @@ class XcronRuntime:
 
     options: XcronOptions
     scheduler_registry: SchedulerRegistry
+    outcome_recorder: OutcomeRecorder
 
     @classmethod
     def create(
@@ -34,6 +49,7 @@ class XcronRuntime:
         manage_launchctl: bool = True,
         manage_crontab: bool = True,
         scheduler_registry: SchedulerRegistry | None = None,
+        outcome_recorder: OutcomeRecorder | None = None,
     ) -> XcronRuntime:
         """Resolve scope once and use injected or deterministic providers."""
         return cls(
@@ -50,4 +66,5 @@ class XcronRuntime:
                 manage_crontab=manage_crontab,
             ),
             scheduler_registry=scheduler_registry or default_scheduler_registry(),
+            outcome_recorder=outcome_recorder or MetricsOutcomeRecorder(),
         )

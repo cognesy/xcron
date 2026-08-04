@@ -14,8 +14,8 @@ from xcron_libs.capabilities.reconciliation.registry import (
 )
 from xcron_libs.capabilities.reconciliation.validation import validate_project
 from xcron_libs.capabilities.reconciliation.domain import build_project_plan, build_status_entries
-from xcron_libs.services.metrics import MetricsService
-from xcron_libs.services.observability import get_logger, instrument_action
+from xcron_libs.capabilities.reconciliation.ports import NullOutcomeRecorder, OutcomeRecorder
+from xcron_libs.shared.observability import get_logger, instrument_action
 from xcron_libs.capabilities.reconciliation.registry import default_backend_for_current_platform
 
 LOGGER = get_logger(__name__)
@@ -32,13 +32,14 @@ def status_project(
     launchctl_domain: str | None = None,
     crontab_path: str | Path | None = None,
     scheduler_registry: SchedulerRegistry | None = None,
+    outcome_recorder: OutcomeRecorder | None = None,
 ) -> StatusProjectResult:
     """Compare desired state to actual backend state for one project."""
-    metrics = MetricsService()
-    metrics.increment("status.calls")
+    outcomes = outcome_recorder or NullOutcomeRecorder()
+    outcomes.record("status.calls")
     validation = validate_project(project_path, schedule_name=schedule_name)
     if not validation.valid or validation.normalized_manifest is None or validation.hashes is None:
-        metrics.increment("status.failed")
+        outcomes.record("status.failed")
         LOGGER.warning(
             "status_validation_failed",
             project_root=validation.project_root,
@@ -79,7 +80,7 @@ def status_project(
         inspection_count=len(inspections),
         deployed_job_count=len(actual_state.jobs),
     )
-    metrics.increment("status.succeeded")
+    outcomes.record("status.succeeded")
     return StatusProjectResult(
         valid=True,
         backend=selected_backend,

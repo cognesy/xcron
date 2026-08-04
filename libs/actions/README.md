@@ -2,6 +2,6 @@
 
 Actions are the primary use-case boundary in xcron.
 
-They are invoked by thin shells in `apps/` and coordinate services from
-`libs/services/` to perform meaningful work such as validation, planning, and
-application.
+These modules are now import shims only. Each re-exports one capability's
+public surface from `libs/capabilities/` so pre-refactor import paths keep
+working; they are scheduled for removal and must not grow logic.

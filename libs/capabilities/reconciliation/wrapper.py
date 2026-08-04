@@ -7,8 +7,9 @@ from pathlib import Path
 import shlex
 
 from xcron_libs.domain.models import NormalizedJob, OverlapPolicy
-from xcron_libs.services.logging_paths import RuntimePaths, ensure_runtime_dirs, resolve_runtime_paths
-from xcron_libs.services.observability import get_logger
+from xcron_libs.capabilities.workspace.api import ensure_runtime_dirs, resolve_runtime_paths
+from xcron_libs.capabilities.workspace.contracts import RuntimePaths
+from xcron_libs.shared.observability import get_logger
 
 LOGGER = get_logger(__name__)
 

@@ -79,7 +79,9 @@ scope.
 - structlog for structured logging
 - pytest for tests
 
-The code is organized around thin CLI shells in `apps/cli/`, use-case actions in
-`libs/actions/`, reusable services and scheduler backends in `libs/services/`,
-domain models in `libs/domain/`, and packaged help, schemas, examples, and
-skills in `resources/`.
+The code is organized around thin CLI shells in `apps/cli/` and one module per
+owned decision in `libs/capabilities/` — `workspace`, `manifest`,
+`reconciliation`, `jobs`, `operations`, `agent_hooks`, and `home` — each behind
+an `api.py`/`contracts.py` surface. Value types live in `libs/domain/`, logging
+in the `libs/shared/` leaf, and composition in `libs/runtime/`. Packaged data
+ships inside the module that reads it; examples and skills stay in `resources/`.

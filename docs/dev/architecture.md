@@ -1,22 +1,21 @@
 # xcron Architecture
 
 This prototype keeps the public product contract in `SPEC.md` while organizing
-application work by capability. The implementation is deliberately a small
-brownfield step: it retains low-level services where they are useful, but makes
-the high-level ownership and scheduler boundary explicit.
+application work by capability. Every file now belongs to exactly one module or
+to a declared leaf; there is no shared services drawer left to put things in.
 
 Top-level layout:
 
 - `apps/cli/` contains the thin Typer/output channel;
-- `libs/capabilities/` contains capability-owned use cases:
-  `reconciliation`, `jobs`, `operations`, `agent_hooks`, and `home`;
-- `libs/domain/` contains manifest value types, normalization, and identities;
-  desired-vs-deployed diffing belongs to the reconciliation module;
-- `libs/services/` contains only genuinely shared low-level mechanisms:
-  hashing, schema validation, manifest editing, observability, metrics,
-  logging configuration, and derived-state path resolution. Native scheduler
-  adapters are not here; they belong to the reconciliation module;
-- `libs/runtime/` composes the deterministic first-party provider set;
+- `libs/capabilities/` contains capability-owned use cases: `workspace`,
+  `manifest`, `reconciliation`, `jobs`, `operations`, `agent_hooks`, and `home`;
+- `libs/domain/` is a leaf of manifest value types, normalization, and
+  identities; desired-vs-deployed diffing belongs to the reconciliation module;
+- `libs/shared/` is a strict leaf: structlog wiring, logging configuration, and
+  the packaged logging resource. It holds no workflow, persists nothing, and may
+  not import a capability. Adding a module here is a recorded decision;
+- `libs/runtime/` composes the deterministic first-party provider set and owns
+  every adapter that joins two capabilities;
 - `libs/sdk/` exposes the typed `Xcron` client for embedders and CLI use; and
 - `libs/actions/` is a compatibility import facade for the previous action
   paths.
@@ -26,8 +25,26 @@ The dependency direction is:
 ```text
 apps/cli -> xcron_libs.Xcron -> module api/contracts -> module internals
 runtime  -> explicit scheduler registry -> module-owned scheduler adapters
+runtime  -> OutcomeRecorder adapter -> operations.api
 adapters -> reconciliation ports + reconciliation domain
+every module -> libs/domain, libs/shared          (leaves only)
 ```
+
+The only permitted cross-module edges are:
+
+```text
+home           -> workspace.api
+manifest       -> workspace.api
+jobs           -> manifest.api, reconciliation.api
+operations     -> workspace.api, reconciliation.api
+reconciliation -> workspace.api, manifest.api
+```
+
+`reconciliation -> operations` is deliberately absent. Reconciliation reports
+what it did through an `OutcomeRecorder` port; `libs/runtime/composition.py`
+supplies the adapter that calls `operations.api.record_outcome`. That keeps
+`metrics.json` to a single writing module and makes the cross-capability flow
+one named contract instead of two capabilities sharing a file.
 
 Rules:
 
@@ -48,9 +65,10 @@ Rules:
   lifecycle contract.
 - `libs/actions` preserves compatibility for current callers while code moves;
   it must not grow new business logic.
-- `libs/services/__init__.py` stays non-aggregating. Callers import explicit
-  leaf modules so capability/SDK imports cannot transitively load CLI response
-  models or rendering dependencies.
+- Packaged resources ship inside the module that reads them:
+  `libs/capabilities/manifest/resources/schemas/` and
+  `libs/shared/resources/logging/`. There is no shared `xcron_resources`
+  distribution package.
 - The CLI projection cluster lives inside the channel that owns it:
   `apps/cli/contracts.py`, `apps/cli/mappers.py`, `apps/cli/responses.py`, and
   `apps/cli/presenters/` (AXI field selection, TOON, tmux, and Rich help).
@@ -90,10 +108,10 @@ of what each module hides, owns, and is allowed to depend on;
 `tests/test_reconciliation_architecture.py` enforces the surface, the
 initializer, and the `allowed_dependencies` line of every card.
 
-`agent_hooks` and `reconciliation` own their implementation outright and have
-module-owned test lanes. `home`, `jobs`, and `operations` have the public
-surface and the declared dependency edges but not yet a single state owner;
-each card's `isolation_level` says which.
+`agent_hooks`, `reconciliation`, `manifest`, `workspace`, and `operations` own
+their implementation outright and have module-owned test lanes. `home` and
+`jobs` have the public surface and the declared dependency edges but reach their
+state through another module's API; each card's `isolation_level` says which.
 
 ```yaml
 module: xcron_libs.capabilities.agent_hooks
@@ -120,21 +138,74 @@ verification:
 ```
 
 ```yaml
+module: xcron_libs.capabilities.workspace
+hidden_decision: >
+  What directory an invocation is scoped to, where xcron's home is, and where
+  every derived artifact for a project lands on this machine.
+public_entrypoints: [workspace.api, workspace.contracts]
+owned_state: []          # owns the layout, not the files written into it
+owned_resources:
+  - the project-root resolution precedence
+  - the XCRON_HOME and XCRON_STATE_ROOT environment contracts
+  - the derived state tree (projects/<id>/{wrappers,logs,locks})
+owned_code:
+  - resolver.py (xcron home, project root, schedules directory)
+  - paths.py (state root and per-job runtime paths)
+allowed_dependencies: [libs/domain, libs/shared]
+cross_module_flows:
+  - callee: manifest, reconciliation, operations, home
+failure_behavior: >
+  A missing or non-directory root raises WorkspaceResolutionError; an unknown
+  platform raises UnsupportedPlatformError. No path function creates
+  directories except ensure_runtime_dirs.
+isolation_level: 1 (surface plus owned implementation)
+verification:
+  - tests/modules/workspace/ (module-owned lane)
+  - tests/test_reconciliation_architecture.py
+```
+
+```yaml
+module: xcron_libs.capabilities.manifest
+hidden_decision: >
+  The on-disk schedule manifest format: how a manifest is discovered, parsed,
+  schema- and semantics-validated, hashed, and edited in place.
+public_entrypoints: [manifest.api, manifest.contracts]
+owned_state:
+  - schedules/*.yaml (the whole document, including author formatting)
+owned_resources:
+  - resources/schemas/schedules.schema.yaml (packaged with the module)
+  - the manifest identity hashes and WRAPPER_RENDERER_VERSION
+owned_code:
+  - _loader.py, _schema.py, _editor.py, _hashes.py
+allowed_dependencies: [workspace.api, libs/domain, libs/shared]
+cross_module_flows:
+  - callee: jobs, reconciliation
+failure_behavior: >
+  Every failure is a ManifestLoadError or ManifestEditError subclass; a
+  rejected edit is written atomically or not at all, never partially.
+isolation_level: 1 (surface plus owned implementation)
+verification:
+  - tests/modules/manifest/ (module-owned lane)
+  - tests/test_reconciliation_architecture.py
+```
+
+```yaml
 module: xcron_libs.capabilities.home
 hidden_decision: >
-  Where the default xcron home lives and what a first-run starter manifest
-  contains.
+  What a first-run starter manifest contains.
 public_entrypoints: [home.api, home.contracts]
 owned_state:
-  - ~/.xcron/schedules/
   - ~/.xcron/schedules/<starter manifest>
-owned_resources: [the xcron home directory tree]
-allowed_dependencies: [libs/services/config_loader, libs/services/observability]
-cross_module_flows: []
+owned_resources: [the starter manifest template]
+allowed_dependencies: [workspace.api, libs/shared]
+cross_module_flows:
+  - resolves the home directory through workspace.api
 failure_behavior: >
   Creating an existing home is a no-op reported as created=false; the starter
   manifest is never overwritten.
-isolation_level: 1 (surface only; state owner shared with config_loader)
+isolation_level: >
+  1 (surface only) - this module is 63 lines and folds into
+  workspace/initializer.py in phase 5
 verification:
   - tests/test_init_home.py
   - tests/test_reconciliation_architecture.py
@@ -150,16 +221,18 @@ owned_state:
   - resources/schedules/*.yaml (job entries only)
 owned_resources: [manifest job list]
 allowed_dependencies:
+  - manifest.api, manifest.contracts
   - reconciliation.api, reconciliation.contracts
-  - libs/domain
-  - libs/services/manifest_editor
-  - libs/services/observability
+  - libs/domain, libs/shared
 cross_module_flows:
   - validates through reconciliation.api.validate_project before every mutation
+  - every manifest write goes through manifest.api; jobs never touches the file
 failure_behavior: >
   Every action returns JobActionResult; a rejected edit sets valid=false and
   changed=false and leaves the manifest untouched.
-isolation_level: 1 (surface only; manifest writes still go through a shared service)
+isolation_level: >
+  1 (surface only) - jobs owns use-case semantics, not the manifest file; the
+  format belongs to the manifest module
 verification:
   - tests/test_job_actions.py
   - tests/test_reconciliation_architecture.py
@@ -183,22 +256,22 @@ owned_resources:
 owned_code:
   - adapters/ (cron, launchd, and their logged-subprocess boundary)
   - domain.py (desired-vs-deployed diffing)
-  - ports.py (the SchedulerBackend port and its values)
+  - ports.py (the SchedulerBackend and OutcomeRecorder ports)
   - registry.py (adapter registry and default-backend selection)
   - state_store.py (project-state.json persistence)
   - wrapper.py (job wrapper rendering)
 allowed_dependencies:
-  - libs/domain (manifest value types)
-  - libs/services (hashing, schema validation, observability, state_paths)
+  - workspace.api, workspace.contracts
+  - manifest.api, manifest.contracts
+  - libs/domain, libs/shared
 cross_module_flows:
   - SchedulerBackend is an inbound port; adapters are module-private
+  - callee: OutcomeRecorder port, wired to operations by the composition root
 failure_behavior: >
   Validation failures short-circuit before any mutation; an unknown backend
-  raises UnknownSchedulerBackendError.
-isolation_level: >
-  1 (surface plus owned implementation) - workspace resolution and manifest
-  mechanics split out in phases 4-5, and the metrics write path moves behind an
-  OutcomeRecorder port
+  raises UnknownSchedulerBackendError. Outcome recording is best-effort and can
+  never fail a convergence run - the default recorder does nothing at all.
+isolation_level: 1 (surface plus owned implementation)
 verification:
   - tests/modules/reconciliation/ (module-owned lane, including a fake-backend
     lane that imports only api, contracts, and ports)
@@ -215,18 +288,24 @@ owned_state:
   - per-project stdout, stderr, and event log files
   - metrics/metrics.json
 owned_resources: [runtime log directory, metrics file]
+owned_code:
+  - logs.py (log discovery, rotation, and clearing)
+  - metrics.py (show, reset, and the single public write: record_outcome)
+  - metrics_store.py (the only writer of metrics/metrics.json)
 allowed_dependencies:
+  - workspace.api, workspace.contracts
   - reconciliation.api, reconciliation.contracts
-  - libs/services/logging_paths, libs/services/metrics, libs/services/state_store
+  - libs/shared
 cross_module_flows:
   - resolves the project through reconciliation.api.validate_project
+  - caller: reconciliation, via the OutcomeRecorder adapter in libs/runtime
 failure_behavior: >
   Clearing defaults to dry_run=true; an unresolvable project returns
-  valid=false with the underlying validation attached.
-isolation_level: >
-  1 (surface only) - reconciliation also writes metrics.json today, so this
-  module is not yet the single owner of that file
+  valid=false with the underlying validation attached. record_outcome never
+  raises, so a broken metrics file cannot fail its caller.
+isolation_level: 1 (surface plus sole ownership of the metrics state family)
 verification:
+  - tests/modules/operations/ (module-owned lane)
   - tests/test_cli_logs.py
   - tests/test_reconciliation_architecture.py
 ```
@@ -246,23 +325,33 @@ can keep the same external contract and internal separation of concerns.
 ## Migration compatibility
 
 `xcron_libs.actions` remains an import-compatible facade for the prior action
-module paths. The former `xcron_libs.services` package-root aggregate is not
-part of that promise: its re-exports were removed deliberately. Callers must
-replace imports such as `from xcron_libs.services import get_logger` with the
-owning leaf-module import, such as
-`from xcron_libs.services.observability import get_logger`.
+module paths. `xcron_libs.services`, `xcron_libs.infra`, and `xcron_resources`
+are not part of that promise and no longer exist. Their contents moved to the
+module that owns each decision:
 
-This is an intentional internal compatibility break. It prevents a low-level
-package import from eagerly loading unrelated CLI projections and makes actual
-module ownership visible at each call site.
+| Former path | New owner |
+| --- | --- |
+| `services.observability`, `services.logging_config` | `libs/shared/` |
+| `services.config_loader` (home, project root) | `workspace.api` |
+| `services.logging_paths`, `services.state_paths` | `workspace.api` |
+| `services.config_loader` (manifest loading) | `manifest.api` |
+| `services.schema_validator`, `services.hash_service` | `manifest.api` |
+| `services.manifest_editor` | `manifest.api` |
+| `services.metrics` | `operations` (private; write via `record_outcome`) |
+| `xcron_resources.schemas` | `manifest.resources.schemas` |
+| `xcron_resources.logging` | `shared.resources.logging` |
+
+This is an intentional internal compatibility break. A package that anything may
+import and that imports anything back is the coupling this refactor exists to
+remove; keeping a shim would have preserved exactly that.
 
 ## Distribution shape
 
 `xcron` deliberately ships as one root Python distribution. The root
-`pyproject.toml` maps `apps/cli` to `xcron_cli`, `libs` to `xcron_libs`, and
-`resources` to `xcron_resources`; its `xcron` console script targets
-`xcron_cli.typer_app:run`. `apps/cli` therefore does not have a second
-`pyproject.toml`.
+`pyproject.toml` maps `apps/cli` to `xcron_cli` and `libs` to `xcron_libs`; its
+`xcron` console script targets `xcron_cli.typer_app:run`. `apps/cli` therefore
+does not have a second `pyproject.toml`. Packaged data ships inside the module
+that reads it, so there is no third top-level distribution package.
 
 The CLI channel, native SDK, capability implementation, and packaged runtime
 resources share one version, dependency graph, and release lifecycle. Splitting
@@ -283,7 +372,8 @@ Implemented prototype components:
 
 - validation, normalization, and stable hashing
 - planner and per-project derived local state
-- manifest editing service for job-level YAML updates
+- a manifest module owning the format: loading, schema and semantic validation,
+  identity hashing, and formatting-preserving job edits
 - wrapper rendering with default logs and overlap control
 - `launchd` backend
 - `cron` backend
@@ -291,7 +381,7 @@ Implemented prototype components:
 - richer `inspect` results that expose normalized desired data plus
   backend-native detail
 - nested `jobs` CLI group for manifest-side job management
-- capability-owned reconciliation, manifest jobs, runtime operations, home,
+- capability-owned workspace, manifest, reconciliation, jobs, operations, home,
   and agent-hook use cases, with legacy `libs/actions` import shims
 - explicit `cron`/`launchd` scheduler registry and backend-neutral deployment
   and scheduler-inspection contracts

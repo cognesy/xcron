@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from xcron_libs.capabilities.home.contracts import InitHomeResult
-from xcron_libs.services.config_loader import MANIFEST_DIR, resolve_xcron_home
-from xcron_libs.services.observability import get_logger, instrument_action
+from xcron_libs.capabilities.workspace.api import MANIFEST_DIR, resolve_xcron_home
+from xcron_libs.shared.observability import get_logger, instrument_action
 
 LOGGER = get_logger(__name__)
 

@@ -16,7 +16,7 @@ from xcron_libs.domain.models import ProjectManifest, ScheduleKind, SUPPORTED_EV
 
 
 CRON_FIELD_PATTERN = re.compile(r"^[0-9A-Za-z*/,\-]+$")
-SCHEMA_PACKAGE = "xcron_resources.schemas"
+SCHEMA_PACKAGE = "xcron_libs.capabilities.manifest.resources.schemas"
 SCHEMA_NAME = "schedules.schema.yaml"
 
 

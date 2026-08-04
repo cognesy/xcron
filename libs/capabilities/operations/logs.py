@@ -9,12 +9,11 @@ from xcron_libs.capabilities.operations.contracts import (
     LogsClearResult,
     LogsListResult,
 )
+from xcron_libs.capabilities.operations.metrics_store import MetricsService
 from xcron_libs.capabilities.reconciliation.api import validate_project
 from xcron_libs.capabilities.reconciliation.contracts import ValidateProjectResult
-from xcron_libs.services.logging_paths import resolve_runtime_paths
-from xcron_libs.services.metrics import MetricsService
-from xcron_libs.services.observability import get_logger, instrument_action
-from xcron_libs.services.state_paths import resolve_state_root
+from xcron_libs.capabilities.workspace.api import resolve_runtime_paths, resolve_state_root
+from xcron_libs.shared.observability import get_logger, instrument_action
 
 
 LOGGER = get_logger(__name__)

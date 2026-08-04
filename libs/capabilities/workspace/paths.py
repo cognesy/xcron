@@ -1,27 +1,44 @@
-"""Deterministic runtime paths for wrappers, logs, and lock directories."""
+"""Where a workspace's derived artifacts live on this machine.
+
+Only *where* derived state lives is decided here. What is written into it
+belongs to the module that owns the file: reconciliation owns
+``project-state.json`` and wrapper scripts, operations owns logs and metrics.
+"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import os
 from pathlib import Path
+import sys
 
+from xcron_libs.capabilities.workspace.contracts import RuntimePaths, UnsupportedPlatformError
 from xcron_libs.domain.models import NormalizedJob
-from xcron_libs.services.state_paths import resolve_project_state_dir
+
+STATE_ENV_VAR = "XCRON_STATE_ROOT"
 
 
-@dataclass(frozen=True)
-class RuntimePaths:
-    """Managed runtime paths for one normalized job."""
+def resolve_state_root(
+    platform: str | None = None,
+    home: Path | None = None,
+    env: dict[str, str] | None = None,
+) -> Path:
+    """Resolve the machine-local derived state root for xcron."""
+    env_map = os.environ if env is None else env
+    override = env_map.get(STATE_ENV_VAR)
+    if override:
+        return Path(override).expanduser().resolve()
 
-    project_dir: Path
-    wrappers_dir: Path
-    logs_dir: Path
-    locks_dir: Path
-    wrapper_path: Path
-    stdout_log_path: Path
-    stderr_log_path: Path
-    event_log_path: Path
-    lock_path: Path
+    selected_home = Path.home() if home is None else Path(home)
+    selected = sys.platform if platform is None else platform
+    if selected.startswith(("darwin", "linux")):
+        return (selected_home / ".xcron").resolve()
+    raise UnsupportedPlatformError(f"unsupported platform for xcron prototype: {selected}")
+
+
+def resolve_project_state_dir(project_id: str, state_root: Path | None = None) -> Path:
+    """Resolve the per-project derived state directory."""
+    root = resolve_state_root() if state_root is None else Path(state_root).expanduser().resolve()
+    return root / "projects" / project_id
 
 
 def resolve_runtime_paths(job: NormalizedJob, state_root: Path | None = None) -> RuntimePaths:

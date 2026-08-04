@@ -267,6 +267,71 @@ rg -n 'xcron_libs\.services|xcron_libs\.infra' libs apps tests
 
 The `rg` result must be empty.
 
+### Phase 4 result (2026-08-04)
+
+Done, with one deliberate departure from step 5 and its consequence for step 6.
+`libs/services/` and `libs/infra/` no longer exist; every one of their files now
+belongs to exactly one module or to the shared leaf. A new test asserts both
+directories are absent and that nothing under `libs/` imports either package,
+so the ownerless drawer cannot come back.
+
+**Departure — `workspace` was created here, not in Phase 5.** Step 6 requires
+deleting `libs/services/`, but three of its files (`logging_paths`,
+`state_paths`, and the home/project-root half of `config_loader`) are destined
+for `workspace/`, which step 5 defers. Parking them in `libs/shared/` would have
+put persistence-adjacent path logic inside a strict leaf and moved it again one
+phase later. So Phase 4 creates `capabilities/workspace/` as a Level 1 module
+with `resolver.py` (xcron home, project root, schedules directory) and
+`paths.py` (state root, per-job runtime paths), plus its `api`/`contracts` pair
+and a module-owned lane. Phase 5 still owns everything it was scoped for —
+`marker.toml`, the four-step resolution precedence, XCFG, and folding `home` in
+— it now grows an existing module instead of creating one. `home` was left
+untouched, exactly as step 5 permits.
+
+`ProjectResolutionError` became `WorkspaceResolutionError` in the workspace
+error family rather than staying a `ManifestLoadError` subclass; two modules
+now raise two typed families and `validate_project` catches both. The message
+text is unchanged, so the CLI surface did not move.
+
+Steps 1-4 landed as written. `manifest/` holds `_loader.py`, `_schema.py`,
+`_editor.py`, `_hashes.py` and its own `resources/schemas/`; `libs/shared/`
+holds `observability.py`, `logging_config.py` and `resources/logging/`. Both
+resource packages moved inside the module that reads them, so the
+`xcron_resources` distribution package is gone and `pyproject.toml` no longer
+maps a third top-level package.
+
+The metrics split is closed. `MetricsService` moved to
+`operations/metrics_store.py`, `operations.api.record_outcome` is the single
+public write, and reconciliation names only the `OutcomeRecorder` port on
+`ports.py`. `libs/runtime/composition.py` supplies `MetricsOutcomeRecorder`,
+the one place the two capabilities meet. The default is `NullOutcomeRecorder`:
+a bare `status_project()` call now records nothing, while the same call through
+the CLI or SDK records exactly what it did before — both verified by hand
+against a real `metrics.json`. Two tests pin it: reconciliation may not name
+`MetricsService` or import operations, and every file naming `MetricsService`
+must live under `operations/`.
+
+Line counts: `libs/services/` 1,210 -> 0. `manifest` 794, `workspace` 234,
+`shared` 299, `operations` 388, `reconciliation` 2,980.
+
+- `./scripts/verify-core.sh`: 231 passed (was 200 — 21 new module-lane cases
+  across `manifest`, `workspace`, and `operations`, plus 10 new structural
+  contracts).
+- CLI golden: 36/36 files byte-identical to the Phase 0 baseline.
+- Planted negatives: four violations (reconciliation importing operations,
+  reconciliation importing a manifest internal, shared importing a capability,
+  reconciliation naming `MetricsService`) each failed the intended test.
+- Clean-venv wheel: schema and logging resources load from their new packages;
+  `xcron_libs.services`, `xcron_libs.infra`, and `xcron_resources` are absent
+  from the installed distribution. A stale `build/` directory was masking this
+  and was removed — worth knowing before trusting any future wheel check.
+- The declared-edge table in `tests/test_reconciliation_architecture.py` is now
+  the target graph from `02-target-architecture.md`, not a placeholder.
+
+`AGENTS.md`, `README.md`, and `docs/dev/go-rewrite-contract.md` had layout and
+layering blocks that Phase 4 falsified. They were corrected factually here
+rather than left wrong until the Phase 9 rewrite.
+
 ## Phase 5 — workspace contract and layered configuration
 
 Depends on decisions 2 and 3.

@@ -6,12 +6,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from xcron_libs.capabilities.jobs.contracts import JobActionResult
-from xcron_libs.capabilities.reconciliation.api import validate_project
-from xcron_libs.capabilities.reconciliation.contracts import ValidateProjectResult
-from xcron_libs.domain import NormalizedJob, NormalizedManifest, normalize_manifest
-from xcron_libs.services.manifest_editor import (
-    ManifestEditError,
-    ManifestEditValidationError,
+from xcron_libs.capabilities.manifest.api import (
     add_manifest_job,
     get_manifest_job,
     list_manifest_jobs,
@@ -19,7 +14,14 @@ from xcron_libs.services.manifest_editor import (
     set_manifest_job_enabled,
     update_manifest_job,
 )
-from xcron_libs.services.observability import get_logger, instrument_action
+from xcron_libs.capabilities.manifest.contracts import (
+    ManifestEditError,
+    ManifestEditValidationError,
+)
+from xcron_libs.capabilities.reconciliation.api import validate_project
+from xcron_libs.capabilities.reconciliation.contracts import ValidateProjectResult
+from xcron_libs.domain import NormalizedJob, NormalizedManifest, normalize_manifest
+from xcron_libs.shared.observability import get_logger, instrument_action
 
 
 LOGGER = get_logger(__name__)

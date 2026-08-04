@@ -2,7 +2,7 @@
 
 This module owns the on-disk record of what xcron last deployed for one
 project. Where the state root lives is a shared concern resolved by
-:mod:`xcron_libs.services.state_paths`; what goes inside it is not.
+:mod:`xcron_libs.capabilities.workspace.api`; what goes inside it is not.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 
 from xcron_libs.capabilities.reconciliation.domain import DeployedJobState, ProjectState
-from xcron_libs.services.state_paths import resolve_project_state_dir
+from xcron_libs.capabilities.workspace.api import resolve_project_state_dir
 
 
 STATE_FILENAME = "project-state.json"

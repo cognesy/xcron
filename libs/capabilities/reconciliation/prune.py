@@ -13,7 +13,7 @@ from xcron_libs.capabilities.reconciliation.registry import (
     default_scheduler_registry,
 )
 from xcron_libs.capabilities.reconciliation.validation import validate_project
-from xcron_libs.services.observability import get_logger, instrument_action
+from xcron_libs.shared.observability import get_logger, instrument_action
 from xcron_libs.capabilities.reconciliation.registry import default_backend_for_current_platform
 from xcron_libs.capabilities.reconciliation.state_store import delete_project_state
 

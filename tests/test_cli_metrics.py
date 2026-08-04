@@ -3,12 +3,12 @@ from __future__ import annotations
 import json
 
 from xcron_cli.main import main
-from xcron_libs.services.metrics import MetricsService
+from xcron_libs.capabilities.operations.api import record_outcome
 
 
 def test_metrics_show_and_reset_use_xcron_home(tmp_path, monkeypatch, capsys) -> None:
     monkeypatch.setenv("XCRON_HOME", str(tmp_path))
-    MetricsService().increment("ticks.started")
+    record_outcome("ticks.started")
 
     path = tmp_path / "metrics" / "metrics.json"
     assert path.exists()

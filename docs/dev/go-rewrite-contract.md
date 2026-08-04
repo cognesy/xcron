@@ -49,8 +49,8 @@ breaking change process.
 - use-case actions are capability-owned under `libs/capabilities/`; legacy
   `libs/actions/` imports may remain as compatibility facades during a staged
   migration
-- reusable low-level mechanisms and native scheduler adapters stay in
-  `libs/services/`
+- every file belongs to one module or to a declared leaf; native scheduler
+  adapters live inside the module that defines the port they implement
 - scheduler adapters consume a backend-neutral contract and never import a
   coordinating action result
 - scheduler adapters return a normalized inspection contract rather than

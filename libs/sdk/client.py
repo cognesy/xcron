@@ -75,7 +75,12 @@ class Xcron:
     @property
     def schedules(self) -> SchedulesAPI:
         self._guard()
-        return SchedulesAPI(self._options, self._runtime.scheduler_registry, self._guard)
+        return SchedulesAPI(
+            self._options,
+            self._runtime.scheduler_registry,
+            self._runtime.outcome_recorder,
+            self._guard,
+        )
 
     @property
     def jobs(self) -> JobsAPI:

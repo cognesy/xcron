@@ -41,32 +41,33 @@ packages = [
   "xcron_libs",
   "xcron_libs.actions",
   "xcron_libs.capabilities",
-  "xcron_libs.capabilities.reconciliation",
-  "xcron_libs.capabilities.reconciliation.adapters",
-  "xcron_libs.capabilities.jobs",
-  "xcron_libs.capabilities.operations",
   "xcron_libs.capabilities.agent_hooks",
   "xcron_libs.capabilities.home",
+  "xcron_libs.capabilities.jobs",
+  "xcron_libs.capabilities.manifest",
+  "xcron_libs.capabilities.manifest.resources",
+  "xcron_libs.capabilities.manifest.resources.schemas",
+  "xcron_libs.capabilities.operations",
+  "xcron_libs.capabilities.reconciliation",
+  "xcron_libs.capabilities.reconciliation.adapters",
+  "xcron_libs.capabilities.workspace",
   "xcron_libs.domain",
-  "xcron_libs.infra",
   "xcron_libs.runtime",
   "xcron_libs.sdk",
-  "xcron_libs.services",
-  "xcron_resources",
-  "xcron_resources.logging",
-  "xcron_resources.schemas",
+  "xcron_libs.shared",
+  "xcron_libs.shared.resources",
+  "xcron_libs.shared.resources.logging",
 ]
 
 [tool.setuptools.package-dir]
 xcron_cli = "apps/cli"
 xcron_libs = "libs"
-xcron_resources = "resources"
 
 [tool.setuptools.package-data]
 "xcron_cli.resources.help" = ["*.md", "jobs/*.md"]
 "xcron_cli.resources.help.jobs" = ["*.md"]
-"xcron_resources.logging" = ["*.yaml"]
-"xcron_resources.schemas" = ["*.yaml"]
+"xcron_libs.capabilities.manifest.resources.schemas" = ["*.yaml"]
+"xcron_libs.shared.resources.logging" = ["*.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

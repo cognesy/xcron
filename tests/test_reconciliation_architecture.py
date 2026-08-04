@@ -17,8 +17,10 @@ ISOLATED_MODULES = (
     "agent_hooks",
     "home",
     "jobs",
+    "manifest",
     "operations",
     "reconciliation",
+    "workspace",
 )
 AGENT_HOOKS_ROOT = f"{CAPABILITY_PACKAGE}.agent_hooks"
 ADAPTER_ROOT = REPOSITORY_ROOT / "libs" / "capabilities" / "reconciliation" / "adapters"
@@ -196,7 +198,6 @@ def test_agent_hooks_module_has_no_sibling_or_channel_imports() -> None:
     forbidden_prefixes = (
         "xcron_cli",
         "xcron_libs.sdk",
-        "xcron_libs.services",
         "xcron_libs.capabilities.",
         "typer",
         "rich",
@@ -216,16 +217,19 @@ def test_agent_hooks_module_has_no_sibling_or_channel_imports() -> None:
                 assert not node.module.startswith(forbidden_prefixes), (path, node.module)
 
 
-# The only permitted cross-module import edges, by module. Phases 4-5 split
-# `workspace` and `manifest` out of `reconciliation`; this table tightens to the
-# target set in `docs/plans/2026-08-03-module-first-isolation/02-target-architecture.md`
-# as those modules land.
+# The only permitted cross-module import edges, by module. This table is the
+# dependency graph in `02-target-architecture.md`, enforced. The edge that is
+# deliberately absent is `reconciliation -> operations`: reconciliation reports
+# outcomes through its `OutcomeRecorder` port, and the composition root supplies
+# the adapter. Adding an entry here is an architectural decision, not a fix.
 DECLARED_MODULE_EDGES = {
     "agent_hooks": frozenset(),
-    "home": frozenset(),
-    "jobs": frozenset({"reconciliation"}),
-    "operations": frozenset({"reconciliation"}),
-    "reconciliation": frozenset(),
+    "home": frozenset({"workspace"}),
+    "jobs": frozenset({"manifest", "reconciliation"}),
+    "manifest": frozenset({"workspace"}),
+    "operations": frozenset({"reconciliation", "workspace"}),
+    "reconciliation": frozenset({"manifest", "workspace"}),
+    "workspace": frozenset(),
 }
 
 
@@ -355,7 +359,6 @@ def test_capabilities_do_not_depend_on_the_cli_or_rendering_boundary() -> None:
     for module in CAPABILITY_MODULES:
         imported = _imported_modules(module)
         assert not any(name.startswith(forbidden_prefixes) for name in imported), module
-        assert "xcron_libs.services" not in imported, module
 
 
 def test_domain_does_not_depend_on_channels_or_application_layers() -> None:
@@ -382,9 +385,99 @@ def test_runtime_is_composition_only_and_channel_independent() -> None:
         assert not any(name.startswith(forbidden_prefixes) for name in imported), module
 
 
-def test_services_package_initializer_does_not_aggregate_channels() -> None:
-    initializer = REPOSITORY_ROOT / "libs" / "services" / "__init__.py"
-    assert _imported_modules(initializer) == set()
+def test_the_ownerless_service_and_infra_packages_are_gone() -> None:
+    """`libs/services/` had 21 modules and no owner. It must not come back.
+
+    Every file it held now belongs to exactly one module or to the shared leaf.
+    A new file here would be a file with no owner again, which is the condition
+    this whole refactor exists to remove.
+    """
+    assert not (REPOSITORY_ROOT / "libs" / "services").exists()
+    assert not (REPOSITORY_ROOT / "libs" / "infra").exists()
+
+    for path in sorted((REPOSITORY_ROOT / "libs").rglob("*.py")):
+        for imported in _imported_modules(path):
+            assert not imported.startswith("xcron_libs.services"), path
+            assert not imported.startswith("xcron_libs.infra"), path
+
+
+SHARED_ROOT = REPOSITORY_ROOT / "libs" / "shared"
+SHARED_MODULES = tuple(
+    path for path in sorted(SHARED_ROOT.rglob("*.py")) if path.name != "__init__.py"
+)
+
+
+def test_shared_is_a_strict_leaf() -> None:
+    """`libs/shared/` may be imported by anything and may import almost nothing.
+
+    That asymmetry is what makes it safe. The moment it can import a capability
+    it stops being a leaf and becomes a second, undeclared coupling point.
+    """
+    assert SHARED_MODULES, "libs/shared must not be empty"
+
+    forbidden_prefixes = (
+        "xcron_cli",
+        "xcron_libs.actions",
+        "xcron_libs.capabilities",
+        "xcron_libs.runtime",
+        "xcron_libs.sdk",
+        "typer",
+        "rich",
+    )
+    for path in SHARED_MODULES:
+        imported = _imported_modules(path)
+        assert not any(name.startswith(forbidden_prefixes) for name in imported), path
+
+
+def test_every_packaged_resource_lives_inside_the_module_that_reads_it() -> None:
+    """A resource directory is owned state; it ships with its one reader."""
+    from xcron_libs.capabilities.manifest.contracts import SCHEMA_PACKAGE
+    from xcron_libs.shared.logging_config import LOGGING_PACKAGE
+
+    assert SCHEMA_PACKAGE == "xcron_libs.capabilities.manifest.resources.schemas"
+    assert LOGGING_PACKAGE == "xcron_libs.shared.resources.logging"
+
+    assert (
+        REPOSITORY_ROOT
+        / "libs/capabilities/manifest/resources/schemas/schedules.schema.yaml"
+    ).is_file()
+    assert (REPOSITORY_ROOT / "libs/shared/resources/logging/default.yaml").is_file()
+    assert not (REPOSITORY_ROOT / "resources" / "schemas").exists()
+    assert not (REPOSITORY_ROOT / "resources" / "logging").exists()
+
+
+def test_reconciliation_reports_outcomes_through_a_port_it_owns() -> None:
+    """Reconciliation must not construct another module's state writer.
+
+    Before Phase 4 two capabilities wrote `metrics.json`. Operations is now the
+    single writer; reconciliation names only the port, and the composition root
+    is the one place the two meet.
+    """
+    reconciliation_root = REPOSITORY_ROOT / "libs" / "capabilities" / "reconciliation"
+    for path in sorted(reconciliation_root.rglob("*.py")):
+        source = path.read_text(encoding="utf-8")
+        assert "MetricsService" not in source, path
+        for imported in _imported_modules(path):
+            assert not imported.startswith(f"{CAPABILITY_PACKAGE}.operations"), path
+
+    composition = REPOSITORY_ROOT / "libs" / "runtime" / "composition.py"
+    imported = _imported_modules(composition)
+    assert f"{CAPABILITY_PACKAGE}.operations.api" in imported
+    assert f"{CAPABILITY_PACKAGE}.reconciliation.contracts" in imported
+
+
+def test_the_metrics_store_has_exactly_one_writing_module() -> None:
+    """`MetricsService` may only be named inside the module that owns the file."""
+    operations_root = REPOSITORY_ROOT / "libs" / "capabilities" / "operations"
+    writers = {
+        path
+        for path in sorted((REPOSITORY_ROOT / "libs").rglob("*.py"))
+        if "MetricsService" in path.read_text(encoding="utf-8")
+    }
+    assert writers, "the metrics store disappeared; update this contract"
+    assert all(path.is_relative_to(operations_root) for path in writers), sorted(
+        str(path) for path in writers
+    )
 
 
 def test_legacy_action_modules_are_capability_import_shims() -> None:

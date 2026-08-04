@@ -15,6 +15,7 @@ from xcron_libs.capabilities.reconciliation.api import (
 )
 from xcron_libs.capabilities.reconciliation.contracts import (
     ApplyProjectResult,
+    OutcomeRecorder,
     InspectJobResult,
     PlanProjectResult,
     PruneProjectResult,
@@ -36,10 +37,12 @@ class SchedulesAPI:
         self,
         options: XcronOptions,
         registry: SchedulerRegistry,
+        outcome_recorder: OutcomeRecorder,
         guard: Callable[[], None],
     ) -> None:
         self._options = options
         self._registry = registry
+        self._outcomes = outcome_recorder
         self._guard = guard
 
     def validate(self) -> ValidateProjectResult:
@@ -74,6 +77,7 @@ class SchedulesAPI:
                 launchctl_domain=self._options.launchctl_domain,
                 crontab_path=self._options.crontab_path,
                 scheduler_registry=self._registry,
+                outcome_recorder=self._outcomes,
             )
         )
 
@@ -91,6 +95,7 @@ class SchedulesAPI:
                 manage_launchctl=self._options.manage_launchctl,
                 manage_crontab=self._options.manage_crontab,
                 scheduler_registry=self._registry,
+                outcome_recorder=self._outcomes,
             )
         )
 
@@ -106,6 +111,7 @@ class SchedulesAPI:
                 launchctl_domain=self._options.launchctl_domain,
                 crontab_path=self._options.crontab_path,
                 scheduler_registry=self._registry,
+                outcome_recorder=self._outcomes,
             )
         )
 

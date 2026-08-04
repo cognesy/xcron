@@ -2,7 +2,7 @@
 
 `launchctl` and `crontab` are the only processes xcron shells out to, and both
 are reconciliation adapters. The generic logging primitives these use stay in
-:mod:`xcron_libs.services.observability`; the subprocess policy does not.
+:mod:`xcron_libs.shared.observability`; the subprocess policy does not.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ import subprocess
 import time
 from typing import Any, Sequence
 
-from xcron_libs.services.observability import (
+from xcron_libs.shared.observability import (
     configure_logging,
     elapsed_ms,
     get_logger,
