@@ -24,9 +24,11 @@ SETUPTOOLS = PYPROJECT["tool"]["setuptools"]
 #: prefix, so every declared package is a path under it.
 SOURCE_ROOT = REPOSITORY_ROOT / SETUPTOOLS["package-dir"][""]
 
-#: The public import root, and the two names it replaced.
+#: The public import root, and the names it replaced. The aliases for the two
+#: old roots shipped for one release and are now gone, so these are only ever
+#: strings to search for.
 DISTRIBUTED_PACKAGE = "xcron"
-DEPRECATED_ROOTS = ("xcron_cli", "xcron_libs")
+RETIRED_ROOTS = ("xcron_cli", "xcron_libs", "xcron_resources")
 
 #: Terminal rendering belongs to the CLI channel. A library that pulls Rich in
 #: has quietly decided its embedder has a terminal.
@@ -72,21 +74,20 @@ def test_the_marker_sits_in_the_one_package_that_covers_everything() -> None:
     assert markers == {Path(DISTRIBUTED_PACKAGE) / "py.typed"}, sorted(map(str, markers))
 
 
-def test_the_deprecated_roots_ship_but_hold_no_code() -> None:
-    """The shims must install, or an old `import xcron_libs` fails outright.
+def test_the_retired_roots_do_not_ship() -> None:
+    """The one-release aliases are gone; nothing may put them back.
 
-    They must also stay empty: anything but the alias would be a second copy of
-    behaviour, which is exactly what aliasing the module tree avoids.
+    A resurrected shim is worse than none: it would ship a second import root
+    that this repository no longer tests under, so the two names would drift
+    apart at exactly the moment someone relies on them being the same.
     """
-    for root in DEPRECATED_ROOTS:
-        directory = SOURCE_ROOT / root
-        assert root in SETUPTOOLS["packages"], root
-        contents = sorted(path.name for path in directory.glob("*.py"))
-        assert contents == ["__init__.py"], root
+    for root in RETIRED_ROOTS:
+        assert root not in SETUPTOOLS["packages"], root
+        assert not (SOURCE_ROOT / root).exists(), root
 
 
 def test_first_party_code_imports_only_the_new_root() -> None:
-    """The rename is not done while anything still reaches for the old names.
+    """Nothing may reach for the old names, in code or in prose.
 
     Import Linter states the same rule over the module graph; this reads the
     text, so it also catches a string in a docstring example or a resource
@@ -98,14 +99,11 @@ def test_first_party_code_imports_only_the_new_root() -> None:
         *(REPOSITORY_ROOT / "resources").rglob("*"),
         *(REPOSITORY_ROOT / "scripts").rglob("*"),
     )
-    #: The alias machinery has to name what it aliases, and so does this test.
+    #: A check for a name has to spell the name out. These three do nothing else
+    #: with it.
     exempt = {
-        SOURCE_ROOT / DISTRIBUTED_PACKAGE / "_deprecated_aliases.py",
         Path(__file__).resolve(),
-        REPOSITORY_ROOT / "tests" / "test_deprecated_aliases.py",
         REPOSITORY_ROOT / "tests" / "architecture" / "test_layer_boundaries.py",
-        # Its whole job is to install the wheel under both import roots and to
-        # prove the deleted ones did not come back.
         REPOSITORY_ROOT / "scripts" / "verify-wheel.sh",
     }
 
@@ -113,7 +111,7 @@ def test_first_party_code_imports_only_the_new_root() -> None:
         if not path.is_file() or path in exempt:
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
-        for old in (*DEPRECATED_ROOTS, "xcron_resources"):
+        for old in RETIRED_ROOTS:
             assert old not in text, (path.relative_to(REPOSITORY_ROOT), old)
 
 

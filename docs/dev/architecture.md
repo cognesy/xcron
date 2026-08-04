@@ -486,16 +486,19 @@ console script targets `xcron.channels.cli.typer_app:run`. The channel does not
 have a second `pyproject.toml`. Packaged data ships inside the module that
 reads it, so there is no second top-level distribution package.
 
-The import root used to be two names, `xcron_libs` and `xcron_cli`, which named
-the repository's `libs/` and `apps/` directories. That made the layout the
-public API: moving a file between them was a breaking change for anyone
-importing it, and the two names implied two distributions where there was
-always one. Both survive one release as aliases: `xcron/_deprecated_aliases.py`
-installs a meta-path finder ahead of `PathFinder`, so `xcron_libs.sdk.client`
-*is* `xcron.sdk.client`, the same module object, and module-level state,
-`isinstance`, and `monkeypatch.setattr` behave identically under either name.
-Importing either root emits a `DeprecationWarning`. Deleting the two shim
-packages and that one file is the whole of the removal.
+The import root used to be two names, one per repository directory — `libs/`
+and `apps/`. That made the layout the public API: moving a file between them was
+a breaking change for anyone importing it, and the two names implied two
+distributions where there was always one. Both survived one release as aliases,
+implemented as a meta-path finder installed ahead of `PathFinder` so that each
+old dotted name resolved to the *same module object* rather than to a second
+copy of it — module-level state, `isinstance`, and `monkeypatch.setattr` all
+behaved identically under either name, and importing either root emitted a
+`DeprecationWarning`. That window has closed and the shims are deleted. What
+remains is a check rather than a mechanism: `pyproject.toml` forbids the old
+roots, `tests/architecture/test_layer_boundaries.py` asserts their directories
+stay gone, and `scripts/verify-wheel.sh` proves an installed wheel no longer
+answers to them.
 
 One distribution, two dependency sets. The mandatory set is what the library
 half needs — `PyYAML`, `jsonschema`, `pydantic`, `structlog`, and `xcfg` — and

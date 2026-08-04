@@ -37,6 +37,8 @@ from pathlib import Path
 import xcron
 from xcron.sdk.client import Xcron
 
+assert xcron.Xcron is Xcron, "the root re-export and the module must be one object"
+
 # PEP 561: without this marker every embedder's type checker treats the
 # installed package as untyped, no matter how annotated the source is. One
 # marker at the root now covers the channel too, which is a subpackage.
@@ -64,32 +66,25 @@ for forbidden in ("typer", "rich", "toon"):
     raise AssertionError(f"{forbidden} is installed in a library-only environment")
 
 # Packages that were deleted must not be resurrected by a stale build tree.
-for gone in ("xcron.actions", "xcron.services", "xcron.infra", "xcron_resources"):
+# `xcron_libs` and `xcron_cli` were the pre-rename import roots; they shipped
+# for one release as aliases and are now gone, so an install that still answers
+# to them is serving something this repository no longer builds.
+for gone in (
+    "xcron.actions",
+    "xcron.services",
+    "xcron.infra",
+    "xcron_resources",
+    "xcron_libs",
+    "xcron_cli",
+):
     try:
         __import__(gone)
     except ImportError:
         continue
     raise AssertionError(f"{gone} still ships in the wheel")
 
-# Phase 8 renamed the import root. The old names ship for one release as
-# aliases, and an alias resolving to a *different* module object would hand an
-# old caller a second copy of module-level state. `xcron_cli` is checked in the
-# cli environment below, because reaching it pulls in Typer.
-import warnings
-
-with warnings.catch_warnings(record=True) as caught:
-    warnings.simplefilter("always")
-    import xcron_libs
-    import xcron_libs.sdk.client
-
-assert xcron_libs.sdk.client is xcron.sdk.client
-assert xcron_libs.Xcron is Xcron
-assert [w for w in caught if issubclass(w.category, DeprecationWarning)], (
-    "the deprecated root must announce itself"
-)
-
 print("    imports, resources, and markers OK; no channel dependency present")
-print("    the library import root resolves under both names")
+print("    the retired import roots are gone")
 PY
 
 echo "==> cli install"
@@ -102,10 +97,20 @@ echo "    console script runs"
 
 VIRTUAL_ENV="$WORK/cli" uv run --no-project python - <<'PY'
 import xcron.channels.cli.typer_app
-import xcron_cli.typer_app
 
-assert xcron_cli.typer_app is xcron.channels.cli.typer_app
-print("    the channel import root resolves under both names")
+assert xcron.channels.cli.typer_app.run
+
+# Checked here rather than in the library environment: the retired channel root
+# would have pulled Typer in, so this is the environment where a resurrected
+# shim would actually import.
+try:
+    import xcron_cli  # noqa: F401
+except ImportError:
+    pass
+else:
+    raise AssertionError("xcron_cli still ships in the wheel")
+
+print("    the channel lives under one import root")
 PY
 
 echo "OK"

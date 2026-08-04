@@ -58,8 +58,6 @@ src/xcron/domain/           Pydantic domain models and normalization
 src/xcron/runtime/          composition root and cross-capability adapters
 src/xcron/sdk/              the typed Xcron client
 src/xcron/shared/           strict leaf: structlog wiring and logging config
-src/xcron_libs/             deprecated alias for `xcron`; deleted next release
-src/xcron_cli/              deprecated alias for `xcron.channels.cli`; deleted next release
 resources/templates/        AXI command/test templates
 resources/examples/         example projects (basic, disabled-job)
 resources/skills/           repo-local agent skills (use-xcron, admin-xcron)

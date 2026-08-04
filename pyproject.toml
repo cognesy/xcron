@@ -82,10 +82,6 @@ packages = [
   "xcron.shared",
   "xcron.shared.resources",
   "xcron.shared.resources.logging",
-  # The one-release deprecation shims. They ship so that an installed
-  # `import xcron_libs` keeps working; they hold no code beyond the alias.
-  "xcron_cli",
-  "xcron_libs",
 ]
 
 # One source root, so a package's import path no longer encodes which
@@ -112,9 +108,9 @@ testpaths = ["tests"]
 # but "who may depend on whom" is said once, here, in a form that is checked
 # rather than described.
 [tool.importlinter]
-# Only `xcron` is a root: the two deprecation shims are deliberately treated as
-# external, which is what lets the last contract forbid first-party code from
-# naming them.
+# One root, because there is one import root. The retired names are external as
+# far as the graph is concerned, which is what lets the last contract forbid
+# first-party code from naming them.
 root_packages = ["xcron"]
 include_external_packages = true
 
@@ -202,10 +198,10 @@ source_modules = [
 forbidden_modules = ["xcron.channels"]
 
 [[tool.importlinter.contracts]]
-# The deleted packages, and the two import roots Phase 8 retired. Import Linter
-# cannot see a module that does not exist, so half of this contract is about
-# the day someone recreates one; the other half is live, because the shims do
-# exist and first-party code must not reach for them.
+# The deleted packages, and the two import roots Phase 8 retired. None of them
+# exist any more, and Import Linter cannot see a module that does not exist, so
+# this contract is entirely about the day someone recreates one — a vendored
+# copy, a stale build tree, a well-meant compatibility shim.
 name = "The old import roots and the ownerless packages stay unused"
 type = "forbidden"
 source_modules = ["xcron"]

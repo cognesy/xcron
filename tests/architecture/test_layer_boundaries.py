@@ -124,6 +124,8 @@ def test_every_packaged_resource_lives_inside_the_module_that_reads_it() -> None
         ("src/xcron/actions", "a time-boxed compatibility facade"),
         ("src/xcron/capabilities/home", "folded into workspace"),
         ("resources/schemas", "moved inside the manifest module"),
+        ("src/xcron_libs", "a one-release alias for xcron, now expired"),
+        ("src/xcron_cli", "a one-release alias for xcron.channels.cli, now expired"),
     ],
 )
 def test_the_ownerless_directories_stay_deleted(directory: str, reason: str) -> None:
@@ -141,6 +143,8 @@ def test_nothing_imports_a_deleted_package() -> None:
         "xcron.services",
         "xcron.infra",
         "xcron_resources",
+        "xcron_libs",
+        "xcron_cli",
     )
     for path in source_files("src/xcron"):
         offenders = imports_anything_matching(path, deleted)

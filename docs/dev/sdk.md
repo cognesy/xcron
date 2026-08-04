@@ -4,10 +4,10 @@
 callers. The Typer CLI uses the same client, so the SDK and CLI do not maintain
 separate scheduling implementations.
 
-The import root was `xcron_libs` until the module-first isolation work landed.
-`import xcron_libs` still works for one release and emits a
-`DeprecationWarning`; every old dotted name resolves to the same module object
-under `xcron`, so the migration is a rename and nothing else.
+The import root was renamed to `xcron` by the module-first isolation work. The
+previous root shipped for one release as a deprecated alias and has been
+removed; every dotted name below the root is unchanged, so migrating is a
+rename and nothing else.
 
 ## Opening a client
 

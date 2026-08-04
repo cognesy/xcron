@@ -92,6 +92,8 @@ in `xcron.runtime`, which resolves the workspace and the settings once per
 invocation and hands both down as values. Packaged data ships inside the module
 that reads it; examples and skills stay in `resources/`.
 
-The import root was `xcron_libs`/`xcron_cli` until recently. Both still work
-for one release and emit a `DeprecationWarning`; each old name resolves to the
-same module object under `xcron`.
+There used to be two import roots, named after the directories they lived in.
+They shipped for one release as aliases that emitted a `DeprecationWarning` and
+have now been removed. Migrating is a rename and nothing else: the old library
+root becomes `xcron`, the old channel root becomes `xcron.channels.cli`, and
+every dotted path below the root is unchanged.
