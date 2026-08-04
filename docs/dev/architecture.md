@@ -349,6 +349,109 @@ Current model decisions:
 The Python prototype should preserve these boundaries so the later Go rewrite
 can keep the same external contract and internal separation of concerns.
 
+## Planes
+
+Capability modules say *who owns a decision*. Planes say *what happens when
+something is down*, which is a different question and cuts across the modules.
+xcron has three, and the reason the distinction earns its keep is the first row
+of the degraded table below: the data plane is the host scheduler, so it keeps
+running when everything xcron owns is gone.
+
+**System boundary.** xcron converges a project's schedule manifest onto a native
+OS scheduler (`launchd`, `cron`), reversibly and with visible drift.
+
+**Last-known-good safety window.** The deployed native artifacts — plist,
+managed crontab block, and wrapper scripts. They keep executing indefinitely
+with xcron uninstalled. `project-state.json` is only xcron's *record* of the
+last successful convergence; it has no expiry, and `status` exists precisely
+because that record can be wrong.
+
+| Plane | What it does | Trigger | Authoritative state, and its sole writer | Authority it needs |
+| --- | --- | --- | --- | --- |
+| Data | scheduled jobs execute through the generated wrapper | every scheduler firing | wrapper stdout/stderr/event logs — written by the scheduled process, read and cleared by `operations` | the user's own account, via the host scheduler |
+| Control | `validate`, `plan`, `status`, `apply`, `prune`, `inspect` | operator-initiated | `project-state.json`, wrappers, plist / managed crontab block — written by `reconciliation` | user-level `launchctl` / `crontab`; never root |
+| Management | `init`, `jobs` edits, `hooks`, `metrics`, configuration | operator or lifecycle | manifest YAML (`manifest`), workspace layout and marker (`workspace`), metrics store (`operations`), hook files (`agent_hooks`) | filesystem write access to the project and `~/.xcron` |
+
+### Cross-plane contracts
+
+| Contract | Producer | Consumer | Form | Freshness | Compatibility rule |
+| --- | --- | --- | --- | --- | --- |
+| `NormalizedManifest` | `manifest` (management) | `reconciliation` (control) | in-process typed value | per invocation | additive fields only; unknown YAML keys rejected at load |
+| `project-state.json` | `reconciliation.apply` | `reconciliation.plan` | durable JSON | may be arbitrarily stale — `status` is the authority | literal key set pinned; every non-required key must stay optional |
+| native artifacts (plist, crontab block, wrapper) | `reconciliation` adapters | host scheduler (data) | files carrying xcron ownership markers | until the next `apply` or `prune` | ownership markers must never change meaning |
+| wrapper log and event files | the scheduled process (data) | `operations` (management) | line-oriented text / JSONL | read-only tail | the reader tolerates truncation and partial lines |
+| outcome summary | `reconciliation` (control) | `operations` (management) | the `OutcomeRecorder` port | per action | a bounded counter summary, never per-job callbacks |
+| workspace `marker.toml` | `workspace` (management) | every plane | TOML, `schema = 1` | until an explicit migration | an unsupported version refuses with a recovery hint |
+
+`project-state.json` still has no explicit `schema` discriminator. The durable
+format is instead pinned from outside by
+`tests/modules/reconciliation/test_durable_state_format.py`, which asserts the
+literal key set and separately proves a document holding only the required keys
+still loads. That covers today's compatibility question — an older file must
+keep loading — but it does not answer the future one, which is how a reader
+recognizes a format it is too old to understand. Adding the discriminator is
+still open.
+
+### Degraded behaviour
+
+Every row is drilled. `tests/degraded/` holds the cross-cutting drills; two
+rows are drilled inside the lane of the module that owns the state.
+
+| Failure | What continues | What stops, and how | Recovery | Drilled by |
+| --- | --- | --- | --- | --- |
+| xcron uninstalled or broken | **everything already deployed** — this is the property the whole design exists to protect | nothing in the data plane | reinstall; `status` reveals drift | `test_a_deployed_job_still_runs_when_xcron_is_not_there`, `test_the_deployed_artifacts_never_call_back_into_xcron` |
+| `project-state.json` missing or corrupt | `status` and `apply`, which ask the scheduler rather than the record | `plan` reports every job as a create — visibly wrong, never silently empty | run `status`, then `apply` | `test_losing_derived_state_degrades_visibly_not_silently`, `test_a_corrupt_state_document_does_not_take_the_project_down` |
+| host scheduler unavailable | `validate`, `plan`, `jobs` edits | `apply` raises; no durable record is written and no scheduler entry changes | retry once the scheduler responds | `test_a_failing_scheduler_write_leaves_the_durable_record_untouched`, `tests/modules/reconciliation/test_fake_backend_lane.py` |
+| manifest invalid | `status`, `logs`, `metrics` | `plan` and `apply` refuse before touching artifacts | fix the manifest; `validate` | `tests/modules/reconciliation/test_validation.py` |
+| workspace marker missing or untrustworthy | one release: missing warns and proceeds | a malformed or unsupported marker refuses with a recovery hint from day one | `xcron init` | `tests/modules/workspace/test_marker.py` |
+| metrics store unreadable | every action | nothing — the store discards unreadable content and heals on the next write | `metrics reset` | `test_a_corrupt_metrics_store_never_blocks_an_action`, `test_a_metrics_directory_that_cannot_be_written_never_blocks_an_action` |
+
+One correction the drills forced. The third row used to claim "no partial
+artifact write". That is not what happens: wrapper scripts are rendered and
+written *before* the crontab, because the crontab entries have to reference
+their paths. What is actually true — and what the drill asserts — is that no
+scheduler entry changes and no durable record is written, so the orphaned
+wrappers are inert files that the next successful `apply` overwrites.
+
+**Physical plane separation is not justified.** xcron has one process, one
+user, one release cadence, and one failure domain. The separation that matters
+is already there and was earned by design rather than by packaging: the data
+plane *is* the host scheduler.
+
+## Channel exposure and parity
+
+Two channels: the typed `Xcron` SDK and the Typer CLI. REST and Web are absent
+by decision, not by omission — xcron is a local, single-user tool, and the
+house standard says to add HTTP when remote, multi-user, or multi-language use
+is real.
+
+| Capability action | SDK | CLI | Plane | Note |
+| --- | --- | --- | --- | --- |
+| `workspace` initialize | `home.initialize` | `init` | management | opens an *unscoped* client; it creates the workspace it would otherwise have to resolve |
+| `manifest` load / validate | internal | reached via `validate` | management | not a public capability surface |
+| `jobs` list / show | yes | yes | management | — |
+| `jobs` add / update / enable / disable / remove | yes | yes | management | edits YAML only; never touches the scheduler |
+| `reconciliation` validate | yes | yes | control | — |
+| `reconciliation` plan | yes | yes | control | reads the record; never mutates |
+| `reconciliation` status | yes | yes | control | queries the real scheduler |
+| `reconciliation` inspect | yes | yes | control | `--full` expansion is CLI-only presentation |
+| `reconciliation` apply | yes | yes | control | the only converging mutation |
+| `reconciliation` prune | yes | yes | control | removes xcron-owned artifacts only |
+| `operations` logs list / clear | yes | yes | data evidence / management | `clear` never touches paths outside the workspace layout |
+| `operations` metrics show / reset | yes | yes | management | unscoped, like `init` |
+| `agent_hooks` install / status / repair | yes | yes | management | repository-local files only |
+| `agent_hooks` session end | `hooks.session_end` | **no** | management | agent-invoked through the SDK; there is no CLI verb, and no session-*start* operation exists |
+
+A channel is a projection: it decides how a result is rendered, never what was
+asked for. `tests/parity/test_channel_parity.py` holds that to account. For
+twelve CLI/SDK pairs a spy wraps the use case at the seam the SDK calls it
+through, the same operation runs once per channel, and the two recorded calls
+must be equal — composed collaborators compared by type, everything a caller
+can state compared by value. Three pairs state an option explicitly rather than
+relying on defaults, because a parity check that only compares defaults is a
+check that both channels agree about nothing: a planted "the CLI drops the
+`--job` filter" defect passed the first version of the lane cleanly.
+
 ## Migration compatibility
 
 None. `xcron.actions`, `xcron.services`, `xcron.infra`, and

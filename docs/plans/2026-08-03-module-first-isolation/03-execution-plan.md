@@ -730,6 +730,73 @@ markdownlint --disable MD013 -- docs/dev/architecture.md AGENTS.md \
   docs/plans/2026-08-03-module-first-isolation/*.md
 ```
 
+### Phase 9 result (2026-08-04)
+
+Done, all five steps. Verification found four things wrong with the draft plane
+map, which is the argument for doing this against the code rather than from
+memory.
+
+**Row 3 of the degraded table was false.** It claimed a failing host scheduler
+stops `apply` "with a typed backend error and no partial artifact write".
+Wrappers are written *before* the crontab — the crontab entries have to
+reference their paths — and an unwritable crontab surfaces as `OSError`, not as
+a typed backend error. What is true is that no scheduler entry changes and no
+durable record is written, so the orphaned wrappers are inert and the next
+successful `apply` overwrites them. That is what the drill asserts and what the
+table now says.
+
+**Row 6 understated the store.** `metrics show` does not merely "report empty
+rather than failing": unreadable content is discarded and the file heals on the
+next write. Both halves are drilled.
+
+**The channel exposure table listed an operation that does not exist.** There
+is no `hooks session-start`, and `session_end` is SDK-only with no CLI verb.
+The matrix now states the asymmetry instead of leaving it to be discovered.
+
+**The `project-state.json` discriminator is still open, and now says so.** The
+draft listed it as a Phase 5 item; Phase 5 chose a different mechanism —
+pinning the literal key set from outside, plus a required-keys tolerance test.
+That answers "can an older file still be read", which was the live risk. It
+does not answer "how does a reader recognize a format it is too old to
+understand". Recording it as closed would have been the easy and wrong move.
+
+**Every degraded row is now drilled**, in `tests/degraded/` for the
+cross-cutting ones and in the owning module's lane for the marker and
+validation rows. The first row — the property the whole design exists to
+protect — is drilled by *executing* a deployed wrapper in a subprocess whose
+`PATH` holds only the system directories and whose `PYTHONPATH` is empty, then
+asserting the job's output reached its log. A second test explains why that can
+pass: nothing deployed invokes `xcron`.
+
+The scheduler-unavailable drill makes the crontab genuinely read-only rather
+than monkeypatching the adapter. That was not stylistic: the first version
+imported `adapters.cron` to patch it, and
+`test_nothing_outside_a_capability_module_imports_below_its_surface` failed it
+— correctly, since `tests/degraded/` is not reconciliation's lane. Reaching for
+a real failure mode was both cheaper and a better drill.
+
+- `./scripts/verify-core.sh`: `lint-imports` (7 contracts kept) then 326 passed
+  (was 317 — 9 degraded drills).
+- CLI golden: 36/36 files byte-identical to the Phase 0 baseline, ninth
+  consecutive phase.
+- `./scripts/verify-wheel.sh`: both environments pass.
+- `markdownlint --disable MD013` clean on `AGENTS.md`,
+  `docs/dev/architecture.md`, and the plan documents.
+- Planted negatives, tree restored after each: a wrapper shelling into `xcron`
+  (caught by the static check), a wrapper hard-depending on the `xcron`
+  executable (caught by the subprocess drill), the state file written before
+  the scheduler, and a metrics read that propagates its error. Each caught by
+  exactly one drill.
+
+Documentation moved rather than multiplied. `05-plane-map.md` is now a record
+of what verification changed; the stable content lives in
+`docs/dev/architecture.md` under "Planes" and "Channel exposure and parity".
+`AGENTS.md` gained the four enforcement lanes and the plane axis;
+`docs/dev/go-rewrite-contract.md` gained the management-plane commands, the
+exit codes, the output contract, and the deployed-artifact availability
+property, and lost a claim that schemas live in `resources/` — they have
+shipped inside the `manifest` module since Phase 4.
+
 ## Dependency graph
 
 ```text

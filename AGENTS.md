@@ -71,6 +71,7 @@ tests/                      pytest suite (unit + parser + CLI + observability)
 tests/architecture/         AST checks for what an import graph cannot express
 tests/modules/<module>/     module-owned lanes; only these may touch internals
 tests/parity/               the CLI and the SDK must reach the same use case
+tests/degraded/             drills for the degraded-behaviour table
 tests/integration/          explicit-only host launchd and Docker cron harnesses
 SPEC.md                     product specification (also used as package readme)
 ```
@@ -87,8 +88,24 @@ src/xcron/channels/cli
   -> src/xcron/domain, src/xcron/shared          (leaves only)
 ```
 
-The permitted cross-module edges and the module cards live in
+Modules answer *who owns a decision*. Planes — data, control, management —
+answer *what keeps working when something is down*, and cut across the modules.
+The permitted cross-module edges, the module cards, the plane map, and the
+channel exposure matrix all live in
 [docs/dev/architecture.md](docs/dev/architecture.md), which is authoritative.
+
+Four lanes enforce this, and each one catches what the others structurally
+cannot:
+
+- `pyproject.toml` `[tool.importlinter]` — seven contracts over the import
+  graph: stack direction, the capability DAG, the `OutcomeRecorder` port, the
+  settings boundary, no renderer below the channel, no channel below the
+  channel, and the retired names staying unused. Run by `verify-core.sh`.
+- `tests/architecture/` — what a graph cannot express: *which file inside* a
+  module an import reached for, and which files may name `os.environ`.
+- `tests/parity/` — the CLI and the SDK reach the same use case with the same
+  arguments.
+- `tests/degraded/` — the degraded-behaviour table, executed.
 
 Rules:
 
@@ -112,7 +129,7 @@ Rules:
 - `src/xcron/shared` is a strict leaf. It may not import a capability, run a
   workflow, or persist anything.
 - `src/xcron/domain` contains Pydantic models, normalization, and qualified-id
-  helpers. Domain code must not import from `apps` or from a capability.
+  helpers. Domain code must not import a channel or a capability.
 - `xcron.configuration` is a strict leaf that composes `Settings` from packaged
   defaults, config files, and the environment. It may not import a capability,
   and only `src/xcron/runtime` may import it.
@@ -120,8 +137,14 @@ Rules:
   capabilities. It resolves the workspace and loads `Settings` once per
   invocation, then passes both down as values — no capability reads
   `os.environ` for a tunable.
+- `src/xcron/channels/<channel>` is one package per way into the product. The
+  CLI is currently the only one; nothing below `xcron.channels` may import a
+  channel, in any import form.
 - Keep arrays/dicts at the YAML/output boundary; use typed Pydantic models
   internally.
+- Nothing deployed may call back into xcron. A wrapper that shelled out to the
+  `xcron` executable would turn a management-plane outage into a data-plane
+  outage; `tests/degraded/` drills that it does not.
 
 The architecture mirrors the rules in `SPEC.md` and `docs/dev/architecture.md`,
 which the later Go rewrite is expected to preserve.
