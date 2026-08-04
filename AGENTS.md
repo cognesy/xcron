@@ -62,6 +62,9 @@ docs/dev/                 architecture, output, logging, plans, retrospectives
 scripts/verify-core.sh    deterministic core verification entrypoint
 scripts/verify-wheel.sh   build + clean-env install check (network; run before a release)
 tests/                    pytest suite (unit + parser + CLI + observability)
+tests/architecture/       AST checks for what an import graph cannot express
+tests/modules/<module>/   module-owned lanes; only these may touch internals
+tests/parity/             the CLI and the SDK must reach the same use case
 tests/integration/        explicit-only host launchd and Docker cron harnesses
 SPEC.md                   product specification (also used as package readme)
 ```
@@ -285,14 +288,21 @@ uv run xcron status -o json --fields backend,statuses
 Default deterministic core lane:
 
 ```bash
-./scripts/verify-core.sh        # currently runs `uv run pytest`
+./scripts/verify-core.sh        # runs `uv run lint-imports`, then `uv run pytest`
 ```
 
 Equivalent direct invocation:
 
 ```bash
+uv run lint-imports
 uv run pytest
 ```
+
+The two gates are not redundant. `[tool.importlinter]` in `pyproject.toml`
+declares the dependency graph — layers, the capability DAG, and the forbidden
+edges — and Import Linter checks it. `tests/architecture/` checks what a graph
+cannot express: which *file* inside a module an import reached for, and which
+files may name `os.environ`. Changing either one is an architectural decision.
 
 Installed-distribution lane (builds a wheel, installs it into an isolated
 environment, and invokes the installed console script outside the source

@@ -556,6 +556,72 @@ uv run pytest tests/architecture tests/parity
 Each contract must be proven to fail: add a temporary forbidden import, watch
 the gate fail, revert.
 
+### Phase 7 result (2026-08-04)
+
+Done, all five steps, with one substitution on step 1.
+
+**`independence` would have been wrong.** Step 1 asks for an independence
+contract across the six capability modules, but four of them have declared
+edges — `manifest -> workspace`, `jobs -> manifest, reconciliation`,
+`operations -> workspace, reconciliation`, `reconciliation -> manifest,
+workspace`. Declaring them independent would have failed on day one, and
+relaxing it until it passed would have left a contract that says nothing. The
+claim that is actually true is that the capabilities form a *DAG*, so the
+contract is a second `layers` block with the modules ordered by their edges:
+
+```text
+agent_hooks | jobs | operations
+reconciliation
+manifest
+workspace
+```
+
+Siblings within a layer are independent, so a new `jobs -> operations` import
+fails exactly as the plan intended, and so does any cycle. `agent_hooks` sits at
+the top because it imports nothing.
+
+Seven contracts, all kept: the stack direction, the capability DAG,
+`reconciliation -/-> operations` (the `OutcomeRecorder` port), settings loaded
+only in the composition root, no renderer below the channel boundary, nothing
+under `libs/` importing the channel, and the four deleted packages staying
+deleted. The settings contract is direct-imports-only: everything reaches the
+composition root eventually — that is what a composition root is — so an
+indirect chain there says nothing.
+
+**Both gates, and why.** `tests/test_reconciliation_architecture.py` (616 lines,
+one file, a name that stopped matching its scope around Phase 2) split into
+`tests/architecture/`: a shared `scanner.py` and four files by concern — public
+surfaces, module edges, layer boundaries, and the settings boundary. Two tests
+in it were never architecture tests at all (the scheduler registry's duplicate
+rejection, `SchedulerRuntimeOptions` path normalization) and moved to
+`tests/modules/reconciliation/test_registry.py`. What stays in the AST lane is
+what an import graph structurally cannot express: which *file inside* a module
+an import reached for, and which files may name `os.environ`.
+
+**The parity lane found nothing, which is the point of adding it now.** For each
+of twelve CLI/SDK pairs a spy wraps the use case at the seam the SDK calls it
+through; the same operation runs once per channel and the two recorded calls
+must be equal. The spy delegates to the real function, so both channels actually
+run — `apply` and `prune` included, against a file crontab with `launchctl`
+disabled. Comparison normalizes composed collaborators to their type (each
+channel builds its own registry) and compares everything a caller can state by
+value.
+
+Three pairs state an option explicitly rather than relying on defaults. That was
+not decoration: the first version of the lane only exercised defaults, and a
+planted "CLI drops the `--job` filter" defect passed it cleanly. A parity check
+that only compares defaults is a check that both channels agree about nothing.
+
+- `./scripts/verify-core.sh`: `lint-imports` (7 contracts kept) then 305 passed
+  (was 288 — 14 parity cases and 3 relocated or added structural ones).
+- CLI golden: 36/36 files byte-identical to the Phase 0 baseline, seventh
+  consecutive phase.
+- `./scripts/verify-wheel.sh`: both environments pass.
+- Planted negatives: all seven Import Linter contracts proven to fail, each by a
+  single planted import, tree restored after each. Plus two parity negatives —
+  an inverted `--apply` default and a dropped `--job` filter — each caught by
+  its intended pair.
+
 ## Phase 8 — public naming (only if decision 1 is yes)
 
 1. Introduce `src/xcron/` as the single import package: `xcron.capabilities`,

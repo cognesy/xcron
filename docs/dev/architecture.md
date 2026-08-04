@@ -58,8 +58,8 @@ composed order, later winning, is packaged default → user config → workspace
 `config.yaml` → environment variable → explicit argument. Only identity
 variables — `XCRON_HOME` and `XCRON_PROJECT`, which select *which* files are
 read — stay with `workspace`, because they cannot themselves come from a config
-file. `tests/test_reconciliation_architecture.py` pins the exact set of files
-allowed to name `os.environ`.
+file. `tests/architecture/test_settings_boundary.py` pins the exact set of
+files allowed to name `os.environ`.
 
 Rules:
 
@@ -87,8 +87,8 @@ Rules:
   `apps/cli/presenters/` (AXI field selection, TOON, tmux, and Rich help).
   Authored help pages are packaged data of that channel, under
   `apps/cli/resources/help/`. Nothing under `libs/` may import `xcron_cli` in
-  any import form; `tests/test_reconciliation_architecture.py` enforces this
-  across every file in `libs/`.
+  any import form; `tests/architecture/` enforces this across every file in
+  `libs/`.
 
 ## Verified Level 1 module
 
@@ -118,8 +118,8 @@ process boundary, plugin system, or service deployment.
 Every capability now declares a public surface (`api.py` plus `contracts.py`)
 and a non-aggregating `__init__.py`. The cards below are the checked-in record
 of what each module hides, owns, and is allowed to depend on;
-`tests/test_reconciliation_architecture.py` enforces the surface, the
-initializer, and the `allowed_dependencies` line of every card.
+`tests/architecture/` enforces the surface, the initializer, and the
+`allowed_dependencies` line of every card.
 
 `agent_hooks`, `reconciliation`, `manifest`, `workspace`, and `operations` own
 their implementation outright and have module-owned test lanes. `jobs` has the
@@ -147,7 +147,7 @@ failure_behavior: >
 isolation_level: 1 (verified)
 verification:
   - tests/test_agent_hooks.py
-  - tests/test_reconciliation_architecture.py
+  - tests/architecture/ (Import Linter contracts plus the AST scanner)
 ```
 
 ```yaml
@@ -185,7 +185,7 @@ failure_behavior: >
 isolation_level: 1 (surface plus owned implementation)
 verification:
   - tests/modules/workspace/ (module-owned lane)
-  - tests/test_reconciliation_architecture.py
+  - tests/architecture/ (Import Linter contracts plus the AST scanner)
 ```
 
 ```yaml
@@ -210,7 +210,7 @@ failure_behavior: >
 isolation_level: 1 (surface plus owned implementation)
 verification:
   - tests/modules/manifest/ (module-owned lane)
-  - tests/test_reconciliation_architecture.py
+  - tests/architecture/ (Import Linter contracts plus the AST scanner)
 ```
 
 ```yaml
@@ -235,7 +235,7 @@ failure_behavior: >
 isolation_level: 1 (leaf; surface plus owned implementation)
 verification:
   - tests/modules/configuration/ (module-owned lane)
-  - tests/test_reconciliation_architecture.py
+  - tests/architecture/ (Import Linter contracts plus the AST scanner)
 ```
 
 ```yaml
@@ -262,7 +262,7 @@ isolation_level: >
   format belongs to the manifest module
 verification:
   - tests/test_job_actions.py
-  - tests/test_reconciliation_architecture.py
+  - tests/architecture/ (Import Linter contracts plus the AST scanner)
 ```
 
 ```yaml
@@ -302,7 +302,7 @@ isolation_level: 1 (surface plus owned implementation)
 verification:
   - tests/modules/reconciliation/ (module-owned lane, including a fake-backend
     lane that imports only api, contracts, and ports)
-  - tests/test_reconciliation_architecture.py
+  - tests/architecture/ (Import Linter contracts plus the AST scanner)
 ```
 
 ```yaml
@@ -334,7 +334,7 @@ isolation_level: 1 (surface plus sole ownership of the metrics state family)
 verification:
   - tests/modules/operations/ (module-owned lane)
   - tests/test_cli_logs.py
-  - tests/test_reconciliation_architecture.py
+  - tests/architecture/ (Import Linter contracts plus the AST scanner)
 ```
 
 Current model decisions:
@@ -448,7 +448,14 @@ Implemented prototype components:
 Verification model:
 
 - deterministic core lane is `./scripts/verify-core.sh`
-- today that core lane runs the safe default `uv run pytest`
+- that lane runs `uv run lint-imports` and then `uv run pytest`
+- the two gates say different things. Import Linter states the dependency graph
+  and checks it; the AST scanner in `tests/architecture/` checks what a graph
+  cannot express — *which file inside a module* an import reached for, and which
+  files may name `os.environ`
+- `tests/parity/` asserts that the CLI and the SDK reach the same use case with
+  the same inputs, which no single-channel test can see
+- `./scripts/verify-wheel.sh` is the installed-distribution lane (network)
 - default core verification stays safe and does not mutate the host scheduler
 - host-gated `launchd` integration exists for real macOS verification
 - Docker/Colima-gated cron integration exists for real Linux cron verification

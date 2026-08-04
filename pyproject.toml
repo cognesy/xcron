@@ -45,6 +45,7 @@ dev = [
 # the split from turning every CLI test red.
 [dependency-groups]
 dev = [
+  "import-linter>=2.13",
   "pytest>=8.0,<9.0",
   "xcron[cli]",
 ]
@@ -97,3 +98,91 @@ xcron_libs = "libs"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+# Import Linter states the dependency graph as data. The AST tests in
+# `tests/architecture/` still own what a graph cannot express — which *file*
+# inside a module may be imported, and which files may read the environment —
+# but "who may depend on whom" is said once, here, in a form that is checked
+# rather than described.
+[tool.importlinter]
+root_packages = ["xcron_cli", "xcron_libs"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "The stack has one direction"
+type = "layers"
+layers = [
+  "xcron_cli",
+  "xcron_libs.sdk",
+  "xcron_libs.runtime",
+  "xcron_libs.capabilities",
+  "xcron_libs.configuration | xcron_libs.domain | xcron_libs.shared",
+]
+
+[[tool.importlinter.contracts]]
+# Not `independence`: the capabilities do have edges, and the point is that
+# they form a DAG rather than a mesh. Anything in a layer is independent of
+# its siblings, so a new `jobs -> operations` import fails here.
+name = "Capabilities form a DAG, not a mesh"
+type = "layers"
+containers = ["xcron_libs.capabilities"]
+layers = [
+  "agent_hooks | jobs | operations",
+  "reconciliation",
+  "manifest",
+  "workspace",
+]
+
+[[tool.importlinter.contracts]]
+# Reconciliation reports what it did through the OutcomeRecorder port; the
+# adapter that calls operations lives in the composition root. A direct import
+# would give metrics.json a second writer.
+name = "Reconciliation reaches operations only through its port"
+type = "forbidden"
+source_modules = ["xcron_libs.capabilities.reconciliation"]
+forbidden_modules = ["xcron_libs.capabilities.operations"]
+
+[[tool.importlinter.contracts]]
+# Settings are composed once and passed down as values. A capability importing
+# the loader would resolve configuration a second time, at a different moment.
+name = "Only the composition root loads settings"
+type = "forbidden"
+# Direct imports only. Everything reaches the composition root eventually —
+# that is what a composition root is for — so an indirect chain here says
+# nothing. The claim is that no file outside `runtime` *names* the loader.
+allow_indirect_imports = true
+source_modules = [
+  "xcron_libs.capabilities",
+  "xcron_libs.sdk",
+  "xcron_libs.domain",
+  "xcron_libs.shared",
+  "xcron_cli",
+]
+forbidden_modules = ["xcron_libs.configuration"]
+
+[[tool.importlinter.contracts]]
+# The library half is embeddable. A renderer below the channel boundary decides
+# on the embedder's behalf that it has a terminal.
+name = "No terminal below the channel boundary"
+type = "forbidden"
+source_modules = ["xcron_libs"]
+forbidden_modules = ["typer", "rich", "toon", "click"]
+
+[[tool.importlinter.contracts]]
+name = "Nothing under libs knows a channel exists"
+type = "forbidden"
+source_modules = ["xcron_libs"]
+forbidden_modules = ["xcron_cli"]
+
+[[tool.importlinter.contracts]]
+# The deleted packages. Import Linter cannot see a module that does not exist,
+# so this contract is about the day someone recreates one.
+name = "The ownerless packages stay deleted"
+type = "forbidden"
+source_modules = ["xcron_cli", "xcron_libs"]
+forbidden_modules = [
+  "xcron_libs.actions",
+  "xcron_libs.services",
+  "xcron_libs.infra",
+  "xcron_resources",
+]
