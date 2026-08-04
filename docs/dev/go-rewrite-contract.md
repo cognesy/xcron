@@ -46,9 +46,8 @@ breaking change process.
 ## Architectural Contract
 
 - thin shells stay in `apps/`
-- use-case actions are capability-owned under `libs/capabilities/`; legacy
-  `libs/actions/` imports may remain as compatibility facades during a staged
-  migration
+- use-case actions are capability-owned under `libs/capabilities/` and reached
+  only through each module's `api`; the flat `libs/actions/` facade is gone
 - every file belongs to one module or to a declared leaf; native scheduler
   adapters live inside the module that defines the port they implement
 - scheduler adapters consume a backend-neutral contract and never import a

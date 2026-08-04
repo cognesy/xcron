@@ -12,14 +12,13 @@ license = "LicenseRef-Proprietary"
 authors = [
   { name = "Dariusz Debowczyk" }
 ]
+# The library half of xcron: the SDK, the capabilities, and the domain. A
+# program that embeds `Xcron` pulls in no terminal renderer.
 dependencies = [
   "PyYAML>=6.0,<7.0",
   "jsonschema>=4.23,<5.0",
   "pydantic>=2.12.5",
-  "python-toon>=0.1.3",
-  "rich>=14.3.3",
   "structlog>=24.0,<26.0",
-  "typer>=0.23.2",
   # `xcfg` is a portfolio library, not published to any index. A PEP 508 direct
   # reference is what makes the built wheel installable outside this checkout;
   # a bare version specifier would resolve against PyPI and fail. The tag is
@@ -29,8 +28,25 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# The `xcron` console script is a CLI channel, so it needs the channel's
+# renderers. Nothing under `libs/` may import them; the architecture tests
+# enforce that, which is what makes this split safe rather than cosmetic.
+cli = [
+  "python-toon>=0.1.3",
+  "rich>=14.3.3",
+  "typer>=0.23.2",
+]
 dev = [
   "pytest>=8.0,<9.0",
+]
+
+# The test suite exercises the CLI channel, so a bare `uv run pytest` has to
+# see the `cli` extra. uv installs this group by default, which is what keeps
+# the split from turning every CLI test red.
+[dependency-groups]
+dev = [
+  "pytest>=8.0,<9.0",
+  "xcron[cli]",
 ]
 
 [project.scripts]
@@ -45,7 +61,6 @@ packages = [
   "xcron_cli.resources.help",
   "xcron_cli.resources.help.jobs",
   "xcron_libs",
-  "xcron_libs.actions",
   "xcron_libs.capabilities",
   "xcron_libs.capabilities.agent_hooks",
   "xcron_libs.capabilities.jobs",
@@ -72,6 +87,8 @@ xcron_cli = "apps/cli"
 xcron_libs = "libs"
 
 [tool.setuptools.package-data]
+"xcron_cli" = ["py.typed"]
+"xcron_libs" = ["py.typed"]
 "xcron_cli.resources.help" = ["*.md", "jobs/*.md"]
 "xcron_cli.resources.help.jobs" = ["*.md"]
 "xcron_libs.capabilities.manifest.resources.schemas" = ["*.yaml"]

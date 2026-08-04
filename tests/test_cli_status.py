@@ -4,7 +4,7 @@ import json
 import textwrap
 
 from xcron_cli.main import main
-from xcron_libs.actions.apply_project import apply_project
+from xcron_libs.capabilities.reconciliation.api import apply_project
 from tests.cli_assertions import assert_list_output
 
 

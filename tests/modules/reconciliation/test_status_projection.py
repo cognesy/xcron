@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import textwrap
 
-from xcron_libs.actions.plan_project import plan_project
+from xcron_libs.capabilities.reconciliation.api import plan_project
 from xcron_libs.capabilities.reconciliation.domain import DeployedJobState, ProjectState, StatusKind, build_status_entries
 from xcron_libs.capabilities.reconciliation.state_store import save_project_state
 

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import textwrap
 
-from xcron_libs.actions.inspect_job import inspect_job
-from xcron_libs.actions.validate_project import validate_project
+from xcron_libs.capabilities.reconciliation.api import inspect_job
+from xcron_libs.capabilities.reconciliation.api import validate_project
 from xcron_libs.capabilities.reconciliation.api import SchedulerRegistry
 from xcron_libs.capabilities.reconciliation.contracts import SchedulerInspection
 from xcron_libs.capabilities.reconciliation.domain import ProjectState, StatusKind

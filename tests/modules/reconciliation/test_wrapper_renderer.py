@@ -5,7 +5,7 @@ import subprocess
 import textwrap
 import time
 
-from xcron_libs.actions.validate_project import validate_project
+from xcron_libs.capabilities.reconciliation.api import validate_project
 from xcron_libs.capabilities.reconciliation.wrapper import render_wrapper, write_wrapper
 
 

@@ -4,9 +4,9 @@ import textwrap
 
 import pytest
 
-from xcron_libs.actions.apply_project import apply_project
-from xcron_libs.actions.plan_project import plan_project
-from xcron_libs.actions.validate_project import validate_project
+from xcron_libs.capabilities.reconciliation.api import apply_project
+from xcron_libs.capabilities.reconciliation.api import plan_project
+from xcron_libs.capabilities.reconciliation.api import validate_project
 from xcron_libs.capabilities.reconciliation.domain import DeployedJobState, ProjectState
 from xcron_libs.capabilities.reconciliation.domain import PlanChangeKind
 from xcron_libs.capabilities.reconciliation.state_store import save_project_state

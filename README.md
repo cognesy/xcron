@@ -71,14 +71,16 @@ scope.
 ## Tech Stack
 
 - Python 3.11+
-- Typer for the CLI
-- Rich for human-facing text
 - Pydantic for typed command responses and domain models
 - PyYAML and jsonschema for schedule manifests
-- python-toon for compact agent-facing output
 - structlog for structured logging
 - xcfg for layered configuration composition
 - pytest for tests
+
+The terminal renderers — Typer for the CLI, Rich for human-facing text, and
+python-toon for compact agent-facing output — are a `cli` extra. Install
+`xcron[cli]` for the command; plain `xcron` is the embeddable library half and
+pulls in no terminal.
 
 The code is organized around thin CLI shells in `apps/cli/` and one module per
 owned decision in `libs/capabilities/` — `workspace`, `manifest`,

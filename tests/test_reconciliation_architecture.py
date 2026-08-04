@@ -29,12 +29,6 @@ BACKEND_MODULES = tuple(
 CAPABILITY_MODULES = tuple(sorted((REPOSITORY_ROOT / "libs" / "capabilities").rglob("*.py")))
 DOMAIN_MODULES = tuple(sorted((REPOSITORY_ROOT / "libs" / "domain").rglob("*.py")))
 RUNTIME_MODULES = tuple(sorted((REPOSITORY_ROOT / "libs" / "runtime").rglob("*.py")))
-ACTION_SHIMS = tuple(
-    path
-    for path in sorted((REPOSITORY_ROOT / "libs" / "actions").glob("*.py"))
-    if path.name != "__init__.py"
-)
-
 
 def _imported_modules(path: Path) -> set[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -570,11 +564,18 @@ def test_the_home_module_folded_into_workspace() -> None:
         assert (workspace_root / relative).is_file(), relative
 
 
-def test_legacy_action_modules_are_capability_import_shims() -> None:
-    for module in ACTION_SHIMS:
-        imported = _imported_modules(module)
-        assert imported, module
-        assert all(name.startswith("xcron_libs.capabilities") for name in imported), module
+def test_the_actions_facade_is_gone() -> None:
+    """The shim existed to let callers move; they have all moved.
+
+    Kept any longer it becomes a second, flatter name for every capability —
+    two ways to reach the same function, one of which says nothing about who
+    owns it. Every caller now names the owning module's `api`.
+    """
+    assert not (REPOSITORY_ROOT / "libs" / "actions").exists()
+
+    for path in sorted((REPOSITORY_ROOT / "libs").rglob("*.py")):
+        for imported in _imported_modules(path):
+            assert not imported.startswith("xcron_libs.actions"), path
 
 
 def test_scheduler_registry_rejects_duplicate_and_unknown_identities() -> None:

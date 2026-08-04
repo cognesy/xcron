@@ -476,6 +476,58 @@ rg -n 'xcron_libs\.actions' libs apps tests
 
 The `rg` result must be empty.
 
+### Phase 6 result (2026-08-04)
+
+Done, all five steps, with one deviation on step 1 and one on step 3.
+
+**Step 1 — two markers, not twenty.** PEP 561 puts the marker in the top-level
+package, where it covers everything beneath it, so `libs/py.typed` and
+`apps/cli/py.typed` are the whole of it. Writing one into each of the twenty
+sub-packages would be noise that says nothing extra, and no type checker looks
+for them there. Both are declared in `package-data` and both are asserted
+present *in the installed wheel*, which is the only place the claim can be
+false.
+
+**Step 2 — the extra, and the group that keeps it honest.** `typer`, `rich`,
+and `python-toon` moved to a `cli` extra; the mandatory set is `PyYAML`,
+`jsonschema`, `pydantic`, `structlog`, and `xcfg`. The split is only meaningful
+because no file under `libs/` may import a renderer, which the architecture
+tests already enforced before this phase made it a packaging fact. The test
+suite exercises the CLI channel, so a `[dependency-groups] dev` entry asks for
+`xcron[cli]`; uv installs that group by default, so `uv run pytest` is
+unchanged. (`[tool.uv] default-extras` would have been the direct expression of
+this, but uv 0.9.22 does not accept the key.)
+
+**Step 3 — an equality test, not discovery.** Two package roots map into one
+distribution (`apps/cli` → `xcron_cli`, `libs` → `xcron_libs`), which
+setuptools' `find` directives express badly. Keeping the explicit list and
+asserting it equals the discovered set gives the same guarantee and a better
+failure message: the test names the package that was added and never declared.
+`xcron_libs.infra` was already gone.
+
+**Steps 4 and 5.** All 15 test modules now import the owning module's `api`;
+`libs/actions/` is deleted and `test_the_actions_facade_is_gone` asserts both
+that the directory is absent and that nothing under `libs/` imports the name.
+`scripts/verify-wheel.sh` builds once and installs twice: a library-only
+environment where importing the SDK must not reach a renderer and the renderers
+must not even be installed, then an `xcron[cli]` environment where the console
+script must run. It also re-checks that the four deleted packages
+(`actions`, `services`, `infra`, `xcron_resources`) do not ship, which is
+exactly the failure a stale `build/` directory produced in Phase 4.
+
+The new `tests/test_packaging.py` reads `pyproject.toml` as data. It is a
+separate lane from the architecture tests on purpose: those describe how the
+code may depend on itself, these describe what leaves the repository.
+
+- `./scripts/verify-core.sh`: 288 passed (was 282 — six packaging contracts).
+- `./scripts/verify-wheel.sh`: both environments pass.
+- CLI golden: 36/36 files byte-identical to the Phase 0 baseline, sixth
+  consecutive phase.
+- Planted negatives: six (an undeclared package, Rich back in the mandatory
+  set, a missing `py.typed`, a resource pattern matching nothing, xcfg reverted
+  to a bare specifier, a resurrected `libs/actions`) each failed the intended
+  test.
+
 ## Phase 7 — declared enforcement
 
 1. Add Import Linter with, at minimum:

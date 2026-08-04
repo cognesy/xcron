@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import textwrap
 
-from xcron_libs.actions.validate_project import validate_project
+from xcron_libs.capabilities.reconciliation.api import validate_project
 
 
 def test_validate_project_success_and_hash_determinism(tmp_path) -> None:

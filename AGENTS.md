@@ -47,7 +47,6 @@ Other boundaries:
 
 ```text
 apps/cli/                 Typer shell, Output class, AXI output boundary
-libs/actions/             compatibility import shims for the old action paths
 libs/capabilities/        one module per owned decision (see docs/dev/architecture.md)
 libs/configuration/       strict leaf: layered settings composition (the only xcfg importer)
 libs/shared/              strict leaf: structlog wiring and logging config
@@ -61,6 +60,7 @@ resources/skills/         repo-local agent skills (use-xcron, admin-xcron)
 docs/user/                user guide
 docs/dev/                 architecture, output, logging, plans, retrospectives
 scripts/verify-core.sh    deterministic core verification entrypoint
+scripts/verify-wheel.sh   build + clean-env install check (network; run before a release)
 tests/                    pytest suite (unit + parser + CLI + observability)
 tests/integration/        explicit-only host launchd and Docker cron harnesses
 SPEC.md                   product specification (also used as package readme)
@@ -88,10 +88,12 @@ Rules:
   in `apps/cli/output.py`, and sets exit codes.
 - `apps/cli` must not contain manifest IO, scheduler IO, subprocess logic, hash
   comparisons, or domain rules.
-- `libs/actions` owns user-visible use cases: `validate_project`, `plan_project`,
-  `status_project`, `apply_project`, `prune_project`, `inspect_job`,
-  `manage_jobs`, `manage_logs`, `metrics`, `init_home`. Actions coordinate
-  services and return structured `*Result` types.
+- Every user-visible use case belongs to the module that owns its decision and
+  is reached through that module's `api`. There is no flat `libs/actions`
+  namespace: `validate_project`, `plan_project`, `status_project`,
+  `apply_project`, `prune_project`, and `inspect_job` are `reconciliation`;
+  the `jobs` commands are `jobs`; logs and metrics are `operations`; workspace
+  initialization is `workspace`.
 - `libs/capabilities/<module>` owns one decision behind `api.py` plus
   `contracts.py`. Nothing outside a module may import below those two files.
   `workspace` owns paths and scoping, `manifest` owns the YAML format,
@@ -145,7 +147,7 @@ When changing CLI behavior, inspect and update:
 
 - `apps/cli/typer_app.py` (Typer commands and bootstrap usage-error path)
 - `apps/cli/output.py` (`Output` class, normalization, field selection)
-- `apps/cli/common.py` (shared option/env helpers)
+- `apps/cli/common.py` (shared option helpers; it reads no environment)
 - `apps/cli/contracts.py`, `apps/cli/responses.py`, `apps/cli/mappers.py`
 - `apps/cli/presenters/` (AXI, TOON, tmux, and Rich help renderers)
 - `apps/cli/resources/help/*.md` (authored runtime help)
@@ -297,8 +299,16 @@ environment, and invokes the installed console script outside the source
 checkout):
 
 ```bash
+./scripts/verify-wheel.sh
 uv run --project ../xpack xpack verify "$(pwd)" --output json --full
 ```
+
+`verify-wheel.sh` builds twice over: a library-only environment that must
+contain no Typer, Rich, or TOON, and an `xcron[cli]` environment that must run
+the console script. The renderers live in the `cli` extra, so an embedder
+installing plain `xcron` gets the SDK without a terminal; anyone who wants the
+`xcron` command installs `xcron[cli]`. `uv sync` covers both here, because the
+dev dependency group asks for the extra.
 
 The smoke definitions live in `.xpack/config.toml`. Keep this lane distinct
 from `uv run xcron` checks: only the installed-wheel lane detects stale console

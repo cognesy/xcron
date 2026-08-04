@@ -531,17 +531,25 @@ source = { editable = "." }
 dependencies = [
     { name = "jsonschema" },
     { name = "pydantic" },
-    { name = "python-toon" },
     { name = "pyyaml" },
-    { name = "rich" },
     { name = "structlog" },
-    { name = "typer" },
     { name = "xcfg" },
 ]
 
 [package.optional-dependencies]
+cli = [
+    { name = "python-toon" },
+    { name = "rich" },
+    { name = "typer" },
+]
 dev = [
     { name = "pytest" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "xcron", extra = ["cli"] },
 ]
 
 [package.metadata]
@@ -549,11 +557,17 @@ requires-dist = [
     { name = "jsonschema", specifier = ">=4.23,<5.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0,<9.0" },
-    { name = "python-toon", specifier = ">=0.1.3" },
+    { name = "python-toon", marker = "extra == 'cli'", specifier = ">=0.1.3" },
     { name = "pyyaml", specifier = ">=6.0,<7.0" },
-    { name = "rich", specifier = ">=14.3.3" },
+    { name = "rich", marker = "extra == 'cli'", specifier = ">=14.3.3" },
     { name = "structlog", specifier = ">=24.0,<26.0" },
-    { name = "typer", specifier = ">=0.23.2" },
+    { name = "typer", marker = "extra == 'cli'", specifier = ">=0.23.2" },
     { name = "xcfg", git = "https://github.com/cognesy/xcfg?rev=v0.5.0" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["cli", "dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.0,<9.0" },
+    { name = "xcron", extras = ["cli"] },
+]

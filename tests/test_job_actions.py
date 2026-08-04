@@ -2,7 +2,14 @@ from __future__ import annotations
 
 import textwrap
 
-from xcron_libs.actions import add_job, disable_job, list_jobs, remove_job, show_job, update_job
+from xcron_libs.capabilities.jobs.api import (
+    add_job,
+    disable_job,
+    list_jobs,
+    remove_job,
+    show_job,
+    update_job,
+)
 
 
 def test_job_actions_cover_list_show_add_update_disable_and_remove(tmp_path) -> None:

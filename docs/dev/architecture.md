@@ -19,9 +19,11 @@ Top-level layout:
   not import a capability. Adding a module here is a recorded decision;
 - `libs/runtime/` composes the deterministic first-party provider set and owns
   every adapter that joins two capabilities;
-- `libs/sdk/` exposes the typed `Xcron` client for embedders and CLI use; and
-- `libs/actions/` is a compatibility import facade for the previous action
-  paths.
+- `libs/sdk/` exposes the typed `Xcron` client for embedders and CLI use.
+
+There is no flat action namespace. Every use case is reached through the `api`
+of the module that owns it, so the import says who is responsible for the
+answer.
 
 The dependency direction is:
 
@@ -76,8 +78,6 @@ Rules:
   connection today, has idempotent `close()`, rejects use after close, and does
   not import CLI/output code. See [sdk.md](sdk.md) for its public surface and
   lifecycle contract.
-- `libs/actions` preserves compatibility for current callers while code moves;
-  it must not grow new business logic.
 - Packaged resources ship inside the module that reads them:
   `libs/capabilities/manifest/resources/schemas/` and
   `libs/shared/resources/logging/`. There is no shared `xcron_resources`
@@ -351,10 +351,10 @@ can keep the same external contract and internal separation of concerns.
 
 ## Migration compatibility
 
-`xcron_libs.actions` remains an import-compatible facade for the prior action
-module paths. `xcron_libs.services`, `xcron_libs.infra`, and `xcron_resources`
-are not part of that promise and no longer exist. Their contents moved to the
-module that owns each decision:
+None. `xcron_libs.actions`, `xcron_libs.services`, `xcron_libs.infra`, and
+`xcron_resources` have all been deleted; the actions facade was the last one and
+was time-boxed from the day it was created. Their contents moved to the module
+that owns each decision:
 
 | Former path | New owner |
 | --- | --- |
@@ -381,6 +381,24 @@ remove; keeping a shim would have preserved exactly that.
 `xcron` console script targets `xcron_cli.typer_app:run`. `apps/cli` therefore
 does not have a second `pyproject.toml`. Packaged data ships inside the module
 that reads it, so there is no third top-level distribution package.
+
+One distribution, two dependency sets. The mandatory set is what the library
+half needs — `PyYAML`, `jsonschema`, `pydantic`, `structlog`, and `xcfg` — and
+the terminal renderers (`typer`, `rich`, `python-toon`) live in a `cli` extra.
+An embedder installs `xcron` and gets the SDK; anyone who wants the command
+installs `xcron[cli]`. This is a dependency boundary, not a distribution
+boundary: the split is only meaningful because no file under `libs/` may import
+a renderer, which the architecture tests enforce. Both packages carry a
+`py.typed` marker, so an embedder's type checker sees the annotations that are
+already there.
+
+`tests/test_packaging.py` reads `pyproject.toml` as data and compares it with
+the tree: the declared package list must equal the discovered one, every
+packaged resource pattern must match a real file, and the mandatory dependency
+set must stay disjoint from the renderers. `scripts/verify-wheel.sh` covers what
+static reading cannot — it builds, installs the plain wheel into a clean
+environment and proves no renderer is present, then installs `xcron[cli]` and
+runs the console script.
 
 The CLI channel, native SDK, capability implementation, and packaged runtime
 resources share one version, dependency graph, and release lifecycle. Splitting
@@ -411,7 +429,7 @@ Implemented prototype components:
   backend-native detail
 - nested `jobs` CLI group for manifest-side job management
 - capability-owned workspace, manifest, reconciliation, jobs, operations, and
-  agent-hook use cases, with legacy `libs/actions` import shims
+  agent-hook use cases, each reached only through its own `api`
 - a marked workspace (`marker.toml`) resolved by walking up from the working
   directory, and layered settings composed once in the composition root
 - explicit `cron`/`launchd` scheduler registry and backend-neutral deployment

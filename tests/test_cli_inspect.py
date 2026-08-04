@@ -3,7 +3,7 @@ from __future__ import annotations
 import textwrap
 
 from xcron_cli.main import main
-from xcron_libs.actions.apply_project import apply_project
+from xcron_libs.capabilities.reconciliation.api import apply_project
 
 
 def test_inspect_prints_artifact_wrapper_and_log_paths_for_cron(tmp_path, monkeypatch, capsys) -> None:
