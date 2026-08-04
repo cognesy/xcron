@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from xcron_libs.capabilities.agent_hooks.api import (
+from xcron.capabilities.agent_hooks.api import (
     install_agent_hooks,
     record_session_end,
     status_agent_hooks,

@@ -635,6 +635,81 @@ that only compares defaults is a check that both channels agree about nothing.
 Verification: full suite, installed-wheel smoke under both import roots, and a
 grep proving no first-party module uses the old roots.
 
+### Phase 8 result (2026-08-04)
+
+Done, all three steps, with one substitution on step 2.
+
+**The import root is now `xcron`.** `libs/` became `src/xcron/` and `apps/cli/`
+became `src/xcron/channels/cli/`, so the two old roots — `xcron_libs` and
+`xcron_cli` — are gone as import names. They existed because `pyproject.toml`
+mapped them onto the two top-level directories, which made the repository layout
+the public API: moving a file between `libs/` and `apps/` was a breaking change
+for anyone importing it, and two names implied two distributions where there was
+always one. `[tool.setuptools.package-dir]` now maps the empty prefix to `src/`,
+and the console script targets `xcron.channels.cli.typer_app:run`.
+
+**Aliasing, not re-export.** Step 2 says "re-export shims". A re-exporting
+`__init__.py` cannot work here, because callers write
+`from xcron_libs.capabilities.jobs.api import list_jobs` and Python resolves
+that submodule through the import system, not through the parent's namespace.
+`src/xcron/_deprecated_aliases.py` installs a meta-path finder instead, so
+`xcron_libs.sdk.client` **is** `xcron.sdk.client` — the same module object.
+Module-level state, `isinstance`, and `monkeypatch.setattr` therefore behave
+identically under either name, which a copy would not have given.
+
+The finder goes at the *front* of `sys.meta_path`. Appended, it loses: the alias
+root's package `__path__` leads back to the real directory, so `PathFinder`
+reaches it first and loads a second copy of `client.py` under the old name — two
+module objects for one file, the exact failure aliasing exists to prevent. That
+is negative N3 below, and it is the one bug this phase actually had.
+
+The finder deliberately does not intercept the two roots themselves, only their
+submodules. `src/xcron_libs/__init__.py` and `src/xcron_cli/__init__.py` are
+real files, and letting them execute is what emits the `DeprecationWarning`;
+aliasing the roots too would have silenced the warning for whichever root was
+imported second. `xcron_resources` was deleted in Phase 6 and needs no shim — it
+stays in the forbidden list instead.
+
+**Removal is one deletion.** Two `__init__.py` files and
+`src/xcron/_deprecated_aliases.py`. `test_the_deprecated_roots_ship_but_hold_no_code`
+keeps it that way by asserting each shim directory contains nothing but its
+`__init__.py`.
+
+Contract changes follow from the collapse to one root. "No terminal below the
+channel boundary" and "nothing below the channel boundary knows a channel
+exists" could previously say `source_modules = ["xcron_libs"]`, because the
+channel was a different root package. The channel is now a subpackage, and
+`forbidden` has no exclusion syntax, so both contracts name the library half by
+listing its six members. A new top-level subpackage has to be added there by
+hand, which is the intended friction. `tests/architecture/test_layer_boundaries.py`
+makes the same substitution: "the library half" is every file under
+`src/xcron/` that is not under `src/xcron/channels/`.
+
+`py.typed` went from two markers to one. The channel had its own while it was a
+separate distribution package; as `xcron.channels.cli` it is covered by the root
+marker, and a second one would have been dead weight that a later reader would
+have taken for a rule. A test now asserts the tree holds exactly one.
+
+- `./scripts/verify-core.sh`: `lint-imports` (7 contracts kept) then 317 passed
+  (was 305 — 8 alias cases and 4 packaging ones).
+- CLI golden: 36/36 files byte-identical to the Phase 0 baseline, eighth
+  consecutive phase.
+- `./scripts/verify-wheel.sh`: both environments pass, and both now exercise
+  both import roots — `xcron_libs` in the library-only environment, `xcron_cli`
+  in the CLI one, because reaching the latter pulls in Typer.
+- Planted negatives, tree restored after each: a library module importing the
+  channel (Import Linter *and* the AST lane), first-party code importing
+  `xcron_libs` (both lanes again), the alias finder appended instead of
+  inserted (5 identity failures), a stray second `py.typed`, and a package
+  dropped from the declared list.
+
+**A process note.** `git checkout <file>` reverted a file to its *staged*
+content, which for a `git mv`-ed file is the pre-rename original — silently
+undoing the Phase 8 rewrite of `src/xcron/sdk/client.py` while a negative was
+being restored. The suite caught it, but the general rule from Phase 6 now has a
+second case: during a rename, stage the tree before planting anything, or revert
+by inverse edit rather than by `git checkout`.
+
 ## Phase 9 — plane map, parity matrix, and documentation
 
 1. Fill [05-plane-map.md](05-plane-map.md) against the implemented code and

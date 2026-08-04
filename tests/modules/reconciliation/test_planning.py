@@ -4,12 +4,12 @@ import textwrap
 
 import pytest
 
-from xcron_libs.capabilities.reconciliation.api import apply_project
-from xcron_libs.capabilities.reconciliation.api import plan_project
-from xcron_libs.capabilities.reconciliation.api import validate_project
-from xcron_libs.capabilities.reconciliation.domain import DeployedJobState, ProjectState
-from xcron_libs.capabilities.reconciliation.domain import PlanChangeKind
-from xcron_libs.capabilities.reconciliation.state_store import save_project_state
+from xcron.capabilities.reconciliation.api import apply_project
+from xcron.capabilities.reconciliation.api import plan_project
+from xcron.capabilities.reconciliation.api import validate_project
+from xcron.capabilities.reconciliation.domain import DeployedJobState, ProjectState
+from xcron.capabilities.reconciliation.domain import PlanChangeKind
+from xcron.capabilities.reconciliation.state_store import save_project_state
 
 
 def _make_every_project(tmp_path, every_value: str):

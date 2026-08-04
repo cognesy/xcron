@@ -125,15 +125,16 @@ state for the managed jobs it owns.
 
 The project should use a consistent top-level structure:
 
-- `./apps/`
-  - runnable and deployable thin shells
-  - for `xcron`, this primarily means CLI commands
+- `./src/xcron/channels/`
+  - runnable and deployable thin shells, one package per channel
+  - for `xcron`, this primarily means the CLI
   - in other systems, this could include REST API servers, web apps, queue
     workers, or other executable entrypoints
-- `./libs/`
-  - reusable application code used by apps
-  - includes actions, services, helpers, domain logic, renderers, planners,
-    backends, and supporting utilities
+- `./src/xcron/`
+  - the library half: capabilities, domain logic, configuration, runtime
+    composition, and the SDK
+  - a capability owns its own services, planners, and backend adapters; there
+    is no shared bucket for them
 - `./resources/`
   - static and semi-static assets required by the system
   - includes data files, configs, schemas, templates, migrations, and similar
@@ -208,7 +209,8 @@ Service responsibilities:
 Thin shells translate external inputs into action parameters and invoke actions
 with the required context.
 
-For `xcron`, thin shells are primarily CLI commands in `./apps/`.
+For `xcron`, thin shells are primarily CLI commands in
+`./src/xcron/channels/cli/`.
 
 In broader systems, thin shells could also include:
 
@@ -230,10 +232,12 @@ backend reconciliation logic, or domain rules.
 
 ## Architectural Expectations
 
-- CLI commands live under `./apps/` and should be minimal shells around actions
-- Core use cases live as actions under `./libs/`
-- Backend integrations and reusable capabilities live as services under
-  `./libs/`
+- CLI commands live under `./src/xcron/channels/cli/` and should be minimal
+  shells around a capability's public surface
+- Core use cases live inside the capability that owns the decision, under
+  `./src/xcron/capabilities/<module>/`, reached only through its `api`
+- Backend integrations live inside the capability that defines the port they
+  implement, not in a shared services directory
 - Config schemas, templates, example YAML files, and similar assets live under
   `./resources/`
 - Human documentation lives under `./docs/`

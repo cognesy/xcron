@@ -34,19 +34,19 @@ import importlib.resources as resources
 import sys
 from pathlib import Path
 
-import xcron_libs
-from xcron_libs.sdk.client import Xcron
+import xcron
+from xcron.sdk.client import Xcron
 
 # PEP 561: without this marker every embedder's type checker treats the
-# installed package as untyped, no matter how annotated the source is.
-for package in ("xcron_libs", "xcron_cli"):
-    assert resources.files(package).joinpath("py.typed").is_file(), package
+# installed package as untyped, no matter how annotated the source is. One
+# marker at the root now covers the channel too, which is a subpackage.
+assert resources.files("xcron").joinpath("py.typed").is_file()
 
 # Packaged data ships inside the module that reads it.
 for package, name in (
-    ("xcron_libs.capabilities.manifest.resources.schemas", "schedules.schema.yaml"),
-    ("xcron_libs.configuration.resources.config", "config.default.yaml"),
-    ("xcron_libs.shared.resources.logging", None),
+    ("xcron.capabilities.manifest.resources.schemas", "schedules.schema.yaml"),
+    ("xcron.configuration.resources.config", "config.default.yaml"),
+    ("xcron.shared.resources.logging", None),
 ):
     entries = list(resources.files(package).iterdir())
     assert entries, package
@@ -64,14 +64,32 @@ for forbidden in ("typer", "rich", "toon"):
     raise AssertionError(f"{forbidden} is installed in a library-only environment")
 
 # Packages that were deleted must not be resurrected by a stale build tree.
-for gone in ("xcron_libs.actions", "xcron_libs.services", "xcron_libs.infra", "xcron_resources"):
+for gone in ("xcron.actions", "xcron.services", "xcron.infra", "xcron_resources"):
     try:
         __import__(gone)
     except ImportError:
         continue
     raise AssertionError(f"{gone} still ships in the wheel")
 
+# Phase 8 renamed the import root. The old names ship for one release as
+# aliases, and an alias resolving to a *different* module object would hand an
+# old caller a second copy of module-level state. `xcron_cli` is checked in the
+# cli environment below, because reaching it pulls in Typer.
+import warnings
+
+with warnings.catch_warnings(record=True) as caught:
+    warnings.simplefilter("always")
+    import xcron_libs
+    import xcron_libs.sdk.client
+
+assert xcron_libs.sdk.client is xcron.sdk.client
+assert xcron_libs.Xcron is Xcron
+assert [w for w in caught if issubclass(w.category, DeprecationWarning)], (
+    "the deprecated root must announce itself"
+)
+
 print("    imports, resources, and markers OK; no channel dependency present")
+print("    the library import root resolves under both names")
 PY
 
 echo "==> cli install"
@@ -81,5 +99,13 @@ VIRTUAL_ENV="$WORK/cli" uv pip install --quiet "$WHEEL[cli]"
 "$WORK/cli/bin/xcron" --help >/dev/null
 "$WORK/cli/bin/xcron" jobs --help >/dev/null
 echo "    console script runs"
+
+VIRTUAL_ENV="$WORK/cli" uv run --no-project python - <<'PY'
+import xcron.channels.cli.typer_app
+import xcron_cli.typer_app
+
+assert xcron_cli.typer_app is xcron.channels.cli.typer_app
+print("    the channel import root resolves under both names")
+PY
 
 echo "OK"

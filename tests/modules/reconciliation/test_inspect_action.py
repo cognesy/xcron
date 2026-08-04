@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import textwrap
 
-from xcron_libs.capabilities.reconciliation.api import inspect_job
-from xcron_libs.capabilities.reconciliation.api import validate_project
-from xcron_libs.capabilities.reconciliation.api import SchedulerRegistry
-from xcron_libs.capabilities.reconciliation.contracts import SchedulerInspection
-from xcron_libs.capabilities.reconciliation.domain import ProjectState, StatusKind
+from xcron.capabilities.reconciliation.api import inspect_job
+from xcron.capabilities.reconciliation.api import validate_project
+from xcron.capabilities.reconciliation.api import SchedulerRegistry
+from xcron.capabilities.reconciliation.contracts import SchedulerInspection
+from xcron.capabilities.reconciliation.domain import ProjectState, StatusKind
 
 
 def test_inspect_job_builds_launchd_raw_detail_sections(tmp_path) -> None:

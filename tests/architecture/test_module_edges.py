@@ -16,6 +16,7 @@ from tests.architecture.scanner import (
     DECLARED_MODULE_EDGES,
     ISOLATED_MODULES,
     REPOSITORY_ROOT,
+    SOURCE_ROOT,
     imported_modules,
     module_owner,
     source_files,
@@ -44,7 +45,7 @@ def test_scheduler_adapters_do_not_import_a_use_case_or_the_sdk() -> None:
     assert BACKEND_MODULES, "no scheduler adapters found"
     for module in BACKEND_MODULES:
         imported = imported_modules(module)
-        assert not any(name.startswith("xcron_libs.sdk") for name in imported), module
+        assert not any(name.startswith("xcron.sdk") for name in imported), module
 
 
 def test_scheduler_adapters_depend_on_the_port_not_the_use_cases() -> None:
@@ -69,8 +70,8 @@ def test_scheduler_adapters_depend_on_the_port_not_the_use_cases() -> None:
 
 def test_reconciliation_owns_its_scheduler_adapters() -> None:
     """Phase 3 dissolved `libs/services/backends`; it must not come back."""
-    assert not (REPOSITORY_ROOT / "libs" / "services" / "backends").exists()
-    assert not (REPOSITORY_ROOT / "libs" / "domain" / "diffing.py").exists()
+    assert not (SOURCE_ROOT / "services" / "backends").exists()
+    assert not (SOURCE_ROOT / "domain" / "diffing.py").exists()
 
     module_root = CAPABILITY_ROOT / "reconciliation"
     for relative in (
@@ -99,7 +100,7 @@ def test_reconciliation_reports_outcomes_through_a_port_it_owns() -> None:
         for imported in imported_modules(path):
             assert not imported.startswith(f"{CAPABILITY_PACKAGE}.operations"), path
 
-    composition = REPOSITORY_ROOT / "libs" / "runtime" / "composition.py"
+    composition = SOURCE_ROOT / "runtime" / "composition.py"
     imported = imported_modules(composition)
     assert f"{CAPABILITY_PACKAGE}.operations.api" in imported
     assert f"{CAPABILITY_PACKAGE}.reconciliation.contracts" in imported
@@ -110,7 +111,7 @@ def test_the_metrics_store_has_exactly_one_writing_module() -> None:
     operations_root = CAPABILITY_ROOT / "operations"
     writers = {
         path
-        for path in source_files("libs")
+        for path in source_files("src/xcron")
         if "MetricsService" in path.read_text(encoding="utf-8")
     }
     assert writers, "the metrics store disappeared; update this contract"

@@ -22,8 +22,8 @@ from pathlib import Path
 
 import pytest
 
-from xcron_libs.capabilities.reconciliation.contracts import DeployedJobState, ProjectState
-from xcron_libs.capabilities.reconciliation.state_store import (
+from xcron.capabilities.reconciliation.contracts import DeployedJobState, ProjectState
+from xcron.capabilities.reconciliation.state_store import (
     STATE_FILENAME,
     load_project_state,
     resolve_project_state_path,

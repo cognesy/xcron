@@ -7,7 +7,7 @@ from importlib.metadata import PackageNotFoundError, version as distribution_ver
 
 from typer.testing import CliRunner
 
-from xcron_cli.typer_app import app
+from xcron.channels.cli.typer_app import app
 
 
 runner = CliRunner()
@@ -43,7 +43,7 @@ def test_version_is_a_project_and_backend_free_liveness_probe(monkeypatch) -> No
     def fail_if_opened(*args, **kwargs):
         raise AssertionError("--version must not open the SDK or scheduler")
 
-    monkeypatch.setattr("xcron_cli.typer_app._open_client", fail_if_opened)
+    monkeypatch.setattr("xcron.channels.cli.typer_app._open_client", fail_if_opened)
 
     result = runner.invoke(app, ["--version"])
 
@@ -55,7 +55,7 @@ def test_version_survives_missing_distribution_metadata(monkeypatch) -> None:
     def missing_distribution(_name: str) -> str:
         raise PackageNotFoundError
 
-    monkeypatch.setattr("xcron_cli.typer_app.distribution_version", missing_distribution)
+    monkeypatch.setattr("xcron.channels.cli.typer_app.distribution_version", missing_distribution)
 
     result = runner.invoke(app, ["--version"])
 

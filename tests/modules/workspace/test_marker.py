@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from xcron_libs.capabilities.workspace.api import (
+from xcron.capabilities.workspace.api import (
     MARKER_FILENAME,
     MARKER_KIND,
     MARKER_SCHEMA,
@@ -22,7 +22,7 @@ from xcron_libs.capabilities.workspace.api import (
     resolve_workspace,
     write_marker,
 )
-from xcron_libs.capabilities.workspace.contracts import (
+from xcron.capabilities.workspace.contracts import (
     MalformedMarkerError,
     UnsupportedMarkerSchemaError,
     WorkspaceMarker,

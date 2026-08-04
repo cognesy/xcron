@@ -9,10 +9,10 @@ import sys
 
 import pytest
 
-from xcron_libs import ClientClosedError, HookError, Xcron
-from xcron_libs.capabilities.agent_hooks.contracts import ExecutableNotFoundError
-from xcron_libs.capabilities.reconciliation.api import SchedulerRegistry
-from xcron_libs.capabilities.reconciliation.contracts import PlanChange, PlanChangeKind, ProjectState
+from xcron import ClientClosedError, HookError, Xcron
+from xcron.capabilities.agent_hooks.contracts import ExecutableNotFoundError
+from xcron.capabilities.reconciliation.api import SchedulerRegistry
+from xcron.capabilities.reconciliation.contracts import PlanChange, PlanChangeKind, ProjectState
 
 
 def _write_project(root: Path) -> Path:
@@ -119,7 +119,7 @@ def test_apply_preserves_injected_backend_name_for_schedule_errors(tmp_path: Pat
 def test_sdk_modules_do_not_import_cli_or_renderers() -> None:
     sdk_dir = Path(__file__).resolve().parents[1] / "libs" / "sdk"
     forbidden = (
-        "xcron_cli",
+        "xcron.channels.cli",
         "typer",
         "rich",
     )
@@ -143,7 +143,7 @@ def test_sdk_modules_do_not_import_cli_or_renderers() -> None:
 def test_sdk_translates_agent_hooks_failures(monkeypatch, tmp_path: Path) -> None:
     import importlib
 
-    hooks_module = importlib.import_module("xcron_libs.sdk.hooks")
+    hooks_module = importlib.import_module("xcron.sdk.hooks")
 
     def fail(*_args, **_kwargs):
         raise ExecutableNotFoundError("missing xcron")
@@ -160,9 +160,9 @@ def test_importing_public_sdk_does_not_load_cli_or_response_modules() -> None:
             sys.executable,
             "-c",
             (
-                "import sys; import xcron_libs; "
-                "forbidden = {'typer', 'xcron_cli', "
-                "'xcron_cli.responses'}; "
+                "import sys; import xcron; "
+                "forbidden = {'typer', 'xcron.channels.cli', "
+                "'xcron.channels.cli.responses'}; "
                 "loaded = forbidden.intersection(sys.modules); "
                 "assert not loaded, sorted(loaded)"
             ),

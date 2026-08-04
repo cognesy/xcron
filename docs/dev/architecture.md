@@ -6,20 +6,20 @@ to a declared leaf; there is no shared services drawer left to put things in.
 
 Top-level layout:
 
-- `apps/cli/` contains the thin Typer/output channel;
-- `libs/capabilities/` contains capability-owned use cases: `workspace`,
+- `src/xcron/channels/cli/` contains the thin Typer/output channel;
+- `src/xcron/capabilities/` contains capability-owned use cases: `workspace`,
   `manifest`, `reconciliation`, `jobs`, `operations`, and `agent_hooks`;
-- `libs/configuration/` is a leaf that owns how settings are composed out of
+- `src/xcron/configuration/` is a leaf that owns how settings are composed out of
   packaged defaults, config files, and the environment. It is the only importer
   of `xcfg` and depends on no capability;
-- `libs/domain/` is a leaf of manifest value types, normalization, and
+- `src/xcron/domain/` is a leaf of manifest value types, normalization, and
   identities; desired-vs-deployed diffing belongs to the reconciliation module;
-- `libs/shared/` is a strict leaf: structlog wiring, logging configuration, and
+- `src/xcron/shared/` is a strict leaf: structlog wiring, logging configuration, and
   the packaged logging resource. It holds no workflow, persists nothing, and may
   not import a capability. Adding a module here is a recorded decision;
-- `libs/runtime/` composes the deterministic first-party provider set and owns
+- `src/xcron/runtime/` composes the deterministic first-party provider set and owns
   every adapter that joins two capabilities;
-- `libs/sdk/` exposes the typed `Xcron` client for embedders and CLI use.
+- `src/xcron/sdk/` exposes the typed `Xcron` client for embedders and CLI use.
 
 There is no flat action namespace. Every use case is reached through the `api`
 of the module that owns it, so the import says who is responsible for the
@@ -28,12 +28,12 @@ answer.
 The dependency direction is:
 
 ```text
-apps/cli -> xcron_libs.Xcron -> module api/contracts -> module internals
+src/xcron/channels/cli -> xcron.Xcron -> module api/contracts -> module internals
 runtime  -> explicit scheduler registry -> module-owned scheduler adapters
 runtime  -> OutcomeRecorder adapter -> operations.api
 adapters -> reconciliation ports + reconciliation domain
 runtime  -> configuration.api -> the one resolved Settings value
-every module -> libs/domain, libs/shared          (leaves only)
+every module -> src/xcron/domain, src/xcron/shared          (leaves only)
 ```
 
 The only permitted cross-module edges are:
@@ -46,13 +46,13 @@ reconciliation -> workspace.api, manifest.api
 ```
 
 `reconciliation -> operations` is deliberately absent. Reconciliation reports
-what it did through an `OutcomeRecorder` port; `libs/runtime/composition.py`
+what it did through an `OutcomeRecorder` port; `src/xcron/runtime/composition.py`
 supplies the adapter that calls `operations.api.record_outcome`. That keeps
 `metrics.json` to a single writing module and makes the cross-capability flow
 one named contract instead of two capabilities sharing a file.
 
 Settings follow the same shape. No capability reads `os.environ` for a tunable
-value: `libs/runtime/composition.py` calls `configuration.api.load_settings`
+value: `src/xcron/runtime/composition.py` calls `configuration.api.load_settings`
 once per invocation and hands the resolved `Settings` down as a value. The
 composed order, later winning, is packaged default → user config → workspace
 `config.yaml` → environment variable → explicit argument. Only identity
@@ -67,7 +67,7 @@ Rules:
   `Output`, and chooses exit codes. It does not import action implementations,
   native backend functions, or output encoders below its channel boundary.
 - Capabilities own use-case policy and return typed results. They do not import
-  `xcron_cli`, Typer, Rich, TOON, JSON, or tmux renderers.
+  `xcron.channels.cli`, Typer, Rich, TOON, JSON, or tmux renderers.
 - `reconciliation` owns the typed scheduler port, backend-neutral
   `DeploymentPlan` and `SchedulerInspection` contracts, and registry selection.
   Backends must never import an action result or the SDK.
@@ -79,20 +79,20 @@ Rules:
   not import CLI/output code. See [sdk.md](sdk.md) for its public surface and
   lifecycle contract.
 - Packaged resources ship inside the module that reads them:
-  `libs/capabilities/manifest/resources/schemas/` and
-  `libs/shared/resources/logging/`. There is no shared `xcron_resources`
+  `src/xcron/capabilities/manifest/resources/schemas/` and
+  `src/xcron/shared/resources/logging/`. There is no shared `xcron_resources`
   distribution package.
 - The CLI projection cluster lives inside the channel that owns it:
-  `apps/cli/contracts.py`, `apps/cli/mappers.py`, `apps/cli/responses.py`, and
-  `apps/cli/presenters/` (AXI field selection, TOON, tmux, and Rich help).
+  `contracts.py`, `mappers.py`, `responses.py`, and `presenters/` under
+  `xcron/channels/cli/` (AXI field selection, TOON, tmux, and Rich help).
   Authored help pages are packaged data of that channel, under
-  `apps/cli/resources/help/`. Nothing under `libs/` may import `xcron_cli` in
-  any import form; `tests/architecture/` enforces this across every file in
-  `libs/`.
+  `src/xcron/channels/cli/resources/help/`. Nothing below `xcron.channels` may
+  import a channel in any import form; `tests/architecture/` enforces this
+  across every file under `src/xcron/` that is not itself a channel.
 
 ## Verified Level 1 module
 
-`xcron_libs.capabilities.agent_hooks` is the first capability with executable
+`xcron.capabilities.agent_hooks` is the first capability with executable
 Level 1 isolation evidence. It owns the repository-local Codex and Claude hook
 lifecycle and file-format decision, including these four state paths:
 
@@ -127,7 +127,7 @@ public surface and the declared dependency edges but reaches its state through
 another module's API; each card's `isolation_level` says which.
 
 ```yaml
-module: xcron_libs.capabilities.agent_hooks
+module: xcron.capabilities.agent_hooks
 hidden_decision: >
   How repository-local Codex and Claude hooks are installed, repaired, and
   detected, including each agent's on-disk hook file format.
@@ -140,7 +140,7 @@ owned_state:
 owned_resources: [repository-local agent configuration files]
 allowed_dependencies: [stdlib]
 cross_module_flows:
-  - libs/sdk/hooks.py adapts api/contracts for the SDK and CLI
+  - src/xcron/sdk/hooks.py adapts api/contracts for the SDK and CLI
 failure_behavior: >
   Typed AgentHooksError; installation is idempotent and preserves unrelated
   payload keys.
@@ -151,7 +151,7 @@ verification:
 ```
 
 ```yaml
-module: xcron_libs.capabilities.workspace
+module: xcron.capabilities.workspace
 hidden_decision: >
   What directory an invocation is scoped to, how that directory is recognized
   as a workspace, and where every derived artifact for a project lands on this
@@ -171,11 +171,11 @@ owned_code:
   - marker.py (marker.toml read, write, and render)
   - paths.py (state root, xcron home layout, per-job runtime paths)
   - initializer.py (first-run creation; never overwrites, never deletes)
-allowed_dependencies: [libs/domain, libs/shared]
+allowed_dependencies: [src/xcron/domain, src/xcron/shared]
 cross_module_flows:
   - callee: manifest, reconciliation, operations
   - the resolved ProjectWorkspace names the workspace config file that
-    libs/configuration layers over the user config
+    src/xcron/configuration layers over the user config
 failure_behavior: >
   A missing or non-directory root raises WorkspaceResolutionError; an unknown
   platform raises UnsupportedPlatformError. An unreadable marker raises
@@ -189,7 +189,7 @@ verification:
 ```
 
 ```yaml
-module: xcron_libs.capabilities.manifest
+module: xcron.capabilities.manifest
 hidden_decision: >
   The on-disk schedule manifest format: how a manifest is discovered, parsed,
   schema- and semantics-validated, hashed, and edited in place.
@@ -201,7 +201,7 @@ owned_resources:
   - the manifest identity hashes and WRAPPER_RENDERER_VERSION
 owned_code:
   - _loader.py, _schema.py, _editor.py, _hashes.py
-allowed_dependencies: [workspace.api, libs/domain, libs/shared]
+allowed_dependencies: [workspace.api, src/xcron/domain, src/xcron/shared]
 cross_module_flows:
   - callee: jobs, reconciliation
 failure_behavior: >
@@ -214,7 +214,7 @@ verification:
 ```
 
 ```yaml
-module: xcron_libs.configuration
+module: xcron.configuration
 hidden_decision: >
   How a Settings value is composed: which layers exist, in what order they win,
   and that xcfg is the machinery underneath.
@@ -226,7 +226,7 @@ owned_resources:
   - the settings environment variables (ENV_SETTINGS)
 allowed_dependencies: [xcfg, pydantic, stdlib]
 cross_module_flows:
-  - libs/runtime/composition.py is the only caller; capabilities receive the
+  - src/xcron/runtime/composition.py is the only caller; capabilities receive the
     resolved Settings as constructor values, never by importing this module
 failure_behavior: >
   Every xcfg failure is re-raised as ConfigurationError, so no dependency
@@ -239,7 +239,7 @@ verification:
 ```
 
 ```yaml
-module: xcron_libs.capabilities.jobs
+module: xcron.capabilities.jobs
 hidden_decision: >
   How a job entry is added, edited, enabled, and removed inside a schedule
   manifest while preserving the author's YAML.
@@ -250,7 +250,7 @@ owned_resources: [manifest job list]
 allowed_dependencies:
   - manifest.api, manifest.contracts
   - reconciliation.api, reconciliation.contracts
-  - libs/domain, libs/shared
+  - src/xcron/domain, src/xcron/shared
 cross_module_flows:
   - validates through reconciliation.api.validate_project before every mutation
   - every manifest write goes through manifest.api; jobs never touches the file
@@ -266,7 +266,7 @@ verification:
 ```
 
 ```yaml
-module: xcron_libs.capabilities.reconciliation
+module: xcron.capabilities.reconciliation
 hidden_decision: >
   How desired manifest state is compared to actual native scheduler state and
   converged, and which artifacts xcron may claim as its own.
@@ -290,7 +290,7 @@ owned_code:
 allowed_dependencies:
   - workspace.api, workspace.contracts
   - manifest.api, manifest.contracts
-  - libs/domain, libs/shared
+  - src/xcron/domain, src/xcron/shared
 cross_module_flows:
   - SchedulerBackend is an inbound port; adapters are module-private
   - callee: OutcomeRecorder port, wired to operations by the composition root
@@ -306,7 +306,7 @@ verification:
 ```
 
 ```yaml
-module: xcron_libs.capabilities.operations
+module: xcron.capabilities.operations
 hidden_decision: >
   Where wrapper logs and runtime counters live, and what clearing or resetting
   them means.
@@ -322,10 +322,10 @@ owned_code:
 allowed_dependencies:
   - workspace.api, workspace.contracts
   - reconciliation.api, reconciliation.contracts
-  - libs/shared
+  - src/xcron/shared
 cross_module_flows:
   - resolves the project through reconciliation.api.validate_project
-  - caller: reconciliation, via the OutcomeRecorder adapter in libs/runtime
+  - caller: reconciliation, via the OutcomeRecorder adapter in src/xcron/runtime
 failure_behavior: >
   Clearing defaults to dry_run=true; an unresolvable project returns
   valid=false with the underlying validation attached. record_outcome never
@@ -351,17 +351,17 @@ can keep the same external contract and internal separation of concerns.
 
 ## Migration compatibility
 
-None. `xcron_libs.actions`, `xcron_libs.services`, `xcron_libs.infra`, and
+None. `xcron.actions`, `xcron.services`, `xcron.infra`, and
 `xcron_resources` have all been deleted; the actions facade was the last one and
 was time-boxed from the day it was created. Their contents moved to the module
 that owns each decision:
 
 | Former path | New owner |
 | --- | --- |
-| `services.observability`, `services.logging_config` | `libs/shared/` |
+| `services.observability`, `services.logging_config` | `src/xcron/shared/` |
 | `services.config_loader` (home, project root) | `workspace.api` |
 | `capabilities.home` (starter manifest, first run) | `workspace.api` |
-| `apps/cli/common.py` env readers (`env_path`, `env_flag`, ...) | `configuration.api` |
+| `xcron/channels/cli/common.py` env readers (`env_path`, `env_flag`, ...) | `configuration.api` |
 | `services.logging_paths`, `services.state_paths` | `workspace.api` |
 | `services.config_loader` (manifest loading) | `manifest.api` |
 | `services.schema_validator`, `services.hash_service` | `manifest.api` |
@@ -376,21 +376,33 @@ remove; keeping a shim would have preserved exactly that.
 
 ## Distribution shape
 
-`xcron` deliberately ships as one root Python distribution. The root
-`pyproject.toml` maps `apps/cli` to `xcron_cli` and `libs` to `xcron_libs`; its
-`xcron` console script targets `xcron_cli.typer_app:run`. `apps/cli` therefore
-does not have a second `pyproject.toml`. Packaged data ships inside the module
-that reads it, so there is no third top-level distribution package.
+`xcron` deliberately ships as one root Python distribution with one import
+root. The root `pyproject.toml` maps the empty package prefix to `src/`, so
+`src/xcron/channels/cli/typer_app.py` is `xcron.channels.cli.typer_app` and the
+console script targets `xcron.channels.cli.typer_app:run`. The channel does not
+have a second `pyproject.toml`. Packaged data ships inside the module that
+reads it, so there is no second top-level distribution package.
+
+The import root used to be two names, `xcron_libs` and `xcron_cli`, which named
+the repository's `libs/` and `apps/` directories. That made the layout the
+public API: moving a file between them was a breaking change for anyone
+importing it, and the two names implied two distributions where there was
+always one. Both survive one release as aliases: `xcron/_deprecated_aliases.py`
+installs a meta-path finder ahead of `PathFinder`, so `xcron_libs.sdk.client`
+*is* `xcron.sdk.client`, the same module object, and module-level state,
+`isinstance`, and `monkeypatch.setattr` behave identically under either name.
+Importing either root emits a `DeprecationWarning`. Deleting the two shim
+packages and that one file is the whole of the removal.
 
 One distribution, two dependency sets. The mandatory set is what the library
 half needs — `PyYAML`, `jsonschema`, `pydantic`, `structlog`, and `xcfg` — and
 the terminal renderers (`typer`, `rich`, `python-toon`) live in a `cli` extra.
 An embedder installs `xcron` and gets the SDK; anyone who wants the command
 installs `xcron[cli]`. This is a dependency boundary, not a distribution
-boundary: the split is only meaningful because no file under `libs/` may import
-a renderer, which the architecture tests enforce. Both packages carry a
-`py.typed` marker, so an embedder's type checker sees the annotations that are
-already there.
+boundary: the split is only meaningful because no file below
+`xcron.channels` may import a renderer, which the architecture tests enforce.
+The package carries one `py.typed` marker at its root, so an embedder's type
+checker sees the annotations that are already there, in every subpackage.
 
 `tests/test_packaging.py` reads `pyproject.toml` as data and compares it with
 the tree: the declared package list must equal the discovered one, every
@@ -410,7 +422,7 @@ Reconsider the split only if one of those operational boundaries becomes real.
 Older xpack versions warned about the root entry point and missing app-local
 metadata. Those warnings are accepted when using such a version because the
 single-distribution mapping is intentional, not accidental. Current xpack
-recognizes both the scoped root entry point and `apps/cli` package mapping as
+recognizes both the scoped root entry point and the `src/` package mapping as
 passing x-style structures: the live structure check reports six passes and no
 warnings. `.xpack/config.toml` remains the installed-wheel verification
 contract.
@@ -438,11 +450,11 @@ Implemented prototype components:
   hooks, and home APIs
 - CLI thin shells that call the SDK rather than embedding backend logic
 - Typer-based command declaration and command grouping
-- Pydantic response envelopes plus mapper helpers under `apps/cli/`
+- Pydantic response envelopes plus mapper helpers under `xcron/channels/cli/`
 - unified machine/human output rendering:
   - TOON for machine-facing output
   - Rich-backed help and human-facing presentation paths
-- resource-backed runtime help under `apps/cli/resources/help/`
+- resource-backed runtime help under `src/xcron/channels/cli/resources/help/`
 - repo-local Codex and Claude hook adapters plus install/status/repair flows
 
 Verification model:

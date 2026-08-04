@@ -5,8 +5,8 @@ import subprocess
 import textwrap
 import time
 
-from xcron_libs.capabilities.reconciliation.api import validate_project
-from xcron_libs.capabilities.reconciliation.wrapper import render_wrapper, write_wrapper
+from xcron.capabilities.reconciliation.api import validate_project
+from xcron.capabilities.reconciliation.wrapper import render_wrapper, write_wrapper
 
 
 def test_wrapper_overlap_forbid_skips_and_cleans_lock(tmp_path, monkeypatch) -> None:

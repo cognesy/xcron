@@ -6,8 +6,8 @@ import textwrap
 
 import pytest
 
-from xcron_libs.capabilities.reconciliation.api import validate_project
-from xcron_libs.capabilities.reconciliation.adapters.launchd import (
+from xcron.capabilities.reconciliation.api import validate_project
+from xcron.capabilities.reconciliation.adapters.launchd import (
     collect_launchd_project_state,
     parse_calendar_field,
     render_launchd_job,

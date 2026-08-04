@@ -3,13 +3,13 @@ from pathlib import Path
 
 import pytest
 
-from xcron_libs.capabilities.agent_hooks.api import (
+from xcron.capabilities.agent_hooks.api import (
     install_agent_hooks,
     record_session_end,
     resolve_xcron_executable,
     status_agent_hooks,
 )
-from xcron_libs.capabilities.agent_hooks.contracts import (
+from xcron.capabilities.agent_hooks.contracts import (
     ExecutableNotFoundError,
     HookInstallResult,
     HookStatusResult,
@@ -36,7 +36,7 @@ def test_agent_hooks_api_returns_module_owned_immutable_contracts(tmp_path) -> N
 
 
 def test_resolve_xcron_executable_raises_typed_error(monkeypatch) -> None:
-    from xcron_libs.capabilities.agent_hooks import api
+    from xcron.capabilities.agent_hooks import api
 
     monkeypatch.setattr(api.shutil, "which", lambda _name: None)
     with pytest.raises(ExecutableNotFoundError):

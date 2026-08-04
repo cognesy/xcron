@@ -13,21 +13,21 @@ import textwrap
 
 import pytest
 
-from xcron_libs.capabilities.reconciliation.api import (
+from xcron.capabilities.reconciliation.api import (
     SchedulerRegistry,
     apply_project,
     plan_project,
     prune_project,
     status_project,
 )
-from xcron_libs.capabilities.reconciliation.contracts import (
+from xcron.capabilities.reconciliation.contracts import (
     PlanChange,
     PlanChangeKind,
     ProjectState,
     StatusKind,
     UnknownSchedulerBackendError,
 )
-from xcron_libs.capabilities.reconciliation.ports import (
+from xcron.capabilities.reconciliation.ports import (
     DeploymentPlan,
     SchedulerInspection,
     SchedulerRuntimeOptions,

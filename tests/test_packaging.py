@@ -20,7 +20,13 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT = tomllib.loads((REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
 SETUPTOOLS = PYPROJECT["tool"]["setuptools"]
-PACKAGE_DIRS = {name: REPOSITORY_ROOT / path for name, path in SETUPTOOLS["package-dir"].items()}
+#: Phase 8 collapsed two mapped roots into one. `package-dir` now maps the empty
+#: prefix, so every declared package is a path under it.
+SOURCE_ROOT = REPOSITORY_ROOT / SETUPTOOLS["package-dir"][""]
+
+#: The public import root, and the two names it replaced.
+DISTRIBUTED_PACKAGE = "xcron"
+DEPRECATED_ROOTS = ("xcron_cli", "xcron_libs")
 
 #: Terminal rendering belongs to the CLI channel. A library that pulls Rich in
 #: has quietly decided its embedder has a terminal.
@@ -28,14 +34,13 @@ CHANNEL_DEPENDENCIES = ("typer", "rich", "python-toon")
 
 
 def _discovered_packages() -> set[str]:
-    """Every importable package under the mapped roots, by distribution name."""
+    """Every importable package under the source root, by dotted name."""
     found: set[str] = set()
-    for distribution_name, root in PACKAGE_DIRS.items():
-        for init in root.rglob("__init__.py"):
-            relative = init.parent.relative_to(root).parts
-            if any(part.startswith((".", "__")) for part in relative):
-                continue
-            found.add(".".join((distribution_name, *relative)))
+    for init in SOURCE_ROOT.rglob("__init__.py"):
+        relative = init.parent.relative_to(SOURCE_ROOT).parts
+        if any(part.startswith((".", "__")) for part in relative):
+            continue
+        found.add(".".join(relative))
     return found
 
 
@@ -53,11 +58,63 @@ def test_the_declared_package_list_equals_what_is_actually_there() -> None:
     assert set(SETUPTOOLS["packages"]) == _discovered_packages()
 
 
-def test_both_distributed_packages_ship_a_py_typed_marker() -> None:
-    """PEP 561: the marker sits in the top-level package and covers what is under it."""
-    for distribution_name, root in PACKAGE_DIRS.items():
-        assert (root / "py.typed").is_file(), distribution_name
-        assert "py.typed" in SETUPTOOLS["package-data"][distribution_name], distribution_name
+def test_the_marker_sits_in_the_one_package_that_covers_everything() -> None:
+    """PEP 561: one marker in the top-level package types every subpackage.
+
+    While the channel was its own distribution it needed its own marker. It is
+    now `xcron.channels.cli`, so a second marker would be dead weight that
+    future readers would take for a rule.
+    """
+    assert (SOURCE_ROOT / DISTRIBUTED_PACKAGE / "py.typed").is_file()
+    assert "py.typed" in SETUPTOOLS["package-data"][DISTRIBUTED_PACKAGE]
+
+    markers = {path.relative_to(SOURCE_ROOT) for path in SOURCE_ROOT.rglob("py.typed")}
+    assert markers == {Path(DISTRIBUTED_PACKAGE) / "py.typed"}, sorted(map(str, markers))
+
+
+def test_the_deprecated_roots_ship_but_hold_no_code() -> None:
+    """The shims must install, or an old `import xcron_libs` fails outright.
+
+    They must also stay empty: anything but the alias would be a second copy of
+    behaviour, which is exactly what aliasing the module tree avoids.
+    """
+    for root in DEPRECATED_ROOTS:
+        directory = SOURCE_ROOT / root
+        assert root in SETUPTOOLS["packages"], root
+        contents = sorted(path.name for path in directory.glob("*.py"))
+        assert contents == ["__init__.py"], root
+
+
+def test_first_party_code_imports_only_the_new_root() -> None:
+    """The rename is not done while anything still reaches for the old names.
+
+    Import Linter states the same rule over the module graph; this reads the
+    text, so it also catches a string in a docstring example or a resource
+    template that no import graph would ever traverse.
+    """
+    searched = (
+        *(SOURCE_ROOT / DISTRIBUTED_PACKAGE).rglob("*.py"),
+        *(REPOSITORY_ROOT / "tests").rglob("*.py"),
+        *(REPOSITORY_ROOT / "resources").rglob("*"),
+        *(REPOSITORY_ROOT / "scripts").rglob("*"),
+    )
+    #: The alias machinery has to name what it aliases, and so does this test.
+    exempt = {
+        SOURCE_ROOT / DISTRIBUTED_PACKAGE / "_deprecated_aliases.py",
+        Path(__file__).resolve(),
+        REPOSITORY_ROOT / "tests" / "test_deprecated_aliases.py",
+        REPOSITORY_ROOT / "tests" / "architecture" / "test_layer_boundaries.py",
+        # Its whole job is to install the wheel under both import roots and to
+        # prove the deleted ones did not come back.
+        REPOSITORY_ROOT / "scripts" / "verify-wheel.sh",
+    }
+
+    for path in searched:
+        if not path.is_file() or path in exempt:
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for old in (*DEPRECATED_ROOTS, "xcron_resources"):
+            assert old not in text, (path.relative_to(REPOSITORY_ROOT), old)
 
 
 def test_the_library_half_does_not_depend_on_a_terminal() -> None:
@@ -73,15 +130,14 @@ def test_the_console_script_declares_the_extra_it_needs() -> None:
     extras = PYPROJECT["project"]["optional-dependencies"]
 
     assert _requirement_names(extras["cli"]) == set(CHANNEL_DEPENDENCIES)
-    assert PYPROJECT["project"]["scripts"]["xcron"].startswith("xcron_cli.")
+    assert PYPROJECT["project"]["scripts"]["xcron"].startswith("xcron.channels.cli.")
     assert "xcron[cli]" in PYPROJECT["dependency-groups"]["dev"]
 
 
 def test_every_packaged_resource_pattern_matches_a_real_file() -> None:
     """A resource that ships nothing is a runtime failure waiting for an install."""
     for package, patterns in SETUPTOOLS["package-data"].items():
-        distribution_name, _, relative = package.partition(".")
-        directory = PACKAGE_DIRS[distribution_name].joinpath(*relative.split(".") if relative else [])
+        directory = SOURCE_ROOT.joinpath(*package.split("."))
 
         assert directory.is_dir(), package
         for pattern in patterns:

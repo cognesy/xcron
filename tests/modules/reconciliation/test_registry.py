@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from xcron_libs.capabilities.reconciliation.api import SchedulerRegistry
-from xcron_libs.capabilities.reconciliation.contracts import SchedulerRuntimeOptions
+from xcron.capabilities.reconciliation.api import SchedulerRegistry
+from xcron.capabilities.reconciliation.contracts import SchedulerRuntimeOptions
 
 
 def test_scheduler_registry_rejects_duplicate_and_unknown_identities() -> None:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import textwrap
 
-from xcron_libs.capabilities.jobs.api import (
+from xcron.capabilities.jobs.api import (
     add_job,
     disable_job,
     list_jobs,

@@ -12,7 +12,7 @@ import textwrap
 
 import pytest
 
-from xcron_libs.capabilities.manifest.api import (
+from xcron.capabilities.manifest.api import (
     add_manifest_job,
     build_manifest_hashes,
     load_project_manifest,
@@ -22,13 +22,13 @@ from xcron_libs.capabilities.manifest.api import (
     split_validation_messages,
     validate_schema,
 )
-from xcron_libs.capabilities.manifest.contracts import (
+from xcron.capabilities.manifest.contracts import (
     AmbiguousManifestSelectionError,
     ManifestJobAlreadyExistsError,
     ManifestNotFoundError,
     SCHEMA_PACKAGE,
 )
-from xcron_libs.domain import normalize_manifest
+from xcron.domain import normalize_manifest
 
 MANIFEST = """\
 version: 1
@@ -57,7 +57,7 @@ def project(tmp_path: Path) -> Path:
 def test_schema_ships_inside_the_module_that_owns_the_format() -> None:
     schema = load_schema()
 
-    assert SCHEMA_PACKAGE == "xcron_libs.capabilities.manifest.resources.schemas"
+    assert SCHEMA_PACKAGE == "xcron.capabilities.manifest.resources.schemas"
     assert schema["type"] == "object"
     assert "jobs" in schema["properties"]
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import textwrap
 
-from xcron_cli.main import main
+from xcron.channels.cli.main import main
 from tests.cli_assertions import assert_mutation_output
 
 

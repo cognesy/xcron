@@ -108,9 +108,9 @@ def test_agent_hooks_module_has_no_sibling_or_channel_imports() -> None:
     module_root = CAPABILITY_ROOT / "agent_hooks"
     own_modules = {"_claude", "_codex", "_paths", "contracts"}
     forbidden_prefixes = (
-        "xcron_cli",
-        "xcron_libs.sdk",
-        "xcron_libs.capabilities.",
+        "xcron.channels.cli",
+        "xcron.sdk",
+        "xcron.capabilities.",
         "typer",
         "rich",
     )

@@ -1,13 +1,18 @@
 # Python SDK
 
-`xcron_libs.Xcron` is the supported in-process composition surface for Python
+`xcron.Xcron` is the supported in-process composition surface for Python
 callers. The Typer CLI uses the same client, so the SDK and CLI do not maintain
 separate scheduling implementations.
+
+The import root was `xcron_libs` until the module-first isolation work landed.
+`import xcron_libs` still works for one release and emits a
+`DeprecationWarning`; every old dotted name resolves to the same module object
+under `xcron`, so the migration is a rename and nothing else.
 
 ## Opening a client
 
 ```python
-from xcron_libs import Xcron
+from xcron import Xcron
 
 with Xcron.open("/path/to/project", backend="cron") as xcron:
     plan = xcron.schedules.plan()
@@ -37,7 +42,7 @@ public client shape.
 Every public SDK method has an explicit typed return. Results are capability
 models such as `PlanProjectResult`, `JobActionResult`, and `MetricsResult`, not
 CLI response envelopes. TOON, JSON, tmux projection, field selection, stdout,
-stderr, and exit codes remain owned by `apps/cli`.
+stderr, and exit codes remain owned by `src/xcron/channels/cli`.
 
 Validation and operational failures normally return the same structured
 `valid=False` results used by the CLI. Client lifecycle failures raise
@@ -66,7 +71,8 @@ and mutation flags.
 ## Dependency boundary
 
 The SDK composes capability actions and the runtime registry only. It must not
-import Typer, `xcron_cli`, CLI response models, field contracts, or renderers;
+import Typer, `xcron.channels.cli`, CLI response models, field contracts, or
+renderers;
 architecture tests enforce that boundary. Capability results likewise remain
 independent of the CLI services facade so importing the SDK does not pull the
 output channel into application code.

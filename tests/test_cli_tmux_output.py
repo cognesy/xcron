@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import textwrap
 
-from xcron_cli.main import main
-from xcron_libs.capabilities.reconciliation.api import apply_project
+from xcron.channels.cli.main import main
+from xcron.capabilities.reconciliation.api import apply_project
 
 
 def test_status_tmux_output_is_compact(tmp_path, monkeypatch, capsys) -> None:

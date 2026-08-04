@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from xcron_libs.configuration.api import environment_overrides, load_settings
-from xcron_libs.configuration.contracts import (
+from xcron.configuration.api import environment_overrides, load_settings
+from xcron.configuration.contracts import (
     CONFIG_ENV_NAME_VAR,
     CONFIG_PATH_ENV_VAR,
     ConfigurationError,

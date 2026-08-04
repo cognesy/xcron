@@ -16,8 +16,10 @@ import ast
 from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-CAPABILITY_PACKAGE = "xcron_libs.capabilities"
-CAPABILITY_ROOT = REPOSITORY_ROOT / "libs" / "capabilities"
+CAPABILITY_PACKAGE = "xcron.capabilities"
+SOURCE_ROOT = REPOSITORY_ROOT / "src" / "xcron"
+CAPABILITY_ROOT = SOURCE_ROOT / "capabilities"
+CHANNEL_ROOT = SOURCE_ROOT / "channels" / "cli"
 
 #: Every capability that owns a decision behind an `api`/`contracts` pair.
 ISOLATED_MODULES = (
@@ -132,6 +134,6 @@ def source_files_outside(module: str) -> tuple[Path, ...]:
     owned = module_roots(module)
     return tuple(
         path
-        for path in source_files("libs", "apps", "tests")
+        for path in source_files("src/xcron", "tests")
         if not any(root in path.parents for root in owned)
     )

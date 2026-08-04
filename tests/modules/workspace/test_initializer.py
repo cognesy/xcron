@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from xcron_libs.capabilities.workspace.api import (
+from xcron.capabilities.workspace.api import (
     initialize_workspace,
     marker_path,
     read_marker,

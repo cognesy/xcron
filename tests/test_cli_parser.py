@@ -4,8 +4,8 @@ import json
 
 from typer.testing import CliRunner
 
-from xcron_cli.main import main
-from xcron_cli.typer_app import app
+from xcron.channels.cli.main import main
+from xcron.channels.cli.typer_app import app
 from tests.cli_assertions import assert_usage_error
 
 

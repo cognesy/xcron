@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import textwrap
 
-from xcron_libs.capabilities.reconciliation.api import apply_project
-from xcron_libs.capabilities.reconciliation.api import plan_project
-from xcron_libs.capabilities.reconciliation.contracts import DeploymentPlan
-from xcron_libs.capabilities.reconciliation.adapters.cron import apply_cron_plan, inspect_cron_project, prune_cron_project
+from xcron.capabilities.reconciliation.api import apply_project
+from xcron.capabilities.reconciliation.api import plan_project
+from xcron.capabilities.reconciliation.contracts import DeploymentPlan
+from xcron.capabilities.reconciliation.adapters.cron import apply_cron_plan, inspect_cron_project, prune_cron_project
 
 
 def test_cron_backend_apply_inspect_and_prune(tmp_path) -> None:

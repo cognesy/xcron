@@ -45,28 +45,34 @@ Other boundaries:
 
 ## Repo Layout
 
+One distribution, one import root: `xcron`. The directory a file lives in is
+no longer part of its public name.
+
 ```text
-apps/cli/                 Typer shell, Output class, AXI output boundary
-libs/capabilities/        one module per owned decision (see docs/dev/architecture.md)
-libs/configuration/       strict leaf: layered settings composition (the only xcfg importer)
-libs/shared/              strict leaf: structlog wiring and logging config
-libs/domain/              Pydantic domain models and normalization
-libs/runtime/             composition root and cross-capability adapters
-libs/sdk/                 the typed Xcron client
-apps/cli/resources/help/  packaged Markdown command help
-resources/templates/      AXI command/test templates
-resources/examples/       example projects (basic, disabled-job)
-resources/skills/         repo-local agent skills (use-xcron, admin-xcron)
-docs/user/                user guide
-docs/dev/                 architecture, output, logging, plans, retrospectives
-scripts/verify-core.sh    deterministic core verification entrypoint
-scripts/verify-wheel.sh   build + clean-env install check (network; run before a release)
-tests/                    pytest suite (unit + parser + CLI + observability)
-tests/architecture/       AST checks for what an import graph cannot express
-tests/modules/<module>/   module-owned lanes; only these may touch internals
-tests/parity/             the CLI and the SDK must reach the same use case
-tests/integration/        explicit-only host launchd and Docker cron harnesses
-SPEC.md                   product specification (also used as package readme)
+src/xcron/capabilities/     one module per owned decision (see docs/dev/architecture.md)
+src/xcron/channels/cli/     Typer shell, Output class, AXI output boundary
+src/xcron/channels/cli/resources/help/
+                            packaged Markdown command help
+src/xcron/configuration/    strict leaf: layered settings composition (the only xcfg importer)
+src/xcron/domain/           Pydantic domain models and normalization
+src/xcron/runtime/          composition root and cross-capability adapters
+src/xcron/sdk/              the typed Xcron client
+src/xcron/shared/           strict leaf: structlog wiring and logging config
+src/xcron_libs/             deprecated alias for `xcron`; deleted next release
+src/xcron_cli/              deprecated alias for `xcron.channels.cli`; deleted next release
+resources/templates/        AXI command/test templates
+resources/examples/         example projects (basic, disabled-job)
+resources/skills/           repo-local agent skills (use-xcron, admin-xcron)
+docs/user/                  user guide
+docs/dev/                   architecture, output, logging, plans, retrospectives
+scripts/verify-core.sh      deterministic core verification entrypoint
+scripts/verify-wheel.sh     build + clean-env install check (network; run before a release)
+tests/                      pytest suite (unit + parser + CLI + observability)
+tests/architecture/         AST checks for what an import graph cannot express
+tests/modules/<module>/     module-owned lanes; only these may touch internals
+tests/parity/               the CLI and the SDK must reach the same use case
+tests/integration/          explicit-only host launchd and Docker cron harnesses
+SPEC.md                     product specification (also used as package readme)
 ```
 
 ## Layering Contract
@@ -74,11 +80,11 @@ SPEC.md                   product specification (also used as package readme)
 Dependency direction:
 
 ```text
-apps/cli
-  -> libs/sdk (Xcron)
-  -> libs/capabilities/<module>/{api,contracts}
+src/xcron/channels/cli
+  -> src/xcron/sdk (Xcron)
+  -> src/xcron/capabilities/<module>/{api,contracts}
   -> module internals
-  -> libs/domain, libs/shared          (leaves only)
+  -> src/xcron/domain, src/xcron/shared          (leaves only)
 ```
 
 The permitted cross-module edges and the module cards live in
@@ -86,31 +92,31 @@ The permitted cross-module edges and the module cards live in
 
 Rules:
 
-- `apps/cli` parses Typer flags, resolves the project path / shared options,
-  calls exactly one action, renders typed responses through the `Output` class
-  in `apps/cli/output.py`, and sets exit codes.
-- `apps/cli` must not contain manifest IO, scheduler IO, subprocess logic, hash
-  comparisons, or domain rules.
+- `xcron.channels.cli` parses Typer flags, resolves the project path / shared
+  options, calls exactly one action, renders typed responses through the
+  `Output` class in `xcron/channels/cli/output.py`, and sets exit codes.
+- `xcron.channels.cli` must not contain manifest IO, scheduler IO, subprocess
+  logic, hash comparisons, or domain rules.
 - Every user-visible use case belongs to the module that owns its decision and
-  is reached through that module's `api`. There is no flat `libs/actions`
+  is reached through that module's `api`. There is no flat `src/xcron/actions`
   namespace: `validate_project`, `plan_project`, `status_project`,
   `apply_project`, `prune_project`, and `inspect_job` are `reconciliation`;
   the `jobs` commands are `jobs`; logs and metrics are `operations`; workspace
   initialization is `workspace`.
-- `libs/capabilities/<module>` owns one decision behind `api.py` plus
+- `src/xcron/capabilities/<module>` owns one decision behind `api.py` plus
   `contracts.py`. Nothing outside a module may import below those two files.
   `workspace` owns paths and scoping, `manifest` owns the YAML format,
   `reconciliation` owns convergence and its scheduler adapters, `jobs` owns
   job-level use cases, `operations` owns logs and metrics, `agent_hooks` owns
   the repo-local hook files.
-- `libs/shared` is a strict leaf. It may not import a capability, run a
+- `src/xcron/shared` is a strict leaf. It may not import a capability, run a
   workflow, or persist anything.
-- `libs/domain` contains Pydantic models, normalization, and qualified-id
+- `src/xcron/domain` contains Pydantic models, normalization, and qualified-id
   helpers. Domain code must not import from `apps` or from a capability.
-- `libs/configuration` is a strict leaf that composes `Settings` from packaged
+- `xcron.configuration` is a strict leaf that composes `Settings` from packaged
   defaults, config files, and the environment. It may not import a capability,
-  and only `libs/runtime` may import it.
-- `libs/runtime` composes only, and owns every adapter that joins two
+  and only `src/xcron/runtime` may import it.
+- `src/xcron/runtime` composes only, and owns every adapter that joins two
   capabilities. It resolves the workspace and loads `Settings` once per
   invocation, then passes both down as values — no capability reads
   `os.environ` for a tunable.
@@ -129,9 +135,9 @@ which the later Go rewrite is expected to preserve.
 - `tmux` is supported for selected commands such as `xcron logs` and
   `xcron inspect` views that benefit from tmux pane formatting.
 - Convert to TOON/JSON/tmux only at the output boundary. Internal logic returns
-  Pydantic response models from `apps/cli/responses.py`.
+  Pydantic response models from `src/xcron/channels/cli/responses.py`.
 - `--fields` is validated up front against the per-command `CommandContract`
-  in `apps/cli/contracts.py`. Invalid fields become structured usage
+  in `xcron/channels/cli/contracts.py`. Invalid fields become structured usage
   errors, not silent no-ops.
 - `--full` expands truncated snippet payloads in detail-heavy commands,
   primarily `inspect`.
@@ -148,12 +154,12 @@ which the later Go rewrite is expected to preserve.
 
 When changing CLI behavior, inspect and update:
 
-- `apps/cli/typer_app.py` (Typer commands and bootstrap usage-error path)
-- `apps/cli/output.py` (`Output` class, normalization, field selection)
-- `apps/cli/common.py` (shared option helpers; it reads no environment)
-- `apps/cli/contracts.py`, `apps/cli/responses.py`, `apps/cli/mappers.py`
-- `apps/cli/presenters/` (AXI, TOON, tmux, and Rich help renderers)
-- `apps/cli/resources/help/*.md` (authored runtime help)
+- `xcron/channels/cli/typer_app.py` (Typer commands, bootstrap usage-error path)
+- `xcron/channels/cli/output.py` (`Output`, normalization, field selection)
+- `xcron/channels/cli/common.py` (shared option helpers; reads no environment)
+- `xcron/channels/cli/contracts.py`, `responses.py`, and `mappers.py`
+- `xcron/channels/cli/presenters/` (AXI, TOON, tmux, and Rich help renderers)
+- `xcron/channels/cli/resources/help/*.md` (authored runtime help)
 - `tests/test_cli_*` and `tests/test_typer_cli.py`
 
 See `docs/dev/output.md` for the full output design.
@@ -378,17 +384,17 @@ execution, and `prune`. See `tests/integration/README.md`.
 - Keep tests focused on the changed layer (action, service, mapper, contract,
   renderer, backend).
 - CLI/output changes need updates in `tests/test_cli_*.py`,
-  `tests/test_typer_cli.py`, and the matching `apps/cli/contracts.py`
-  and `apps/cli/mappers.py` tests.
-- New response shapes require an `apps/cli/responses.py` model and a matching
-  `apps/cli/contracts.py` entry; both belong to the same change.
+  `tests/test_typer_cli.py`, and the matching `xcron/channels/cli/contracts.py`
+  and `xcron/channels/cli/mappers.py` tests.
+- New response shapes require an `xcron/channels/cli/responses.py` model and a
+  matching `xcron/channels/cli/contracts.py` entry; both belong to the same
+  change.
 - Backend changes need `tests/test_launchd_backend.py` /
   `tests/test_cron_backend.py` updates.
 - Wrapper / runtime-log changes need
   `tests/test_wrapper_renderer.py` and `tests/test_cli_logs.py`.
-- For documentation-only changes that touch `apps/cli/resources/help/` or
-  skills, run
-  the help and skill smoke tests (`tests/test_help_renderer.py`,
+- For documentation-only changes that touch the packaged help pages or skills,
+  run the help and skill smoke tests (`tests/test_help_renderer.py`,
   `tests/test_typer_cli.py`) and `git diff --check` at minimum.
 - Do not unconditionally invoke `launchctl` or write the user crontab from new
   tests. Use the `XCRON_MANAGE_*` and `XCRON_*_PATH` env overrides.
@@ -408,7 +414,8 @@ root; treat it as a legacy stub, not a current skill.
 When editing skills, run a help/CLI smoke and `git diff --check`. There is no
 repo-local skill validator script wired in today; do not invent one.
 
-Authored runtime help is packaged under `apps/cli/resources/help/`. The default logging
+Authored runtime help is packaged under `xcron/channels/cli/resources/help/`.
+The default logging
 config is packaged under `resources/logging/default.yaml`. Both are loaded via
 `importlib.resources` from installed wheels — keep filenames and the
 `pyproject.toml` `package-data` glob in sync.
@@ -476,7 +483,7 @@ At session end:
 4. Remove generated caches when they are not intentional artifacts:
 
    ```bash
-   find apps libs resources tests -type d -name __pycache__ -prune -exec rm -rf {} +
+   find src resources tests -type d -name __pycache__ -prune -exec rm -rf {} +
    rm -rf .pytest_cache .ruff_cache .mypy_cache
    ```
 

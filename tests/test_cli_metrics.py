@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 
-from xcron_cli.main import main
-from xcron_libs.capabilities.operations.api import record_outcome
+from xcron.channels.cli.main import main
+from xcron.capabilities.operations.api import record_outcome
 
 
 def test_metrics_show_and_reset_use_xcron_home(tmp_path, monkeypatch, capsys) -> None:

@@ -6,9 +6,9 @@ import textwrap
 import structlog
 from typer.testing import CliRunner
 
-from xcron_cli.typer_app import app
-from xcron_libs.shared.logging_config import LOGGING_PACKAGE, load_logging_config
-import xcron_libs.shared.observability as observability
+from xcron.channels.cli.typer_app import app
+from xcron.shared.logging_config import LOGGING_PACKAGE, load_logging_config
+import xcron.shared.observability as observability
 
 
 runner = CliRunner()
@@ -52,7 +52,7 @@ def _make_project(tmp_path):
 def test_packaged_logging_config_sets_required_defaults() -> None:
     config = load_logging_config(apply_env=False)
 
-    assert LOGGING_PACKAGE == "xcron_libs.shared.resources.logging"
+    assert LOGGING_PACKAGE == "xcron.shared.resources.logging"
     assert config.logger == "xcron"
     assert config.destination == "stderr"
     assert config.format == "auto"

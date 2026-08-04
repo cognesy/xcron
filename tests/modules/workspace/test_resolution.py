@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from xcron_libs.capabilities.workspace.api import (
+from xcron.capabilities.workspace.api import (
     find_workspace_root,
     is_workspace,
     resolve_manifest_dir,
@@ -19,7 +19,7 @@ from xcron_libs.capabilities.workspace.api import (
     resolve_workspace,
     write_marker,
 )
-from xcron_libs.capabilities.workspace.contracts import WorkspaceResolutionError
+from xcron.capabilities.workspace.contracts import WorkspaceResolutionError
 
 
 def _workspace(root: Path) -> Path:

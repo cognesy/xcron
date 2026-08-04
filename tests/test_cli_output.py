@@ -7,8 +7,8 @@ import click
 import pytest
 import typer
 
-from xcron_cli.output import Output
-from xcron_cli.responses import (
+from xcron.channels.cli.output import Output
+from xcron.channels.cli.responses import (
     HomeJobsSummary,
     HomeResponse,
     InspectResponse,

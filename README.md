@@ -82,11 +82,16 @@ python-toon for compact agent-facing output — are a `cli` extra. Install
 `xcron[cli]` for the command; plain `xcron` is the embeddable library half and
 pulls in no terminal.
 
-The code is organized around thin CLI shells in `apps/cli/` and one module per
-owned decision in `libs/capabilities/` — `workspace`, `manifest`,
+Everything importable lives under one root, `xcron`, in `src/`. The code is
+organized around a thin CLI shell in `xcron.channels.cli` and one module per
+owned decision in `xcron.capabilities` — `workspace`, `manifest`,
 `reconciliation`, `jobs`, `operations`, and `agent_hooks` — each behind an
-`api.py`/`contracts.py` surface. Value types live in `libs/domain/`, settings in
-`libs/configuration/`, logging in the `libs/shared/` leaf, and composition in
-`libs/runtime/`, which resolves the workspace and the settings once per
-invocation and hands both down as values. Packaged data
-ships inside the module that reads it; examples and skills stay in `resources/`.
+`api.py`/`contracts.py` surface. Value types live in `xcron.domain`, settings
+in `xcron.configuration`, logging in the `xcron.shared` leaf, and composition
+in `xcron.runtime`, which resolves the workspace and the settings once per
+invocation and hands both down as values. Packaged data ships inside the module
+that reads it; examples and skills stay in `resources/`.
+
+The import root was `xcron_libs`/`xcron_cli` until recently. Both still work
+for one release and emit a `DeprecationWarning`; each old name resolves to the
+same module object under `xcron`.

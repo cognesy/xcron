@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from xcron_libs.capabilities.workspace.api import (
+from xcron.capabilities.workspace.api import (
     MANIFEST_DIR,
     ensure_runtime_dirs,
     resolve_manifest_dir,
@@ -23,11 +23,11 @@ from xcron_libs.capabilities.workspace.api import (
     runtime_event_log_path_for_wrapper,
     runtime_log_paths_for_wrapper,
 )
-from xcron_libs.capabilities.workspace.contracts import (
+from xcron.capabilities.workspace.contracts import (
     UnsupportedPlatformError,
     WorkspaceResolutionError,
 )
-from xcron_libs.domain.models import (
+from xcron.domain.models import (
     NormalizedExecutionConfig,
     NormalizedJob,
     OverlapPolicy,

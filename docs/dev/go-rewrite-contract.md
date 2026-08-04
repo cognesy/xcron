@@ -45,9 +45,10 @@ breaking change process.
 
 ## Architectural Contract
 
-- thin shells stay in `apps/`
-- use-case actions are capability-owned under `libs/capabilities/` and reached
-  only through each module's `api`; the flat `libs/actions/` facade is gone
+- thin shells stay in `src/xcron/channels/<channel>/`, one package per way
+  into the product
+- use-case actions are capability-owned under `src/xcron/capabilities/` and reached
+  only through each module's `api`; the flat `src/xcron/actions/` facade is gone
 - every file belongs to one module or to a declared leaf; native scheduler
   adapters live inside the module that defines the port they implement
 - scheduler adapters consume a backend-neutral contract and never import a

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from xcron_libs.capabilities.operations.api import record_outcome, reset_metrics, show_metrics
+from xcron.capabilities.operations.api import record_outcome, reset_metrics, show_metrics
 
 
 def test_recording_an_outcome_creates_and_accumulates_the_store(
