@@ -369,6 +369,86 @@ New cases required: explicit/env/parent precedence; a directory containing
 idempotency and non-destructive `--force`; two workspaces open in one process;
 every adjacent configuration-precedence edge; unknown keys rejected.
 
+### Phase 5 result (2026-08-04)
+
+Done. All five steps landed, with four judgement calls recorded below and one
+user-visible consequence that is not a refactor at all.
+
+**The minimum supported Python is now 3.11.** This follows from decision 2
+("Adopt XCFG") rather than from anything in the plan: xcfg requires ≥3.10, and
+3.11 additionally gives the marker a stdlib `tomllib` instead of a dependency.
+`requires-python` moved `>=3.9` → `>=3.11`, `.python-version` was added, and
+`tests/integration/docker/cron.Dockerfile` moved to `python:3.11-slim-bookworm`.
+Two consequences arrived with the newer floor: click 8.2 removed
+`CliRunner(mix_stderr=...)`, and click 8.2 sends *argument-parser* usage errors
+to stderr instead of stdout. The second is a real behaviour change and is
+reported as one — xcron's own structured usage errors still go to stdout, exit
+codes are unchanged, and the 36-file golden CLI surface is byte-identical.
+`tests/test_cli_parser.py` now asserts the new split (stdout clean, prose on
+stderr) instead of the old one.
+
+**xcfg is pinned by PEP 508 direct reference, not `[tool.uv.sources]`.** A
+clean-venv wheel install failed because sources are checkout-local and do not
+travel in wheel metadata, while xcfg is on no index. `dependencies` now carries
+`xcfg @ git+https://github.com/cognesy/xcfg@v0.5.0` and `[tool.uv.sources]` is
+gone. The tag is pinned because xcfg's layer order *is* xcron's observable
+configuration contract.
+
+**Settings moved to `configuration`; identity stayed with `workspace`.** Step 3
+calls `loader.py` "the only XCFG and `os.environ` reader", which cannot be
+literally true: `XCRON_HOME` and `XCRON_PROJECT` select *which* config files are
+read, so they cannot themselves come from one. The invariant that was actually
+closed is narrower and enforceable — five named files may name `os.environ`,
+pinned by set equality, and only `libs/runtime/composition.py` may import
+`configuration.api`. `log_level`/`log_format` were dropped from `Settings` for
+the same reason in the other direction: logging bootstraps before a runtime
+exists, and making the `shared` leaf import `configuration` would invert the
+dependency.
+
+**`create_unscoped` / `open_unscoped` were added.** Step 4's "resolve workspace
+and settings once in `XcronRuntime`" would have made `xcron init` resolve a
+workspace before creating one — failing on precisely the machine that needs the
+command. `init`, `metrics show`, and `metrics reset` now open unscoped clients;
+everything else resolves normally.
+
+**Durable-format tests live in the owner's lane.** Step 5's contract tests were
+first written under `tests/contracts/`, which required `load_project_state` on
+reconciliation's public surface. Widening a module's surface for a test is the
+opposite of what the surface is for, so they moved to
+`tests/modules/reconciliation/test_durable_state_format.py` and pin the literal
+key sets rather than round-tripping through the writer.
+
+`capabilities/home` is gone, folded into `workspace/initializer.py`;
+`libs/actions/init_home.py` is now an alias shim. The initializer never
+overwrites or deletes: a legacy `resources/schedules` is adopted in place and
+reported as `migrated_paths`, and anything it cannot claim is reported as a
+conflict. `apps/cli/common.py` lost `env_path`, `env_string`, `env_flag`,
+`resolve_project_path`, and its `import os` — the CLI no longer reads the
+environment at all.
+
+A latent bug in `libs/shared/observability.py` surfaced under the new tests and
+was fixed: `configure_logging` compared `id(sys.stderr)`, and CPython reuses
+addresses after GC, so a replaced stream could be mistaken for the configured
+one. It now holds the stream object, passes `force=True` to `basicConfig`, and
+binds `PrintLoggerFactory(file=stream)`.
+
+- `./scripts/verify-core.sh`: 282 passed (was 231 — 61 new module-lane cases
+  across `workspace` marker/resolution/initializer, `configuration` layering,
+  and reconciliation's durable format, plus 5 new structural contracts).
+- CLI golden: 36/36 files byte-identical to the Phase 0 baseline, fifth
+  consecutive phase.
+- Planted negatives: five violations (an undeclared `os.environ` reader, a
+  second xcfg importer, a capability importing `configuration`, a settings load
+  outside the composition root, a resurrected `home` module) each failed the
+  intended test.
+- Hand checks: packaged-default → workspace → env precedence; all five legacy
+  false spellings (`0`, `false`, `False`, `no`, `NO`) still turning a flag off
+  while `yes` turns it on; walking-up resolution from `ws/src/deep`; a
+  byte-exact `marker.toml` from `xcron init`; the missing-marker warning on
+  stderr with stdout still parseable JSON.
+- Clean-venv wheel: installs from the direct reference, ships
+  `config.default.yaml`, and contains no `xcron_libs.capabilities.home`.
+
 ## Phase 6 — packaging, typing, and shim removal
 
 1. Add `py.typed` to every distributed package and include it in package data.

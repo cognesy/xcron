@@ -36,12 +36,20 @@ jobs:
     return project
 
 
-def test_parser_usage_errors_are_rendered_to_stdout_in_structured_form() -> None:
+def test_parser_usage_errors_exit_two_and_keep_stdout_clean() -> None:
+    """The argument parser's own message is diagnostic text, so it goes to stderr.
+
+    xcron's *structured* usage errors still go to stdout — the three tests
+    below pin that. This one covers the case xcron never got to render: click
+    rejected the arguments before any command ran, so there is no payload to
+    put on stdout and a caller parsing it must not find prose there.
+    """
     result = runner.invoke(app, ["jobs", "add"])
 
     assert result.exit_code == 2
-    assert "Usage:" in result.stdout
-    assert "Error" in result.stdout
+    assert result.stdout == ""
+    assert "Usage:" in result.stderr
+    assert "Error" in result.stderr
 
 
 def test_invalid_top_level_fields_return_structured_usage_error(tmp_path, capsys) -> None:

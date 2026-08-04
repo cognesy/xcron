@@ -49,6 +49,7 @@ Other boundaries:
 apps/cli/                 Typer shell, Output class, AXI output boundary
 libs/actions/             compatibility import shims for the old action paths
 libs/capabilities/        one module per owned decision (see docs/dev/architecture.md)
+libs/configuration/       strict leaf: layered settings composition (the only xcfg importer)
 libs/shared/              strict leaf: structlog wiring and logging config
 libs/domain/              Pydantic domain models and normalization
 libs/runtime/             composition root and cross-capability adapters
@@ -101,8 +102,13 @@ Rules:
   workflow, or persist anything.
 - `libs/domain` contains Pydantic models, normalization, and qualified-id
   helpers. Domain code must not import from `apps` or from a capability.
+- `libs/configuration` is a strict leaf that composes `Settings` from packaged
+  defaults, config files, and the environment. It may not import a capability,
+  and only `libs/runtime` may import it.
 - `libs/runtime` composes only, and owns every adapter that joins two
-  capabilities.
+  capabilities. It resolves the workspace and loads `Settings` once per
+  invocation, then passes both down as values — no capability reads
+  `os.environ` for a tunable.
 - Keep arrays/dicts at the YAML/output boundary; use typed Pydantic models
   internally.
 
@@ -167,14 +173,17 @@ files, real crontab entries). Use `status` for ground truth.
 plists, crontab, or wrappers, `plan` and `status` will disagree — trust
 `status`.
 
-Default project root is `~/.xcron` (overridable via `--project` or
-`XCRON_HOME`). Default backend is platform-derived: `launchd` on macOS, `cron`
-on Linux. Override with `--backend launchd|cron`.
+The project root is resolved in this order: `--project`, then `XCRON_PROJECT`,
+then the nearest directory at or above the working directory that holds a
+`marker.toml`, then `XCRON_HOME` or `~/.xcron`. A directory without a marker
+still works this release but logs an advisory warning on stderr; `xcron init`
+writes the marker. Default backend is platform-derived: `launchd` on macOS,
+`cron` on Linux. Override with `--backend launchd|cron`.
 
 Standard workflow:
 
 ```bash
-uv run xcron init          # initialize ~/.xcron/ with a starter manifest
+uv run xcron init          # mark a workspace / initialize ~/.xcron/
 uv run xcron validate
 uv run xcron plan
 uv run xcron apply
@@ -224,11 +233,29 @@ Backend artifacts:
 - cron: a managed block in the user crontab, delimited by
   `# BEGIN XCRON project=<id>` … `# END XCRON project=<id>`.
 
+Settings are composed once per invocation, later layers winning:
+
+```text
+packaged config.default.yaml
+  -> ${XDG_CONFIG_HOME:-~/.config}/xcron/config.yaml   (user)
+  -> <project-root>/config.yaml                        (workspace)
+  -> XCRON_* environment variables
+  -> explicit CLI flag / SDK argument
+```
+
+`XCRON_CONFIG` names a single file that *replaces* the packaged base instead of
+layering over it; `XCRON_ENV` selects a packaged named environment. The identity
+variables `XCRON_HOME` and `XCRON_PROJECT` are not settings — they choose which
+config files get read, so they stay with the workspace module.
+
 Useful environment overrides (covered by tests; safe for isolated runs):
 
 | Variable | Purpose |
 | --- | --- |
-| `XCRON_HOME` | default project root used when `--project` is not passed |
+| `XCRON_HOME` | xcron home used as the project root of last resort |
+| `XCRON_PROJECT` | project root used when `--project` is not passed |
+| `XCRON_CONFIG` | explicit settings file, replacing the packaged default |
+| `XCRON_ENV` | named packaged environment layered over the default |
 | `XCRON_STATE_ROOT` | derived state root (wrappers, logs, locks, project-state.json) |
 | `XCRON_LAUNCH_AGENTS_DIR` | plist output directory (launchd) |
 | `XCRON_LAUNCHCTL_DOMAIN` | launchd domain (e.g. `gui/501`) |

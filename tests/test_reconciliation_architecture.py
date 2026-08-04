@@ -15,7 +15,6 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 CAPABILITY_PACKAGE = "xcron_libs.capabilities"
 ISOLATED_MODULES = (
     "agent_hooks",
-    "home",
     "jobs",
     "manifest",
     "operations",
@@ -224,7 +223,6 @@ def test_agent_hooks_module_has_no_sibling_or_channel_imports() -> None:
 # the adapter. Adding an entry here is an architectural decision, not a fix.
 DECLARED_MODULE_EDGES = {
     "agent_hooks": frozenset(),
-    "home": frozenset({"workspace"}),
     "jobs": frozenset({"manifest", "reconciliation"}),
     "manifest": frozenset({"workspace"}),
     "operations": frozenset({"reconciliation", "workspace"}),
@@ -478,6 +476,98 @@ def test_the_metrics_store_has_exactly_one_writing_module() -> None:
     assert all(path.is_relative_to(operations_root) for path in writers), sorted(
         str(path) for path in writers
     )
+
+
+CONFIGURATION_ROOT = REPOSITORY_ROOT / "libs" / "configuration"
+CONFIGURATION_MODULES = tuple(sorted(CONFIGURATION_ROOT.rglob("*.py")))
+
+#: Files allowed to name `os.environ` or `os.getenv`. Everything else receives
+#: settings as values from the composition root.
+DECLARED_ENVIRONMENT_READERS = {
+    # Composes settings from the published `XCRON_*` variables.
+    "libs/configuration/loader.py",
+    # Workspace identity selects *which* config files are read, so it cannot
+    # itself come from one.
+    "libs/capabilities/workspace/resolver.py",
+    # Passes the environment it was handed down to the two above.
+    "libs/runtime/composition.py",
+    # Logging bootstraps before a runtime exists; see the Phase 5 record.
+    "libs/shared/logging_config.py",
+    # Emitted into generated wrapper scripts as text, not read in this process.
+    "libs/capabilities/reconciliation/wrapper.py",
+}
+
+
+def test_only_declared_modules_read_the_environment() -> None:
+    """Settings are resolved once. A second reader is free to disagree.
+
+    Adding a file here is an architectural decision: it means some code below
+    the composition root now has its own opinion about the environment, and
+    two opinions is exactly the bug this phase removed.
+    """
+    readers = set()
+    for root in ("libs", "apps"):
+        for path in sorted((REPOSITORY_ROOT / root).rglob("*.py")):
+            source = path.read_text(encoding="utf-8")
+            if "os.environ" in source or "os.getenv" in source:
+                readers.add(str(path.relative_to(REPOSITORY_ROOT)))
+
+    assert readers == DECLARED_ENVIRONMENT_READERS
+
+
+def test_the_configuration_library_has_exactly_one_importer_of_xcfg() -> None:
+    """`xcfg` is a mechanism, reached through xcron's own surface or not at all."""
+    importers = {
+        str(path.relative_to(REPOSITORY_ROOT))
+        for root in ("libs", "apps", "tests")
+        for path in sorted((REPOSITORY_ROOT / root).rglob("*.py"))
+        if any(name == "xcfg" or name.startswith("xcfg.") for name in _imported_modules(path))
+    }
+
+    assert importers == {"libs/configuration/loader.py"}
+
+
+def test_configuration_is_a_leaf_that_no_capability_depends_on() -> None:
+    """Settings arrive as values. A capability importing the loader would be
+    resolving configuration a second time, at a different moment, from a
+    different environment."""
+    forbidden_prefixes = (
+        "xcron_cli",
+        "xcron_libs.actions",
+        "xcron_libs.capabilities",
+        "xcron_libs.runtime",
+        "xcron_libs.sdk",
+    )
+    assert CONFIGURATION_MODULES, "libs/configuration must not be empty"
+    for path in CONFIGURATION_MODULES:
+        imported = _imported_modules(path)
+        assert not any(name.startswith(forbidden_prefixes) for name in imported), path
+
+    for path in sorted((REPOSITORY_ROOT / "libs" / "capabilities").rglob("*.py")):
+        offenders = sorted(
+            name for name in _imported_modules(path) if name.startswith("xcron_libs.configuration")
+        )
+        assert not offenders, (path.relative_to(REPOSITORY_ROOT), offenders)
+
+
+def test_the_composition_root_is_the_only_place_settings_are_loaded() -> None:
+    loaders = {
+        str(path.relative_to(REPOSITORY_ROOT))
+        for root in ("libs", "apps")
+        for path in sorted((REPOSITORY_ROOT / root).rglob("*.py"))
+        if "xcron_libs.configuration.api" in _imported_modules(path)
+    }
+
+    assert loaders == {"libs/runtime/composition.py"}
+
+
+def test_the_home_module_folded_into_workspace() -> None:
+    """One module owned workspace layout and another owned creating one."""
+    assert not (REPOSITORY_ROOT / "libs" / "capabilities" / "home").exists()
+
+    workspace_root = REPOSITORY_ROOT / "libs" / "capabilities" / "workspace"
+    for relative in ("initializer.py", "marker.py", "paths.py", "resolver.py"):
+        assert (workspace_root / relative).is_file(), relative
 
 
 def test_legacy_action_modules_are_capability_import_shims() -> None:

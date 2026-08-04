@@ -1,0 +1,18 @@
+# xcron's packaged default settings.
+#
+# This is the base layer. A user config (~/.config/xcron/config.yaml), a
+# workspace config (<workspace>/config.yaml), and the XCRON_* environment
+# variables merge over it in that order; a command-line flag beats all of them.
+#
+# Unset path settings mean "derive the platform default", which is the
+# workspace module's job -- not a value to hard-code here.
+
+state_root: null
+launch_agents_dir: null
+launchctl_domain: null
+crontab_path: null
+
+# Whether a backend may touch the live scheduler. Turning these off makes
+# `apply` write files and stop, which is what the container lanes need.
+manage_launchctl: true
+manage_crontab: true

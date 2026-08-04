@@ -3,29 +3,46 @@
 Only *where* derived state lives is decided here. What is written into it
 belongs to the module that owns the file: reconciliation owns
 ``project-state.json`` and wrapper scripts, operations owns logs and metrics.
+
+Nothing in this module reads the environment. ``XCRON_STATE_ROOT`` is a
+setting, and settings are composed once by :mod:`xcron_libs.configuration` and
+handed down as a value — a second reader here would be free to disagree with
+the one the runtime resolved.
 """
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 import sys
 
-from xcron_libs.capabilities.workspace.contracts import RuntimePaths, UnsupportedPlatformError
+from xcron_libs.capabilities.workspace.contracts import (
+    RuntimePaths,
+    UnsupportedPlatformError,
+    XcronHome,
+)
+from xcron_libs.capabilities.workspace.marker import MARKER_FILENAME
+from xcron_libs.capabilities.workspace.resolver import MANIFEST_DIR, resolve_xcron_home
 from xcron_libs.domain.models import NormalizedJob
 
+#: The published name of the state-root setting, kept here because this is the
+#: module that defines what it means.
 STATE_ENV_VAR = "XCRON_STATE_ROOT"
+
+#: Filename of the starter manifest an initialized workspace carries.
+DEFAULT_MANIFEST_NAME = "default.yaml"
 
 
 def resolve_state_root(
     platform: str | None = None,
     home: Path | None = None,
-    env: dict[str, str] | None = None,
+    override: Path | str | None = None,
 ) -> Path:
-    """Resolve the machine-local derived state root for xcron."""
-    env_map = os.environ if env is None else env
-    override = env_map.get(STATE_ENV_VAR)
-    if override:
+    """Resolve the machine-local derived state root for xcron.
+
+    `override` is the composed setting, already resolved by the caller. When it
+    is absent the platform default applies.
+    """
+    if override is not None:
         return Path(override).expanduser().resolve()
 
     selected_home = Path.home() if home is None else Path(home)
@@ -33,6 +50,23 @@ def resolve_state_root(
     if selected.startswith(("darwin", "linux")):
         return (selected_home / ".xcron").resolve()
     raise UnsupportedPlatformError(f"unsupported platform for xcron prototype: {selected}")
+
+
+def xcron_home_layout(root: Path | None = None, *, env: dict[str, str] | None = None) -> XcronHome:
+    """The layout of the per-user xcron home.
+
+    One statement of where the home's own files sit, so the metrics store, the
+    initializer, and the CLI cannot each derive a slightly different answer.
+    """
+    home = Path(root).expanduser().resolve() if root is not None else resolve_xcron_home(env)
+    schedules_dir = home / MANIFEST_DIR
+    return XcronHome(
+        root=home,
+        schedules_dir=schedules_dir,
+        manifest_path=schedules_dir / DEFAULT_MANIFEST_NAME,
+        metrics_path=(home / "metrics" / "metrics.json").resolve(),
+        marker_path=home / MARKER_FILENAME,
+    )
 
 
 def resolve_project_state_dir(project_id: str, state_root: Path | None = None) -> Path:
@@ -82,3 +116,16 @@ def runtime_event_log_path_for_wrapper(wrapper_path: Path) -> Path:
     project_dir = wrappers_dir.parent
     artifact_id = wrapper_path.stem
     return project_dir / "logs" / f"{artifact_id}.events.jsonl"
+
+
+__all__ = [
+    "DEFAULT_MANIFEST_NAME",
+    "STATE_ENV_VAR",
+    "ensure_runtime_dirs",
+    "resolve_project_state_dir",
+    "resolve_runtime_paths",
+    "resolve_state_root",
+    "runtime_event_log_path_for_wrapper",
+    "runtime_log_paths_for_wrapper",
+    "xcron_home_layout",
+]

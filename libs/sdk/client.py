@@ -40,11 +40,15 @@ class Xcron:
         launch_agents_dir: str | Path | None = None,
         launchctl_domain: str | None = None,
         crontab_path: str | Path | None = None,
-        manage_launchctl: bool = True,
-        manage_crontab: bool = True,
+        manage_launchctl: bool | None = None,
+        manage_crontab: bool | None = None,
         scheduler_registry: SchedulerRegistry | None = None,
     ) -> Xcron:
-        """Open a client with explicit scope, host overrides, and providers."""
+        """Open a client with explicit scope, host overrides, and providers.
+
+        Every override defaults to ``None`` meaning "unstated", so the composed
+        settings decide. Stating a value here always wins over configuration.
+        """
         return cls(
             runtime=XcronRuntime.create(
                 project_path,
@@ -60,6 +64,17 @@ class Xcron:
                 scheduler_registry=scheduler_registry,
             ),
         )
+
+    @classmethod
+    def open_unscoped(cls, *, scheduler_registry: SchedulerRegistry | None = None) -> Xcron:
+        """Open a client for operations that are not about a workspace.
+
+        Workspace initialization and the metrics counters both live in the
+        xcron home. Resolving a workspace for them would make `init` fail on a
+        machine that does not have one yet, which is the only machine that
+        needs it.
+        """
+        return cls(runtime=XcronRuntime.create_unscoped(scheduler_registry=scheduler_registry))
 
     def close(self) -> None:
         """Close idempotently; the current runtime owns no persistent resource."""

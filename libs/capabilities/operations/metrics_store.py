@@ -14,10 +14,10 @@ def utc_timestamp() -> str:
 
 
 def resolve_metrics_path(env: dict[str, str] | None = None) -> Path:
-    from xcron_libs.capabilities.workspace.api import resolve_xcron_home
+    """Where the counters live. The layout itself belongs to `workspace`."""
+    from xcron_libs.capabilities.workspace.api import xcron_home_layout
 
-    root = resolve_xcron_home(env=env)
-    return (root / "metrics" / "metrics.json").resolve()
+    return xcron_home_layout(env=env).metrics_path
 
 
 class MetricsService:

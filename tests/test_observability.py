@@ -11,7 +11,7 @@ from xcron_libs.shared.logging_config import LOGGING_PACKAGE, load_logging_confi
 import xcron_libs.shared.observability as observability
 
 
-runner = CliRunner(mix_stderr=False)
+runner = CliRunner()
 
 
 def _reset_observability() -> None:

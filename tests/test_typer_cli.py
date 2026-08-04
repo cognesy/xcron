@@ -85,7 +85,7 @@ def test_typer_plan_command_uses_existing_action_and_output_contract(tmp_path) -
 
 def test_unknown_backend_is_a_structured_usage_error(tmp_path) -> None:
     project = _make_project(tmp_path)
-    structured_runner = CliRunner(mix_stderr=False)
+    structured_runner = CliRunner()
 
     result = structured_runner.invoke(
         app,

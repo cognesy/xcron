@@ -11,10 +11,6 @@ from typing import Iterator, List, NoReturn, Optional
 import typer
 
 from xcron_cli.common import (
-    env_flag,
-    env_path,
-    env_string,
-    resolve_project_path,
     validation_details,
 )
 from xcron_cli.output import Output
@@ -127,18 +123,17 @@ def _open_client(
     backend: str | None = None,
     out: Output | None = None,
 ) -> Iterator[Xcron]:
-    """Open one SDK client from the shared CLI options and environment."""
+    """Open one SDK client from the shared CLI options.
+
+    Host settings are not read here. The runtime composes them once from
+    packaged defaults, the user and workspace config files, and the ``XCRON_*``
+    environment — a second reader in the channel could only disagree with it.
+    """
     try:
         with Xcron.open(
-            resolve_project_path(project),
+            project,
             schedule_name=schedule,
             backend=backend,
-            state_root=env_path("XCRON_STATE_ROOT"),
-            launch_agents_dir=env_path("XCRON_LAUNCH_AGENTS_DIR"),
-            launchctl_domain=env_string("XCRON_LAUNCHCTL_DOMAIN"),
-            crontab_path=env_path("XCRON_CRONTAB_PATH"),
-            manage_launchctl=env_flag("XCRON_MANAGE_LAUNCHCTL", default=True),
-            manage_crontab=env_flag("XCRON_MANAGE_CRONTAB", default=True),
         ) as client:
             yield client
     except UnknownBackendError as exc:
@@ -209,7 +204,7 @@ def init_command(
 ) -> None:
     """Initialize ~/.xcron/ with a starter schedule manifest."""
     out = _build_output(ctx, "init", output_format)
-    with Xcron.open() as client:
+    with Xcron.open_unscoped() as client:
         result = client.home.initialize()
     out.print(InitResponse(
         kind="init",
@@ -777,7 +772,7 @@ def metrics_show_command(
 ) -> None:
     """Show persisted xcron runtime metrics."""
     out = _build_output(ctx, "metrics.show", output_format)
-    with Xcron.open() as client:
+    with Xcron.open_unscoped() as client:
         result = client.operations.show_metrics()
     out.print(map_metrics_response(result))
 
@@ -790,7 +785,7 @@ def metrics_reset_command(
 ) -> None:
     """Reset persisted xcron runtime metrics."""
     out = _build_output(ctx, "metrics.reset", output_format)
-    with Xcron.open() as client:
+    with Xcron.open_unscoped() as client:
         result = client.operations.reset_metrics()
     out.print(map_metrics_reset_response(result))
 

@@ -70,18 +70,21 @@ scope.
 
 ## Tech Stack
 
-- Python 3.9+
+- Python 3.11+
 - Typer for the CLI
 - Rich for human-facing text
 - Pydantic for typed command responses and domain models
 - PyYAML and jsonschema for schedule manifests
 - python-toon for compact agent-facing output
 - structlog for structured logging
+- xcfg for layered configuration composition
 - pytest for tests
 
 The code is organized around thin CLI shells in `apps/cli/` and one module per
 owned decision in `libs/capabilities/` — `workspace`, `manifest`,
-`reconciliation`, `jobs`, `operations`, `agent_hooks`, and `home` — each behind
-an `api.py`/`contracts.py` surface. Value types live in `libs/domain/`, logging
-in the `libs/shared/` leaf, and composition in `libs/runtime/`. Packaged data
+`reconciliation`, `jobs`, `operations`, and `agent_hooks` — each behind an
+`api.py`/`contracts.py` surface. Value types live in `libs/domain/`, settings in
+`libs/configuration/`, logging in the `libs/shared/` leaf, and composition in
+`libs/runtime/`, which resolves the workspace and the settings once per
+invocation and hands both down as values. Packaged data
 ships inside the module that reads it; examples and skills stay in `resources/`.

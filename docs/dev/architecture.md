@@ -8,7 +8,10 @@ Top-level layout:
 
 - `apps/cli/` contains the thin Typer/output channel;
 - `libs/capabilities/` contains capability-owned use cases: `workspace`,
-  `manifest`, `reconciliation`, `jobs`, `operations`, `agent_hooks`, and `home`;
+  `manifest`, `reconciliation`, `jobs`, `operations`, and `agent_hooks`;
+- `libs/configuration/` is a leaf that owns how settings are composed out of
+  packaged defaults, config files, and the environment. It is the only importer
+  of `xcfg` and depends on no capability;
 - `libs/domain/` is a leaf of manifest value types, normalization, and
   identities; desired-vs-deployed diffing belongs to the reconciliation module;
 - `libs/shared/` is a strict leaf: structlog wiring, logging configuration, and
@@ -27,13 +30,13 @@ apps/cli -> xcron_libs.Xcron -> module api/contracts -> module internals
 runtime  -> explicit scheduler registry -> module-owned scheduler adapters
 runtime  -> OutcomeRecorder adapter -> operations.api
 adapters -> reconciliation ports + reconciliation domain
+runtime  -> configuration.api -> the one resolved Settings value
 every module -> libs/domain, libs/shared          (leaves only)
 ```
 
 The only permitted cross-module edges are:
 
 ```text
-home           -> workspace.api
 manifest       -> workspace.api
 jobs           -> manifest.api, reconciliation.api
 operations     -> workspace.api, reconciliation.api
@@ -45,6 +48,16 @@ what it did through an `OutcomeRecorder` port; `libs/runtime/composition.py`
 supplies the adapter that calls `operations.api.record_outcome`. That keeps
 `metrics.json` to a single writing module and makes the cross-capability flow
 one named contract instead of two capabilities sharing a file.
+
+Settings follow the same shape. No capability reads `os.environ` for a tunable
+value: `libs/runtime/composition.py` calls `configuration.api.load_settings`
+once per invocation and hands the resolved `Settings` down as a value. The
+composed order, later winning, is packaged default → user config → workspace
+`config.yaml` → environment variable → explicit argument. Only identity
+variables — `XCRON_HOME` and `XCRON_PROJECT`, which select *which* files are
+read — stay with `workspace`, because they cannot themselves come from a config
+file. `tests/test_reconciliation_architecture.py` pins the exact set of files
+allowed to name `os.environ`.
 
 Rules:
 
@@ -109,9 +122,9 @@ of what each module hides, owns, and is allowed to depend on;
 initializer, and the `allowed_dependencies` line of every card.
 
 `agent_hooks`, `reconciliation`, `manifest`, `workspace`, and `operations` own
-their implementation outright and have module-owned test lanes. `home` and
-`jobs` have the public surface and the declared dependency edges but reach their
-state through another module's API; each card's `isolation_level` says which.
+their implementation outright and have module-owned test lanes. `jobs` has the
+public surface and the declared dependency edges but reaches its state through
+another module's API; each card's `isolation_level` says which.
 
 ```yaml
 module: xcron_libs.capabilities.agent_hooks
@@ -140,24 +153,35 @@ verification:
 ```yaml
 module: xcron_libs.capabilities.workspace
 hidden_decision: >
-  What directory an invocation is scoped to, where xcron's home is, and where
-  every derived artifact for a project lands on this machine.
+  What directory an invocation is scoped to, how that directory is recognized
+  as a workspace, and where every derived artifact for a project lands on this
+  machine.
 public_entrypoints: [workspace.api, workspace.contracts]
-owned_state: []          # owns the layout, not the files written into it
+owned_state:
+  - marker.toml (the workspace marker, in the project root)
+  - ~/.xcron/schedules/<starter manifest>
 owned_resources:
   - the project-root resolution precedence
-  - the XCRON_HOME and XCRON_STATE_ROOT environment contracts
+  - the marker file format and its schema version
+  - the XCRON_HOME and XCRON_PROJECT identity variables
   - the derived state tree (projects/<id>/{wrappers,logs,locks})
+  - the starter manifest template
 owned_code:
-  - resolver.py (xcron home, project root, schedules directory)
-  - paths.py (state root and per-job runtime paths)
+  - resolver.py (identity: explicit > XCRON_PROJECT > nearest marker > home)
+  - marker.py (marker.toml read, write, and render)
+  - paths.py (state root, xcron home layout, per-job runtime paths)
+  - initializer.py (first-run creation; never overwrites, never deletes)
 allowed_dependencies: [libs/domain, libs/shared]
 cross_module_flows:
-  - callee: manifest, reconciliation, operations, home
+  - callee: manifest, reconciliation, operations
+  - the resolved ProjectWorkspace names the workspace config file that
+    libs/configuration layers over the user config
 failure_behavior: >
   A missing or non-directory root raises WorkspaceResolutionError; an unknown
-  platform raises UnsupportedPlatformError. No path function creates
-  directories except ensure_runtime_dirs.
+  platform raises UnsupportedPlatformError. An unreadable marker raises
+  MalformedMarkerError and a future schema raises UnsupportedMarkerSchemaError,
+  but an absent marker is only a warning for this release. No path function
+  creates directories except ensure_runtime_dirs and initialize_workspace.
 isolation_level: 1 (surface plus owned implementation)
 verification:
   - tests/modules/workspace/ (module-owned lane)
@@ -190,24 +214,27 @@ verification:
 ```
 
 ```yaml
-module: xcron_libs.capabilities.home
+module: xcron_libs.configuration
 hidden_decision: >
-  What a first-run starter manifest contains.
-public_entrypoints: [home.api, home.contracts]
-owned_state:
-  - ~/.xcron/schedules/<starter manifest>
-owned_resources: [the starter manifest template]
-allowed_dependencies: [workspace.api, libs/shared]
+  How a Settings value is composed: which layers exist, in what order they win,
+  and that xcfg is the machinery underneath.
+public_entrypoints: [configuration.api, configuration.contracts]
+owned_state: []          # composes files, writes none
+owned_resources:
+  - resources/config/config.default.yaml (packaged base layer)
+  - the XCRON_CONFIG and XCRON_ENV selectors
+  - the settings environment variables (ENV_SETTINGS)
+allowed_dependencies: [xcfg, pydantic, stdlib]
 cross_module_flows:
-  - resolves the home directory through workspace.api
+  - libs/runtime/composition.py is the only caller; capabilities receive the
+    resolved Settings as constructor values, never by importing this module
 failure_behavior: >
-  Creating an existing home is a no-op reported as created=false; the starter
-  manifest is never overwritten.
-isolation_level: >
-  1 (surface only) - this module is 63 lines and folds into
-  workspace/initializer.py in phase 5
+  Every xcfg failure is re-raised as ConfigurationError, so no dependency
+  exception escapes the surface. Unknown keys and wrong types are rejected
+  (extra="forbid") rather than silently ignored.
+isolation_level: 1 (leaf; surface plus owned implementation)
 verification:
-  - tests/test_init_home.py
+  - tests/modules/configuration/ (module-owned lane)
   - tests/test_reconciliation_architecture.py
 ```
 
@@ -333,6 +360,8 @@ module that owns each decision:
 | --- | --- |
 | `services.observability`, `services.logging_config` | `libs/shared/` |
 | `services.config_loader` (home, project root) | `workspace.api` |
+| `capabilities.home` (starter manifest, first run) | `workspace.api` |
+| `apps/cli/common.py` env readers (`env_path`, `env_flag`, ...) | `configuration.api` |
 | `services.logging_paths`, `services.state_paths` | `workspace.api` |
 | `services.config_loader` (manifest loading) | `manifest.api` |
 | `services.schema_validator`, `services.hash_service` | `manifest.api` |
@@ -381,8 +410,10 @@ Implemented prototype components:
 - richer `inspect` results that expose normalized desired data plus
   backend-native detail
 - nested `jobs` CLI group for manifest-side job management
-- capability-owned workspace, manifest, reconciliation, jobs, operations, home,
-  and agent-hook use cases, with legacy `libs/actions` import shims
+- capability-owned workspace, manifest, reconciliation, jobs, operations, and
+  agent-hook use cases, with legacy `libs/actions` import shims
+- a marked workspace (`marker.toml`) resolved by walking up from the working
+  directory, and layered settings composed once in the composition root
 - explicit `cron`/`launchd` scheduler registry and backend-neutral deployment
   and scheduler-inspection contracts
 - embeddable `Xcron.open(...)` SDK with grouped schedules, jobs, operations,

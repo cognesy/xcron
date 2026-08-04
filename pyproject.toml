@@ -7,7 +7,7 @@ name = "xcron"
 version = "0.1.0"
 description = "Per-project schedule reconciliation prototype for native OS schedulers"
 readme = "SPEC.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license = "LicenseRef-Proprietary"
 authors = [
   { name = "Dariusz Debowczyk" }
@@ -20,6 +20,12 @@ dependencies = [
   "rich>=14.3.3",
   "structlog>=24.0,<26.0",
   "typer>=0.23.2",
+  # `xcfg` is a portfolio library, not published to any index. A PEP 508 direct
+  # reference is what makes the built wheel installable outside this checkout;
+  # a bare version specifier would resolve against PyPI and fail. The tag is
+  # pinned because the layer order xcfg implements is part of xcron's own
+  # observable configuration contract.
+  "xcfg @ git+https://github.com/cognesy/xcfg@v0.5.0",
 ]
 
 [project.optional-dependencies]
@@ -42,7 +48,6 @@ packages = [
   "xcron_libs.actions",
   "xcron_libs.capabilities",
   "xcron_libs.capabilities.agent_hooks",
-  "xcron_libs.capabilities.home",
   "xcron_libs.capabilities.jobs",
   "xcron_libs.capabilities.manifest",
   "xcron_libs.capabilities.manifest.resources",
@@ -51,6 +56,9 @@ packages = [
   "xcron_libs.capabilities.reconciliation",
   "xcron_libs.capabilities.reconciliation.adapters",
   "xcron_libs.capabilities.workspace",
+  "xcron_libs.configuration",
+  "xcron_libs.configuration.resources",
+  "xcron_libs.configuration.resources.config",
   "xcron_libs.domain",
   "xcron_libs.runtime",
   "xcron_libs.sdk",
@@ -67,6 +75,7 @@ xcron_libs = "libs"
 "xcron_cli.resources.help" = ["*.md", "jobs/*.md"]
 "xcron_cli.resources.help.jobs" = ["*.md"]
 "xcron_libs.capabilities.manifest.resources.schemas" = ["*.yaml"]
+"xcron_libs.configuration.resources.config" = ["*.yaml"]
 "xcron_libs.shared.resources.logging" = ["*.yaml"]
 
 [tool.pytest.ini_options]

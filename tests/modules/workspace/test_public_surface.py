@@ -85,11 +85,12 @@ def test_the_legacy_schedules_location_still_resolves(tmp_path: Path) -> None:
 
 
 def test_the_state_root_honours_its_override_and_rejects_unknown_platforms(tmp_path: Path) -> None:
-    assert resolve_state_root(env={"XCRON_STATE_ROOT": str(tmp_path)}) == tmp_path.resolve()
-    assert resolve_state_root("darwin", home=tmp_path, env={}) == (tmp_path / ".xcron").resolve()
+    """The override is a value, not an environment read; see `paths`."""
+    assert resolve_state_root(override=str(tmp_path)) == tmp_path.resolve()
+    assert resolve_state_root("darwin", home=tmp_path) == (tmp_path / ".xcron").resolve()
 
     with pytest.raises(UnsupportedPlatformError):
-        resolve_state_root("win32", home=tmp_path, env={})
+        resolve_state_root("win32", home=tmp_path)
 
 
 def test_runtime_paths_are_derived_from_the_project_state_directory(tmp_path: Path) -> None:

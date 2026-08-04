@@ -17,7 +17,11 @@ from xcron_libs.shared.logging_config import LoggingConfig, load_logging_config
 F = TypeVar("F", bound=Callable[..., Any])
 
 _CONFIGURED = False
-_CONFIGURED_STREAM_ID: int | None = None
+# The stream object itself, not its ``id()``. Holding the reference keeps a
+# replaced stream alive, so a later stream cannot reuse its address and be
+# mistaken for the configured one -- which leaves the handlers pointing at a
+# closed file and every subsequent log call raising.
+_CONFIGURED_STREAM: Any = None
 _CONFIGURED_LEVEL_NAME: str | None = None
 _CONFIGURED_FORMAT: str | None = None
 _CONFIGURED_CONFIG: LoggingConfig | None = None
@@ -26,18 +30,18 @@ _CONFIGURED_CONFIG: LoggingConfig | None = None
 def configure_logging() -> LoggingConfig:
     """Configure process-wide structured logging once."""
     global _CONFIGURED, _CONFIGURED_CONFIG, _CONFIGURED_FORMAT
-    global _CONFIGURED_LEVEL_NAME, _CONFIGURED_STREAM_ID
+    global _CONFIGURED_LEVEL_NAME, _CONFIGURED_STREAM
 
     config = load_logging_config()
     level_name = config.level
     level = getattr(logging, level_name, logging.INFO)
     log_format = config.format
-    stream_id = id(sys.stderr)
+    stream = sys.stderr
     if (
         _CONFIGURED
         and _CONFIGURED_LEVEL_NAME == level_name
         and _CONFIGURED_FORMAT == log_format
-        and _CONFIGURED_STREAM_ID == stream_id
+        and _CONFIGURED_STREAM is stream
         and _CONFIGURED_CONFIG == config
     ):
         return config
@@ -48,7 +52,11 @@ def configure_logging() -> LoggingConfig:
     else:
         renderer = structlog.dev.ConsoleRenderer()
 
-    logging.basicConfig(stream=sys.stderr, level=level, format="%(message)s")
+    # `force` because `basicConfig` is otherwise a no-op once the root logger
+    # has a handler, which would leave it writing to whatever stream was
+    # current the first time this ran. The guard above means we only get here
+    # when something actually changed.
+    logging.basicConfig(stream=stream, level=level, format="%(message)s", force=True)
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,
@@ -59,13 +67,13 @@ def configure_logging() -> LoggingConfig:
             renderer,
         ],
         wrapper_class=structlog.make_filtering_bound_logger(level),
-        logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
+        logger_factory=structlog.PrintLoggerFactory(file=stream),
         cache_logger_on_first_use=False,
     )
     _CONFIGURED = True
     _CONFIGURED_LEVEL_NAME = level_name
     _CONFIGURED_FORMAT = log_format
-    _CONFIGURED_STREAM_ID = stream_id
+    _CONFIGURED_STREAM = stream
     _CONFIGURED_CONFIG = config
     return config
 

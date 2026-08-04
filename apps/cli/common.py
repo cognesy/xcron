@@ -1,9 +1,12 @@
-"""Shared CLI helper functions for xcron shells."""
+"""Shared CLI helper functions for xcron shells.
+
+The environment helpers that used to live here are gone. Host settings are
+composed once by :mod:`xcron_libs.configuration` and reach the channel through
+the runtime; a CLI-local reader would be a second, competing answer.
+"""
 
 from __future__ import annotations
 
-import os
-from pathlib import Path
 from typing import Sequence
 
 from xcron_libs.capabilities.manifest.contracts import ValidationMessage
@@ -11,29 +14,6 @@ from xcron_libs.capabilities.manifest.contracts import ValidationMessage
 VALID_OUTPUT_FORMATS = ("json", "toon", "tmux")
 
 
-def resolve_project_path(value: str | None) -> Path:
-    from xcron_libs.capabilities.workspace.api import resolve_project_root
-
-    return resolve_project_root(value)
-
-
-def env_path(name: str) -> Path | None:
-    value = os.environ.get(name)
-    if not value:
-        return None
-    return Path(value).expanduser().resolve()
-
-
-def env_string(name: str) -> str | None:
-    value = os.environ.get(name)
-    return value if value else None
-
-
-def env_flag(name: str, default: bool = True) -> bool:
-    value = os.environ.get(name)
-    if value is None:
-        return default
-    return value not in {"0", "false", "False", "no", "NO"}
 def selected_output_format(value: str | None) -> str:
     normalized = (value or "toon").strip().lower()
     if normalized not in VALID_OUTPUT_FORMATS:
