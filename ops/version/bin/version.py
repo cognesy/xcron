@@ -306,6 +306,7 @@ def validate(root: Path = ROOT) -> list[Diagnostic]:
     workflow = root / RELEASE_WORKFLOW
     required_release_steps = (
         'tags:\n      - "v*"',
+        'refs/tags/$TAG:refs/tags/$TAG',
         "taiki-e/install-action@v2",
         "just version verify-release",
         "just ops workflow ci",

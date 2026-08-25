@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xcron-capability-observability-structlog"
-version = "0.1.1"
+version = "0.1.2"
 description = "Structlog observability provider for xcron"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -12,8 +12,8 @@ license = "LicenseRef-Proprietary"
 dependencies = [
   "PyYAML>=6.0,<7.0",
   "structlog>=24.0,<26.0",
-  "xcron-contracts==0.1.1",
-  "xcron-kernel==0.1.1",
+  "xcron-contracts==0.1.2",
+  "xcron-kernel==0.1.2",
 ]
 
 [project.entry-points."xcron.capabilities"]

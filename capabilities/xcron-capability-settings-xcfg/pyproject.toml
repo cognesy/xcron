@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xcron-capability-settings-xcfg"
-version = "0.1.1"
+version = "0.1.2"
 description = "Strict xcfg-backed settings provider for xcron"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "LicenseRef-Proprietary"
 dependencies = [
-  "xcron-contracts==0.1.1",
-  "xcron-kernel==0.1.1",
+  "xcron-contracts==0.1.2",
+  "xcron-kernel==0.1.2",
   "xcfg @ git+https://github.com/cognesy/xcfg@v0.5.0",
 ]
 

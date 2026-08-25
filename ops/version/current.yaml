@@ -1,7 +1,7 @@
 ---
 schema_version: 1
 product: xcron
-product_version: 0.1.1
+product_version: 0.1.2
 description: >-
   Lockstep release line for the xcron workspace. Every independently
   installable distribution and built-in capability descriptor ships at this

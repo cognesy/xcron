@@ -36,7 +36,7 @@ class XcfgSettingsProvider:
 DESCRIPTOR = CapabilityDescriptor(
     capability="settings",
     implementation="xcfg",
-    version="0.1.1",
+    version="0.1.2",
     kernel_api=">=1,<2",
     provides=CapabilityProvides(ports=("settings",), assets=("config-default",)),
     assets=(AssetDeclaration("config-default", "resources/config/config.default.yaml"),),

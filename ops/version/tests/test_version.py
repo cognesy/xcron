@@ -178,3 +178,22 @@ def test_release_workflow_requires_the_just_provisioner(tmp_path: Path) -> None:
         item.path == versioning.RELEASE_WORKFLOW and "taiki-e/install-action@v2" in item.message
         for item in diagnostics
     )
+
+
+def test_release_workflow_fetches_the_annotated_tag_ref(tmp_path: Path) -> None:
+    versioning = _versioning()
+    repository = _copied_repository(tmp_path)
+    workflow = repository / ".github/workflows/release.yml"
+    workflow.write_text(
+        workflow.read_text(encoding="utf-8").replace(
+            'refs/tags/$TAG:refs/tags/$TAG', "tag ref fetch removed"
+        ),
+        encoding="utf-8",
+    )
+
+    diagnostics = versioning.validate(repository)
+
+    assert any(
+        item.path == versioning.RELEASE_WORKFLOW and "refs/tags/$TAG:refs/tags/$TAG" in item.message
+        for item in diagnostics
+    )

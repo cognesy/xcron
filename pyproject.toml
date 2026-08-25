@@ -25,7 +25,7 @@ xcron-cli = { workspace = true }
 
 [project]
 name = "xcron"
-version = "0.1.1"
+version = "0.1.2"
 description = "Per-project schedule reconciliation prototype for native OS schedulers"
 readme = "SPEC.md"
 requires-python = ">=3.11"
@@ -37,16 +37,16 @@ authors = [
 # for every capability.  The CLI remains an opt-in channel, so an embedder gets
 # the complete programmatic surface without terminal renderers.
 dependencies = [
-  "xcron-sdk==0.1.1",
-  "xcron-capability-workspace-local==0.1.1",
-  "xcron-capability-settings-xcfg==0.1.1",
-  "xcron-capability-observability-structlog==0.1.1",
-  "xcron-capability-manifest-yaml==0.1.1",
-  "xcron-capability-scheduler-native==0.1.1",
-  "xcron-capability-jobs-manifest==0.1.1",
-  "xcron-capability-logs-local==0.1.1",
-  "xcron-capability-metrics-local==0.1.1",
-  "xcron-capability-agent-hooks-local==0.1.1",
+  "xcron-sdk==0.1.2",
+  "xcron-capability-workspace-local==0.1.2",
+  "xcron-capability-settings-xcfg==0.1.2",
+  "xcron-capability-observability-structlog==0.1.2",
+  "xcron-capability-manifest-yaml==0.1.2",
+  "xcron-capability-scheduler-native==0.1.2",
+  "xcron-capability-jobs-manifest==0.1.2",
+  "xcron-capability-logs-local==0.1.2",
+  "xcron-capability-metrics-local==0.1.2",
+  "xcron-capability-agent-hooks-local==0.1.2",
 ]
 
 [project.optional-dependencies]
@@ -54,7 +54,7 @@ dependencies = [
 # renderers. No provider or SDK module may import `xcron_cli`; the architecture
 # tests enforce that, which is what makes this split safe rather than cosmetic.
 cli = [
-  "xcron-cli==0.1.1",
+  "xcron-cli==0.1.2",
 ]
 dev = [
   "pytest>=8.0,<9.0",
@@ -67,20 +67,20 @@ dev = [
 dev = [
   "pytest>=8.0,<9.0",
   "xcron[cli]",
-  "xcron-capability-workspace-local==0.1.1",
-  "xcron-capability-settings-xcfg==0.1.1",
-  "xcron-capability-observability-structlog==0.1.1",
-  "xcron-capability-manifest-yaml==0.1.1",
-  "xcron-capability-scheduler-native==0.1.1",
-  "xcron-capability-jobs-manifest==0.1.1",
-  "xcron-capability-logs-local==0.1.1",
-  "xcron-capability-metrics-local==0.1.1",
-  "xcron-capability-agent-hooks-local==0.1.1",
-  "xcron-contracts==0.1.1",
-  "xcron-kernel==0.1.1",
-  "xcron-testing==0.1.1",
-  "xcron-sdk==0.1.1",
-  "xcron-cli==0.1.1",
+  "xcron-capability-workspace-local==0.1.2",
+  "xcron-capability-settings-xcfg==0.1.2",
+  "xcron-capability-observability-structlog==0.1.2",
+  "xcron-capability-manifest-yaml==0.1.2",
+  "xcron-capability-scheduler-native==0.1.2",
+  "xcron-capability-jobs-manifest==0.1.2",
+  "xcron-capability-logs-local==0.1.2",
+  "xcron-capability-metrics-local==0.1.2",
+  "xcron-capability-agent-hooks-local==0.1.2",
+  "xcron-contracts==0.1.2",
+  "xcron-kernel==0.1.2",
+  "xcron-testing==0.1.2",
+  "xcron-sdk==0.1.2",
+  "xcron-cli==0.1.2",
 ]
 
 [tool.setuptools]

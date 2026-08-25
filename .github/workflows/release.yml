@@ -21,6 +21,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Fetch the exact annotated tag reference
+        env:
+          TAG: ${{ github.ref_name }}
+        run: git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+
       - name: Install Python
         uses: actions/setup-python@v5
         with:
