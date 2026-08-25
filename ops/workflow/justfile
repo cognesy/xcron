@@ -1,0 +1,17 @@
+default:
+    @just --list
+
+doctor:
+    cd ../.. && uv run python ops/workflow/bin/doctor.py
+
+status:
+    cd ../.. && git status --short
+
+sync:
+    cd ../.. && uv sync
+
+ci:
+    cd ../.. && just validate
+    cd ../.. && just check
+    cd ../.. && just test
+    cd ../.. && just ops distribution wheel

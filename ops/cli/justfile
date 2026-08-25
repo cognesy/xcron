@@ -1,0 +1,11 @@
+default:
+    @just --list
+
+help:
+    cd ../.. && uv run xcron --help
+
+contract:
+    cd ../.. && uv run pytest tests/test_typer_cli.py tests/test_help_renderer.py tests/test_cli_contracts.py -q
+
+capture destination:
+    cd ../.. && ./scripts/capture-cli-golden.sh "{{ destination }}"

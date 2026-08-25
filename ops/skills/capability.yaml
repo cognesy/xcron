@@ -1,0 +1,30 @@
+$schema: ../control/schema/capability.v1.yaml
+schema_version: xcron-ops-capability/v1
+id: skills
+provides:
+  - agent-assets
+description: Discover packaged xcron skills and smoke their related help surface.
+status: active
+requires:
+  tools: [uv]
+  capabilities: [cli]
+owns:
+  - ops/skills/**
+reads:
+  - resources/skills/**
+  - src/xcron/channels/cli/resources/help/**
+  - tests/test_help_renderer.py
+  - tests/test_typer_cli.py
+generates: []
+commands:
+  - name: list
+    summary: List packaged skill entry points.
+    lane: discover
+  - name: smoke
+    summary: Run focused help and CLI discovery tests.
+    lane: check
+  - name: check
+    summary: Check packaged skill discovery and its focused smoke lane.
+    lane: check
+    aggregate: check
+skills: []

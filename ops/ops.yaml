@@ -1,0 +1,10 @@
+$schema: control/schema/ops.v1.yaml
+schema_version: xcron-ops/v1
+active:
+  operations-control: control
+  deterministic-verification: quality
+  distribution-verification: distribution
+  cli-contract: cli
+  assurance: assurance
+  agent-assets: skills
+  local-delivery: workflow

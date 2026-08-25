@@ -1,0 +1,11 @@
+default:
+    @just --list
+
+doctor:
+    cd ../.. && xqa doctor
+
+status:
+    cd ../.. && xqa status
+
+validate:
+    cd ../.. && xqa validate --all

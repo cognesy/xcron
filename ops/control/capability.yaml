@@ -1,0 +1,37 @@
+$schema: schema/capability.v1.yaml
+schema_version: xcron-ops-capability/v1
+id: control
+provides:
+  - operations-control
+description: Validate and navigate the repository operations catalogue.
+status: active
+requires:
+  tools: [uv, just]
+  capabilities: []
+owns:
+  - ops/README.md
+  - ops/ops.yaml
+  - ops/justfile
+  - ops/control/**
+reads:
+  - ops/*/capability.yaml
+  - ops/*/justfile
+generates: []
+commands:
+  - name: list
+    summary: List available operations capabilities.
+    lane: discover
+  - name: validate
+    summary: Validate metadata, ownership, dependencies, and declared recipes.
+    lane: check
+    aggregate: check
+  - name: aggregate
+    summary: Run the declared aggregate lane.
+    lane: workflow
+    args: check|test
+  - name: test
+    summary: Run validator-focused tests.
+    lane: test
+skills:
+  - name: xcron-repository-operations
+    summary: Navigate and extend the repository operations catalogue.

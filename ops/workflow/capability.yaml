@@ -1,0 +1,34 @@
+$schema: ../control/schema/capability.v1.yaml
+schema_version: xcron-ops-capability/v1
+id: workflow
+provides:
+  - local-delivery
+description: Compose repository readiness, sync, and release-adjacent verification.
+status: active
+requires:
+  tools: [uv, git, just]
+  capabilities: [control, quality, distribution, cli, skills]
+owns:
+  - ops/workflow/**
+reads:
+  - justfile
+  - pyproject.toml
+  - scripts/verify-wheel.sh
+generates:
+  - .venv/**
+  - build/**
+  - dist/**
+commands:
+  - name: doctor
+    summary: Run non-mutating local readiness checks.
+    lane: diagnostic
+  - name: status
+    summary: Show concise worktree status.
+    lane: diagnostic
+  - name: sync
+    summary: Synchronize the local uv environment.
+    lane: workflow
+  - name: ci
+    summary: Run the complete deterministic and wheel verification workflow.
+    lane: workflow
+skills: []

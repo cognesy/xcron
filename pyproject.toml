@@ -100,7 +100,7 @@ packages = [
 "xcron.shared.resources.logging" = ["*.yaml"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "ops/control/tests"]
 
 # Import Linter states the dependency graph as data. The AST tests in
 # `tests/architecture/` still own what a graph cannot express — which *file*

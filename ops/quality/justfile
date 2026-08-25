@@ -1,0 +1,11 @@
+default:
+    @just --list
+
+imports:
+    cd ../.. && uv run lint-imports
+
+test:
+    cd ../.. && uv run pytest
+
+core:
+    cd ../.. && ./scripts/verify-core.sh

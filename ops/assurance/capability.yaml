@@ -1,0 +1,28 @@
+$schema: ../control/schema/capability.v1.yaml
+schema_version: xcron-ops-capability/v1
+id: assurance
+provides:
+  - assurance
+description: Expose xqa diagnostics without making it a hidden prerequisite of core checks.
+status: active
+requires:
+  tools: [xqa]
+  capabilities: [quality]
+owns:
+  - ops/assurance/**
+reads:
+  - .xqa/config.yaml
+  - scripts/verify-core.sh
+generates:
+  - .xqa/state/**
+commands:
+  - name: doctor
+    summary: Diagnose xqa configuration and local environment readiness.
+    lane: diagnostic
+  - name: status
+    summary: Show xqa workspace and profile status.
+    lane: diagnostic
+  - name: validate
+    summary: Validate all registered xqa configuration.
+    lane: diagnostic
+skills: []

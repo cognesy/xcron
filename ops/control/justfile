@@ -1,0 +1,14 @@
+default:
+    @just --list
+
+list:
+    cd ../.. && uv run python ops/control/bin/catalogue.py list
+
+validate:
+    cd ../.. && uv run python ops/control/bin/catalogue.py validate
+
+aggregate lane:
+    cd ../.. && uv run python ops/control/bin/catalogue.py aggregate {{ lane }}
+
+test:
+    cd ../.. && uv run pytest ops/control/tests -q

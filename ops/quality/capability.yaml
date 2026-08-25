@@ -1,0 +1,31 @@
+$schema: ../control/schema/capability.v1.yaml
+schema_version: xcron-ops-capability/v1
+id: quality
+provides:
+  - deterministic-verification
+description: Run xcron's deterministic import and pytest quality lanes.
+status: active
+requires:
+  tools: [uv]
+  capabilities: [control]
+owns:
+  - ops/quality/**
+reads:
+  - pyproject.toml
+  - scripts/verify-core.sh
+  - tests/**
+generates:
+  - .pytest_cache/**
+commands:
+  - name: imports
+    summary: Check architectural import contracts.
+    lane: check
+    aggregate: check
+  - name: test
+    summary: Run the deterministic pytest suite.
+    lane: test
+  - name: core
+    summary: Run xcron's canonical deterministic verification script.
+    lane: test
+    aggregate: test
+skills: []

@@ -1,0 +1,17 @@
+default:
+    @just --list
+
+list:
+    @cd .. && just --justfile ops/control/justfile list
+
+validate:
+    @cd .. && just --justfile ops/control/justfile validate
+
+aggregate lane:
+    @cd .. && just --justfile ops/control/justfile aggregate {{ lane }}
+
+check:
+    @just aggregate check
+
+test:
+    @just aggregate test

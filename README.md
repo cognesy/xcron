@@ -55,6 +55,22 @@ uv run xcron apply
 Use `--backend launchd` or `--backend cron` to override automatic backend
 selection.
 
+## Repository operations
+
+Repository maintenance is available through self-contained operation packages.
+Each package describes its scope and metadata next to its executable Just
+recipes, while delegating to the canonical scripts and test suites.
+
+```sh
+just                         # discover operations
+just ops quality             # safe capability command menu
+just ops quality core        # deterministic import and test lane
+just ops distribution wheel  # installed-wheel verification
+just validate                # validate the operations catalogue
+```
+
+See [`ops/`](ops/README.md) for the full catalogue.
+
 ## How It Works
 
 `xcron` models three layers:

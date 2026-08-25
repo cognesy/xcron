@@ -1,0 +1,33 @@
+$schema: ../control/schema/capability.v1.yaml
+schema_version: xcron-ops-capability/v1
+id: cli
+provides:
+  - cli-contract
+description: Exercise help, output contracts, and safe CLI golden capture.
+status: active
+requires:
+  tools: [uv]
+  capabilities: [quality]
+owns:
+  - ops/cli/**
+reads:
+  - scripts/capture-cli-golden.sh
+  - src/xcron/channels/cli/**
+  - tests/test_typer_cli.py
+  - tests/test_help_renderer.py
+  - tests/test_cli_contracts.py
+generates:
+  - user-selected golden output directory
+commands:
+  - name: help
+    summary: Render the top-level CLI help.
+    lane: discover
+  - name: contract
+    summary: Run focused CLI help and output-contract tests.
+    lane: check
+    aggregate: check
+  - name: capture
+    summary: Capture read-only CLI golden output into a supplied directory.
+    lane: workflow
+    args: destination
+skills: []

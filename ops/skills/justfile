@@ -1,0 +1,12 @@
+default:
+    @just --list
+
+list:
+    cd ../.. && uv run python ops/skills/bin/list_skills.py
+
+smoke:
+    cd ../.. && uv run pytest tests/test_help_renderer.py tests/test_typer_cli.py -q
+
+check:
+    cd ../.. && uv run python ops/skills/bin/list_skills.py --check
+    cd ../.. && just --justfile ops/skills/justfile smoke

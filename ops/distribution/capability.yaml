@@ -1,0 +1,24 @@
+$schema: ../control/schema/capability.v1.yaml
+schema_version: xcron-ops-capability/v1
+id: distribution
+provides:
+  - distribution-verification
+description: Verify the built xcron wheel in clean library and CLI environments.
+status: active
+requires:
+  tools: [uv]
+  capabilities: [quality]
+owns:
+  - ops/distribution/**
+reads:
+  - pyproject.toml
+  - scripts/verify-wheel.sh
+  - src/xcron/**
+generates:
+  - build/**
+  - dist/**
+commands:
+  - name: wheel
+    summary: Build and verify a clean installed distribution.
+    lane: distribution
+skills: []
