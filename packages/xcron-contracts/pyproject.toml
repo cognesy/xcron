@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xcron-contracts"
-version = "0.1.3"
+version = "0.1.4"
 description = "Typed provider-neutral contracts for xcron capability packages"
 readme = "README.md"
 requires-python = ">=3.11"

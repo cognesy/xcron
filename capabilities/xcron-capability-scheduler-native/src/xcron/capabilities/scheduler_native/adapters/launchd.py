@@ -536,13 +536,17 @@ def disable_launchd_service(label: str, domain_target: str) -> None:
 
 def read_disabled_labels(domain_target: str) -> set[str]:
     """Read the disabled-service list for one launchd domain."""
-    result = run_logged_subprocess(
-        ["launchctl", "print-disabled", domain_target],
-        event="launchd_print_disabled",
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = run_logged_subprocess(
+            ["launchctl", "print-disabled", domain_target],
+            event="launchd_print_disabled",
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        LOGGER.warning("launchctl_unavailable", operation="print-disabled", domain_target=domain_target)
+        return set()
     disabled = set()
     for line in result.stdout.splitlines():
         stripped = line.strip()
@@ -556,12 +560,16 @@ def read_disabled_labels(domain_target: str) -> set[str]:
 
 def read_launchd_service_status(label: str, domain_target: str, *, include_output: bool) -> tuple[bool, str | None]:
     """Check whether a launchd service is loaded and optionally return print output."""
-    result = run_logged_subprocess(
-        ["launchctl", "print", f"{domain_target}/{label}"],
-        event="launchd_print",
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = run_logged_subprocess(
+            ["launchctl", "print", f"{domain_target}/{label}"],
+            event="launchd_print",
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        LOGGER.warning("launchctl_unavailable", operation="print", domain_target=domain_target, label=label)
+        return False, None
     output = result.stdout if include_output and result.returncode == 0 else None
     return result.returncode == 0, output

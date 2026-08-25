@@ -294,3 +294,18 @@ def test_provider_reconciles_launchd_artifacts_without_touching_host_launchctl(
     pruned = scheduler.prune(request, context)
     assert pruned.valid is True
     assert not plist_path.exists()
+
+
+def test_launchd_inspection_degrades_when_launchctl_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def missing_launchctl(*_arguments, **_kwargs):
+        raise FileNotFoundError("launchctl")
+
+    monkeypatch.setattr(launchd, "run_logged_subprocess", missing_launchctl)
+
+    assert launchd.read_disabled_labels("gui/test") == set()
+    assert launchd.read_launchd_service_status("com.xcron.demo.job", "gui/test", include_output=True) == (
+        False,
+        None,
+    )

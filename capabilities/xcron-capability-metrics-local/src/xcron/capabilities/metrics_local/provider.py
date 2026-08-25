@@ -150,7 +150,7 @@ def _counters(value: object) -> dict[str, int]:
 DESCRIPTOR = CapabilityDescriptor(
     capability="metrics",
     implementation="local",
-    version="0.1.3",
+    version="0.1.4",
     kernel_api=">=1,<2",
     requires=(CapabilityRequirement("workspace"),),
     provides=CapabilityProvides(ports=("metrics",), cli_paths=("metrics",)),

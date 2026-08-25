@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xcron-sdk"
-version = "0.1.3"
+version = "0.1.4"
 description = "Typed, capability-hosted Python client for xcron"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "LicenseRef-Proprietary"
 dependencies = [
-  "xcron-contracts==0.1.3",
-  "xcron-kernel==0.1.3",
+  "xcron-contracts==0.1.4",
+  "xcron-kernel==0.1.4",
 ]
 
 [tool.uv.sources]

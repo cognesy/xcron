@@ -46,7 +46,7 @@ class LocalWorkspaceProvider:
 DESCRIPTOR = CapabilityDescriptor(
     capability="workspace",
     implementation="local",
-    version="0.1.3",
+    version="0.1.4",
     kernel_api=">=1,<2",
     provides=CapabilityProvides(ports=("workspace",), cli_paths=("init",), assets=("starter-manifest",)),
     assets=(AssetDeclaration("starter-manifest", "resources/starter-manifest.yaml"),),

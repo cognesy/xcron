@@ -214,7 +214,7 @@ def _error_result(validation, error: str) -> JobActionResult:
 DESCRIPTOR = CapabilityDescriptor(
     capability="jobs",
     implementation="manifest",
-    version="0.1.3",
+    version="0.1.4",
     kernel_api=">=1,<2",
     requires=(CapabilityRequirement("manifest"), CapabilityRequirement("scheduler")),
     provides=CapabilityProvides(ports=("jobs",), cli_paths=("jobs",)),
