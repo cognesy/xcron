@@ -10,6 +10,7 @@ from xcron.capabilities.jobs.api import (
     show_job,
     update_job,
 )
+from xcron.capabilities.jobs.contracts import JobCreateRequest, JobUpdateRequest, ScheduleRequest
 
 
 def test_job_actions_cover_list_show_add_update_disable_and_remove(tmp_path) -> None:
@@ -49,12 +50,12 @@ def test_job_actions_cover_list_show_add_update_disable_and_remove(tmp_path) -> 
     assert shown.raw_job["id"] == "sync_docs"
 
     added = add_job(
-        {
-            "id": "cleanup_tmp",
-            "schedule": {"every": "1h"},
-            "command": "./scripts/cleanup-tmp",
-            "working_dir": ".",
-        },
+        JobCreateRequest(
+            job_id="cleanup_tmp",
+            schedule=ScheduleRequest.every("1h"),
+            command="./scripts/cleanup-tmp",
+            working_dir=".",
+        ),
         project,
     )
     assert added.valid is True
@@ -64,11 +65,11 @@ def test_job_actions_cover_list_show_add_update_disable_and_remove(tmp_path) -> 
     updated = update_job(
         "cleanup_tmp",
         project,
-        updates={
-            "command": "./scripts/cleanup-tmp --deep",
-            "schedule": {"cron": "0 * * * *"},
-            "env": {"MODE": "deep"},
-        },
+        request=JobUpdateRequest(
+            command="./scripts/cleanup-tmp --deep",
+            schedule=ScheduleRequest.cron("0 * * * *"),
+            env={"MODE": "deep"},
+        ),
     )
     assert updated.valid is True
     assert updated.job is not None
@@ -118,7 +119,7 @@ def test_job_actions_return_clean_error_on_invalid_mutation(tmp_path) -> None:
     result = update_job(
         "sync_docs",
         project,
-        updates={"working_dir": "./missing-dir"},
+        request=JobUpdateRequest(working_dir="./missing-dir"),
     )
 
     assert result.valid is False

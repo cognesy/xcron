@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from typing import Any, Callable
+from typing import Callable
 
 from xcron.capabilities.jobs.api import (
     add_job,
@@ -14,7 +13,11 @@ from xcron.capabilities.jobs.api import (
     show_job,
     update_job,
 )
-from xcron.capabilities.jobs.contracts import JobActionResult
+from xcron.capabilities.jobs.contracts import (
+    JobActionResult,
+    JobCreateRequest,
+    JobUpdateRequest,
+)
 from xcron.sdk.options import XcronOptions
 
 
@@ -37,24 +40,23 @@ class JobsAPI:
             schedule_name=self._options.schedule_name,
         )
 
-    def add(self, job_data: Mapping[str, Any]) -> JobActionResult:
+    def add(self, request: JobCreateRequest) -> JobActionResult:
+        """Add one typed job definition to the selected manifest."""
         self._guard()
-        return add_job(job_data, self._options.project_path, schedule_name=self._options.schedule_name)
+        return add_job(request, self._options.project_path, schedule_name=self._options.schedule_name)
 
     def update(
         self,
         job_identifier: str,
-        *,
-        updates: Mapping[str, Any] | None = None,
-        clear_fields: Sequence[str] = (),
+        request: JobUpdateRequest,
     ) -> JobActionResult:
+        """Apply one typed mutation request to an existing manifest job."""
         self._guard()
         return update_job(
             job_identifier,
             self._options.project_path,
             schedule_name=self._options.schedule_name,
-            updates=updates,
-            clear_fields=clear_fields,
+            request=request,
         )
 
     def enable(self, job_identifier: str) -> JobActionResult:

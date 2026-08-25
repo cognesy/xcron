@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
-from xcron.capabilities.jobs.contracts import JobActionResult
+from xcron.capabilities.jobs.contracts import (
+    JobActionResult,
+    JobCreateRequest,
+    JobUpdateRequest,
+)
 from xcron.capabilities.manifest.api import (
     add_manifest_job,
     get_manifest_job,
@@ -84,7 +88,7 @@ def show_job(
 
 @instrument_action("add_job")
 def add_job(
-    job_data: Mapping[str, Any],
+    request: JobCreateRequest,
     project_path: str | Path | None = None,
     *,
     schedule_name: str | None = None,
@@ -93,8 +97,12 @@ def add_job(
     return _mutate_job_manifest(
         project_path,
         schedule_name=schedule_name,
-        mutation=lambda: add_manifest_job(job_data, project_path, schedule_name=schedule_name),
-        target_identifier=str(job_data.get("id", "")),
+        mutation=lambda: add_manifest_job(
+            request.manifest_data(),
+            project_path,
+            schedule_name=schedule_name,
+        ),
+        target_identifier=request.job_id,
     )
 
 
@@ -120,8 +128,7 @@ def update_job(
     project_path: str | Path | None = None,
     *,
     schedule_name: str | None = None,
-    updates: Mapping[str, Any] | None = None,
-    clear_fields: Sequence[str] = (),
+    request: JobUpdateRequest,
 ) -> JobActionResult:
     """Update selected fields for one manifest job."""
     return _mutate_job_manifest(
@@ -129,8 +136,8 @@ def update_job(
         schedule_name=schedule_name,
         mutation=lambda: update_manifest_job(
             job_identifier,
-            updates=updates,
-            clear_fields=clear_fields,
+            updates=request.manifest_updates(),
+            clear_fields=request.manifest_clear_fields(),
             project_path=project_path,
             schedule_name=schedule_name,
         ),

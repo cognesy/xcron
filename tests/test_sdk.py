@@ -9,10 +9,21 @@ import sys
 
 import pytest
 
-from xcron import ClientClosedError, HookError, Xcron
+from xcron import (
+    ClientClosedError,
+    HookError,
+    JobCreateRequest,
+    JobUpdateField,
+    JobUpdateRequest,
+    ScheduleRequest,
+    Xcron,
+)
 from xcron.capabilities.agent_hooks.contracts import ExecutableNotFoundError
 from xcron.capabilities.reconciliation.api import SchedulerRegistry
 from xcron.capabilities.reconciliation.contracts import PlanChange, PlanChangeKind, ProjectState
+
+
+SDK_DIR = Path(__file__).resolve().parents[1] / "src" / "xcron" / "sdk"
 
 
 def _write_project(root: Path) -> Path:
@@ -73,6 +84,48 @@ def test_sdk_accepts_an_explicit_scheduler_registry(tmp_path: Path) -> None:
     assert result.backend == "test"
 
 
+def test_sdk_job_mutations_accept_typed_requests(tmp_path: Path) -> None:
+    project = _write_project(tmp_path / "project")
+
+    with Xcron.open(project, backend="cron", platform="linux") as client:
+        added = client.jobs.add(
+            JobCreateRequest(
+                job_id="cleanup",
+                command="echo cleanup",
+                schedule=ScheduleRequest.every("1h"),
+                description="Clean temporary files",
+                env={"MODE": "safe"},
+            )
+        )
+        updated = client.jobs.update(
+            "hello",
+            JobUpdateRequest(
+                command="echo refreshed",
+                schedule=ScheduleRequest.cron("0 * * * *"),
+                env={"MODE": "fast"},
+                clear_fields=frozenset({JobUpdateField.DESCRIPTION}),
+            ),
+        )
+
+    assert added.valid is True
+    assert added.job is not None
+    assert added.job.job_id == "cleanup"
+    assert updated.valid is True
+    assert updated.job is not None
+    assert updated.job.job_id == "hello"
+
+
+def test_sdk_job_update_requests_reject_empty_or_ambiguous_mutations() -> None:
+    with pytest.raises(ValueError, match="at least one update field"):
+        JobUpdateRequest()
+
+    with pytest.raises(ValueError, match="cannot update and clear the same fields"):
+        JobUpdateRequest(
+            description="updated",
+            clear_fields=frozenset({JobUpdateField.DESCRIPTION}),
+        )
+
+
 def test_apply_preserves_injected_backend_name_for_schedule_errors(tmp_path: Path) -> None:
     project = _write_project(tmp_path / "project")
 
@@ -117,14 +170,14 @@ def test_apply_preserves_injected_backend_name_for_schedule_errors(tmp_path: Pat
 
 
 def test_sdk_modules_do_not_import_cli_or_renderers() -> None:
-    sdk_dir = Path(__file__).resolve().parents[1] / "libs" / "sdk"
     forbidden = (
         "xcron.channels.cli",
         "typer",
         "rich",
     )
 
-    for path in sdk_dir.glob("*.py"):
+    assert SDK_DIR.is_dir()
+    for path in SDK_DIR.glob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         imports = {
             node.module
@@ -176,9 +229,8 @@ def test_importing_public_sdk_does_not_load_cli_or_response_modules() -> None:
 
 
 def test_public_sdk_methods_have_explicit_return_types() -> None:
-    sdk_dir = Path(__file__).resolve().parents[1] / "libs" / "sdk"
-
-    for path in sdk_dir.glob("*.py"):
+    assert SDK_DIR.is_dir()
+    for path in SDK_DIR.glob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):

@@ -14,7 +14,15 @@ from xcron.channels.cli.common import (
     validation_details,
 )
 from xcron.channels.cli.output import Output
-from xcron import UnknownBackendError, Xcron, XcronError
+from xcron import (
+    JobCreateRequest,
+    JobUpdateField,
+    JobUpdateRequest,
+    ScheduleRequest,
+    UnknownBackendError,
+    Xcron,
+    XcronError,
+)
 from xcron.channels.cli.presenters.axi_presenter import collapse_home_path
 from xcron.channels.cli.mappers import (
     map_apply_response,
@@ -460,27 +468,22 @@ def jobs_add_command(
     if bool(cron) == bool(every):
         out.error("exactly one of --cron or --every is required", code="usage_error", exit_code=2)
     try:
-        payload = {
-            "id": job_id,
-            "command": command,
-            "schedule": {"cron": cron} if cron else {"every": every},
-            "enabled": not disabled,
-        }
-        if description is not None:
-            payload["description"] = description
-        if working_dir is not None:
-            payload["working_dir"] = working_dir
-        if shell is not None:
-            payload["shell"] = shell
-        if overlap is not None:
-            payload["overlap"] = overlap
         parsed_env = _parse_env_assignments(env)
-        if parsed_env:
-            payload["env"] = parsed_env
+        request = JobCreateRequest(
+            job_id=job_id,
+            command=command,
+            schedule=ScheduleRequest.cron(cron) if cron else ScheduleRequest.every(every or ""),
+            description=description,
+            enabled=not disabled,
+            working_dir=working_dir,
+            shell=shell,
+            overlap=overlap,
+            env=parsed_env,
+        )
     except ValueError as exc:
         out.error(str(exc), code="usage_error", exit_code=2)
     with _open_client(project, schedule=schedule, out=out) as client:
-        result = client.jobs.add(payload)
+        result = client.jobs.add(request)
     if not result.valid:
         details = []
         if result.validation is not None:
@@ -595,41 +598,50 @@ def jobs_update_command(
     project = _shared_option(ctx, "project", project)
     schedule = _shared_option(ctx, "schedule", schedule)
     out = _build_output(ctx, "jobs.update", output_format)
-    updates: dict[str, object] = {}
-    clear_fields: list[str] = []
-    if command is not None:
-        updates["command"] = command
+    clear_fields: set[JobUpdateField] = set()
     if cron is not None:
-        updates["schedule"] = {"cron": cron}
+        schedule_request = ScheduleRequest.cron(cron)
     elif every is not None:
-        updates["schedule"] = {"every": every}
-    if description is not None:
-        updates["description"] = description
+        schedule_request = ScheduleRequest.every(every)
+    else:
+        schedule_request = None
     if clear_description:
-        clear_fields.append("description")
-    if working_dir is not None:
-        updates["working_dir"] = working_dir
+        clear_fields.add(JobUpdateField.DESCRIPTION)
     if clear_working_dir:
-        clear_fields.append("working_dir")
-    if shell is not None:
-        updates["shell"] = shell
+        clear_fields.add(JobUpdateField.WORKING_DIR)
     if clear_shell:
-        clear_fields.append("shell")
-    if overlap is not None:
-        updates["overlap"] = overlap
-    if env:
-        updates["env"] = _parse_env_assignments(env)
+        clear_fields.add(JobUpdateField.SHELL)
     if clear_env:
-        clear_fields.append("env")
-    if not updates and not clear_fields:
+        clear_fields.add(JobUpdateField.ENV)
+    if (
+        command is None
+        and schedule_request is None
+        and description is None
+        and working_dir is None
+        and shell is None
+        and overlap is None
+        and not env
+        and not clear_fields
+    ):
         out.error("at least one update field or clear flag is required", code="usage_error", exit_code=2)
 
-    with _open_client(project, schedule=schedule, out=out) as client:
-        result = client.jobs.update(
-            job_id,
-            updates=updates,
-            clear_fields=tuple(clear_fields),
+    try:
+        parsed_env = _parse_env_assignments(env) if env else None
+        request = JobUpdateRequest(
+            command=command,
+            schedule=schedule_request,
+            description=description,
+            working_dir=working_dir,
+            shell=shell,
+            overlap=overlap,
+            env=parsed_env,
+            clear_fields=frozenset(clear_fields),
         )
+    except ValueError as exc:
+        out.error(str(exc), code="usage_error", exit_code=2)
+
+    with _open_client(project, schedule=schedule, out=out) as client:
+        result = client.jobs.update(job_id, request)
     if not result.valid:
         details = []
         if result.validation is not None:

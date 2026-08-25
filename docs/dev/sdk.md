@@ -44,6 +44,44 @@ models such as `PlanProjectResult`, `JobActionResult`, and `MetricsResult`, not
 CLI response envelopes. TOON, JSON, tmux projection, field selection, stdout,
 stderr, and exit codes remain owned by `src/xcron/channels/cli`.
 
+## Typed job mutations
+
+Create and update requests are frozen Pydantic models exported from the
+`xcron` root. They make schedule intent, optional fields, and explicit clears
+visible to both type checkers and callers before xcron reads or writes a
+manifest:
+
+```python
+from xcron import (
+    JobCreateRequest,
+    JobUpdateField,
+    JobUpdateRequest,
+    ScheduleRequest,
+    Xcron,
+)
+
+with Xcron.open("/path/to/project", backend="cron") as xcron:
+    xcron.jobs.add(
+        JobCreateRequest(
+            job_id="cleanup",
+            command="./scripts/cleanup.sh",
+            schedule=ScheduleRequest.every("1h"),
+            env={"MODE": "safe"},
+        )
+    )
+    xcron.jobs.update(
+        "cleanup",
+        JobUpdateRequest(
+            schedule=ScheduleRequest.cron("0 * * * *"),
+            clear_fields=frozenset({JobUpdateField.ENV}),
+        ),
+    )
+```
+
+`JobUpdateRequest` requires at least one change or clear, and rejects trying
+to set and clear the same optional field in one call. The SDK translates these
+models to the manifest's YAML shape only at the manifest boundary.
+
 Validation and operational failures normally return the same structured
 `valid=False` results used by the CLI. Client lifecycle failures raise
 `ClientClosedError`. Provider registration errors remain deterministic

@@ -22,12 +22,17 @@ from __future__ import annotations
 
 import importlib
 import textwrap
+from collections.abc import Mapping
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Any, Callable
 
 import pytest
+from pydantic import BaseModel
 from typer.testing import CliRunner
 
+from xcron import JobCreateRequest, JobUpdateField, JobUpdateRequest, ScheduleRequest
 from xcron.channels.cli.typer_app import app
 from xcron.sdk.client import Xcron
 
@@ -63,6 +68,13 @@ def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("XCRON_CRONTAB_PATH", str(tmp_path / "crontab"))
     monkeypatch.setenv("XCRON_MANAGE_CRONTAB", "0")
     monkeypatch.setenv("XCRON_MANAGE_LAUNCHCTL", "0")
+    monkeypatch.setenv("XCRON_HOME", str(tmp_path / "xcron-home"))
+    executable = tmp_path / "bin" / "xcron"
+    executable.parent.mkdir()
+    executable.write_text("", encoding="utf-8")
+    executable.chmod(0o755)
+    monkeypatch.setenv("PATH", str(executable.parent))
+    monkeypatch.chdir(root)
     return root
 
 
@@ -85,8 +97,16 @@ class Recorder:
 
 def _normalize(value: Any) -> Any:
     """Compare stated inputs by value and composed collaborators by type."""
+    if isinstance(value, BaseModel):
+        return _normalize(value.model_dump(mode="python"))
+    if isinstance(value, Enum):
+        return value.value
     if isinstance(value, (str, int, float, bool, type(None), Path)):
         return value
+    if isinstance(value, Mapping):
+        return {str(key): _normalize(item) for key, item in sorted(value.items())}
+    if isinstance(value, frozenset):
+        return tuple(sorted((_normalize(item) for item in value), key=repr))
     if isinstance(value, (list, tuple)):
         return tuple(_normalize(item) for item in value)
     return type(value).__name__
@@ -196,32 +216,168 @@ PAIRS: tuple[tuple[str, str, str, Callable[[Xcron], Any], list[str]], ...] = (
 )
 
 
+@dataclass(frozen=True)
+class ParityCase:
+    """One use case that both channels must state identically."""
+
+    label: str
+    module: str
+    attribute: str
+    through_sdk: Callable[[Xcron], Any]
+    argv: list[str]
+    unscoped: bool = False
+    restore_manifest_before_cli: bool = False
+
+
+CASES: tuple[ParityCase, ...] = tuple(ParityCase(*pair) for pair in PAIRS) + (
+    ParityCase(
+        "jobs add",
+        "xcron.sdk.jobs",
+        "add_job",
+        lambda client: client.jobs.add(
+            JobCreateRequest(
+                job_id="cleanup_job",
+                command="echo cleanup",
+                schedule=ScheduleRequest.every("1h"),
+            )
+        ),
+        ["jobs", "add", "cleanup_job", "--command", "echo cleanup", "--every", "1h"],
+        restore_manifest_before_cli=True,
+    ),
+    ParityCase(
+        "jobs update",
+        "xcron.sdk.jobs",
+        "update_job",
+        lambda client: client.jobs.update(
+            "ping_job",
+            JobUpdateRequest(
+                command="echo refreshed",
+                schedule=ScheduleRequest.cron("0 * * * *"),
+                env={"MODE": "fast"},
+                clear_fields=frozenset({JobUpdateField.DESCRIPTION}),
+            ),
+        ),
+        [
+            "jobs",
+            "update",
+            "ping_job",
+            "--command",
+            "echo refreshed",
+            "--cron",
+            "0 * * * *",
+            "--env",
+            "MODE=fast",
+            "--clear-description",
+        ],
+    ),
+    ParityCase(
+        "jobs enable",
+        "xcron.sdk.jobs",
+        "enable_job",
+        lambda client: client.jobs.enable("ping_job"),
+        ["jobs", "enable", "ping_job"],
+    ),
+    ParityCase(
+        "jobs disable",
+        "xcron.sdk.jobs",
+        "disable_job",
+        lambda client: client.jobs.disable("ping_job"),
+        ["jobs", "disable", "ping_job"],
+    ),
+    ParityCase(
+        "jobs remove",
+        "xcron.sdk.jobs",
+        "remove_job",
+        lambda client: client.jobs.remove("ping_job"),
+        ["jobs", "remove", "ping_job"],
+        restore_manifest_before_cli=True,
+    ),
+    ParityCase(
+        "hooks install",
+        "xcron.sdk.hooks",
+        "install_agent_hooks",
+        lambda client: client.hooks.install(),
+        ["hooks", "install"],
+    ),
+    ParityCase(
+        "hooks status",
+        "xcron.sdk.hooks",
+        "status_agent_hooks",
+        lambda client: client.hooks.status(),
+        ["hooks", "status"],
+    ),
+    ParityCase(
+        "hooks repair",
+        "xcron.sdk.hooks",
+        "repair_agent_hooks",
+        lambda client: client.hooks.repair(),
+        ["hooks", "repair"],
+    ),
+    ParityCase(
+        "hooks session end",
+        "xcron.sdk.hooks",
+        "record_session_end",
+        lambda client: client.hooks.session_end(),
+        ["hooks", "session-end"],
+    ),
+    ParityCase(
+        "home initialize",
+        "xcron.sdk.home",
+        "initialize_workspace",
+        lambda client: client.home.initialize(),
+        ["init"],
+        unscoped=True,
+    ),
+    ParityCase(
+        "metrics show",
+        "xcron.sdk.operations",
+        "show_metrics",
+        lambda client: client.operations.show_metrics(),
+        ["metrics", "show"],
+        unscoped=True,
+    ),
+    ParityCase(
+        "metrics reset",
+        "xcron.sdk.operations",
+        "reset_metrics",
+        lambda client: client.operations.reset_metrics(),
+        ["metrics", "reset"],
+        unscoped=True,
+    ),
+)
+
+
 @pytest.mark.parametrize(
-    ("label", "module", "attribute", "through_sdk", "argv"),
-    PAIRS,
-    ids=[pair[0] for pair in PAIRS],
+    "case",
+    CASES,
+    ids=[case.label for case in CASES],
 )
 def test_both_channels_reach_the_same_use_case_with_the_same_inputs(
-    label: str,
-    module: str,
-    attribute: str,
-    through_sdk: Callable[[Xcron], Any],
-    argv: list[str],
+    case: ParityCase,
     project: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    seam = importlib.import_module(module)
-    use_case = getattr(seam, attribute)
+    seam = importlib.import_module(case.module)
+    use_case = getattr(seam, case.attribute)
+    manifest_path = project / "resources" / "schedules" / "default.yaml"
+    original_manifest = manifest_path.read_text(encoding="utf-8")
 
     sdk_recorder = Recorder(use_case)
-    monkeypatch.setattr(seam, attribute, sdk_recorder)
-    with Xcron.open(project, backend=BACKEND) as client:
-        through_sdk(client)
+    monkeypatch.setattr(seam, case.attribute, sdk_recorder)
+    if case.unscoped:
+        with Xcron.open_unscoped() as client:
+            case.through_sdk(client)
+    else:
+        with Xcron.open(project, backend=BACKEND) as client:
+            case.through_sdk(client)
+
+    if case.restore_manifest_before_cli:
+        manifest_path.write_text(original_manifest, encoding="utf-8")
 
     cli_recorder = Recorder(use_case)
-    monkeypatch.setattr(seam, attribute, cli_recorder)
+    monkeypatch.setattr(seam, case.attribute, cli_recorder)
     result = CliRunner().invoke(
-        app, ["--project", str(project), "--backend", BACKEND, *argv]
+        app, ["--project", str(project), "--backend", BACKEND, *case.argv]
     )
 
     assert result.exit_code == 0, result.output
