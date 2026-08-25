@@ -10,7 +10,7 @@ from xcron.kernel import Capability, CapabilityDescriptor, CapabilityProvides, C
 DESCRIPTOR = CapabilityDescriptor(
     capability="scheduler",
     implementation="native",
-    version="0.1.2",
+    version="0.1.3",
     kernel_api=">=1,<2",
     requires=(CapabilityRequirement("workspace"), CapabilityRequirement("manifest")),
     provides=CapabilityProvides(

@@ -101,7 +101,7 @@ def _executable(value: Path | None) -> Path:
 DESCRIPTOR = CapabilityDescriptor(
     capability="agent-hooks",
     implementation="local",
-    version="0.1.2",
+    version="0.1.3",
     kernel_api=">=1,<2",
     provides=CapabilityProvides(ports=("agent-hooks",), cli_paths=("hooks",)),
 )

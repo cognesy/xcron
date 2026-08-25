@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import textwrap
 from importlib.metadata import PackageNotFoundError, version as distribution_version
 
@@ -11,6 +12,11 @@ from xcron_cli.typer_app import app
 
 
 runner = CliRunner()
+ANSI_ESCAPE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
+
+def _plain_text(output: str) -> str:
+    return ANSI_ESCAPE.sub("", output)
 
 
 def _make_project(tmp_path):
@@ -173,8 +179,8 @@ def test_typer_help_uses_authored_resources_help_content() -> None:
     add_help = runner.invoke(app, ["jobs", "add", "--help"])
 
     assert root_help.exit_code == 0
-    assert "Authoritative runtime help for xcron lives under resources/help/." in root_help.stdout
+    assert "Authoritative runtime help for xcron lives under resources/help/." in _plain_text(root_help.stdout)
     assert jobs_help.exit_code == 0
-    assert "These commands edit YAML only; use xcron apply to reconcile backend state" in jobs_help.stdout
+    assert "These commands edit YAML only; use xcron apply to reconcile backend state" in _plain_text(jobs_help.stdout)
     assert add_help.exit_code == 0
-    assert "Create a new manifest job." in add_help.stdout
+    assert "Create a new manifest job." in _plain_text(add_help.stdout)

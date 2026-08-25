@@ -45,7 +45,7 @@ class TestMetricsProvider:
 DESCRIPTOR = CapabilityDescriptor(
     capability="metrics",
     implementation="test",
-    version="0.1.2",
+    version="0.1.3",
     kernel_api=">=1,<2",
     provides=CapabilityProvides(ports=("metrics",)),
 )

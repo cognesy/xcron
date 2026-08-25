@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import textwrap
+import re
 
 from typer.testing import CliRunner
 
@@ -9,22 +10,27 @@ from xcron_cli.typer_app import app
 
 
 runner = CliRunner()
+ANSI_ESCAPE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
+
+def _plain_text(output: str) -> str:
+    return ANSI_ESCAPE.sub("", output)
 
 
 def test_cli_help_covers_root_group_and_leaf_commands(capsys) -> None:
-    root_help = runner.invoke(app, ["--help"]).stdout
+    root_help = _plain_text(runner.invoke(app, ["--help"]).stdout)
     assert "jobs" in root_help
     assert "--output" in root_help
     assert "Inspect and edit jobs inside one schedule manifest." in root_help
     assert "Authoritative runtime help for xcron lives under resources/help/." in root_help
 
-    group_help = runner.invoke(app, ["jobs", "--help"]).stdout
+    group_help = _plain_text(runner.invoke(app, ["jobs", "--help"]).stdout)
     assert "add" in group_help
     assert "update" in group_help
     assert "edit YAML only" in group_help
     assert "These commands edit YAML only; use xcron apply" in group_help
 
-    leaf_help = runner.invoke(app, ["jobs", "add", "--help"]).stdout
+    leaf_help = _plain_text(runner.invoke(app, ["jobs", "add", "--help"]).stdout)
     assert "--command" in leaf_help
     assert "--cron" in leaf_help
     assert "--every" in leaf_help

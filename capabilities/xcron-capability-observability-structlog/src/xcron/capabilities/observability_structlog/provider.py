@@ -41,7 +41,7 @@ class StructlogObservabilityProvider:
 DESCRIPTOR = CapabilityDescriptor(
     capability="observability",
     implementation="structlog",
-    version="0.1.2",
+    version="0.1.3",
     kernel_api=">=1,<2",
     provides=CapabilityProvides(ports=("observability",), assets=("logging-default",)),
     assets=(AssetDeclaration("logging-default", "resources/logging/default.yaml"),),

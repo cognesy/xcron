@@ -203,7 +203,7 @@ def _mutation_result(result: object) -> ManifestMutationResult:
 DESCRIPTOR = CapabilityDescriptor(
     capability="manifest",
     implementation="yaml",
-    version="0.1.2",
+    version="0.1.3",
     kernel_api=">=1,<2",
     provides=CapabilityProvides(ports=("manifest",), assets=("schedule-schema",)),
     assets=(AssetDeclaration("schedule-schema", "resources/schemas/schedules.schema.yaml"),),
