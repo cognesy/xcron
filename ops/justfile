@@ -1,5 +1,11 @@
 default:
-    @just --list
+    @cd .. && uv run python ops/control/bin/catalogue.py list
+
+# The root router reaches this recipe for `just ops …`. Validation and the
+# subprocess boundary live in control, so an argument can never become a
+# filesystem path below ops/.
+route *args:
+    @cd .. && uv run python ops/control/bin/catalogue.py route {{ args }}
 
 list:
     @cd .. && just --justfile ops/control/justfile list

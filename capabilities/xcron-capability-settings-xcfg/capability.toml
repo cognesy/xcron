@@ -1,0 +1,17 @@
+[package]
+kind = "provider"
+capability = "settings"
+implementation = "xcfg"
+namespace = "xcron.capabilities.settings_xcfg"
+kernel_api = ">=1,<2"
+
+[provider]
+entry_point = "xcron.capabilities.settings_xcfg.provider:CAPABILITY"
+ports = ["settings"]
+requires = []
+cli_paths = []
+assets = ["resources/config/config.default.yaml"]
+
+[operations]
+justfile = "justfile"
+required_recipes = ["default", "list", "doctor", "check", "test", "build"]

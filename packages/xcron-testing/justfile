@@ -1,0 +1,21 @@
+set positional-arguments := true
+
+ROOT := parent_directory(parent_directory(justfile_directory()))
+
+default:
+    @just --list
+
+list:
+    @just --list
+
+doctor:
+    @uv run --project {{ROOT}} python -c "from xcron.testing import assert_port, source_roots; assert assert_port and source_roots"
+
+check:
+    @uv run --project {{ROOT}} pytest {{ROOT}}/packages/xcron-testing/tests -q
+
+test:
+    @uv run --project {{ROOT}} pytest {{ROOT}}/packages/xcron-testing/tests -q
+
+build:
+    @uv build --project {{ROOT}} --package xcron-testing --out-dir /tmp/xcron-testing-build --clear

@@ -1,0 +1,21 @@
+set positional-arguments := true
+
+ROOT := parent_directory(parent_directory(justfile_directory()))
+
+default:
+    @just --list
+
+list:
+    @just --list
+
+doctor:
+    @uv run --project {{ROOT}} python -c "from xcron.capabilities.workspace_local.provider import CAPABILITY; assert CAPABILITY.id == 'workspace:local'"
+
+check:
+    @uv run --project {{ROOT}} pytest {{ROOT}}/capabilities/xcron-capability-workspace-local/tests -q
+
+test:
+    @uv run --project {{ROOT}} pytest {{ROOT}}/capabilities/xcron-capability-workspace-local/tests -q
+
+build:
+    @uv build --project {{ROOT}} --package xcron-capability-workspace-local --out-dir /tmp/xcron-workspace-local-build --clear

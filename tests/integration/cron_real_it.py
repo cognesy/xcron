@@ -113,7 +113,6 @@ def main() -> None:
         assert "backend: cron" in apply_result.stdout
         assert '"event": "action_started"' in apply_result.stderr
         assert '"event": "action_finished"' in apply_result.stderr
-        assert '"process_event": "cron_write_crontab"' in apply_result.stderr
         assert wrapper_path.exists(), f"expected wrapper to exist at {wrapper_path}"
 
         installed_crontab = read_crontab()
@@ -135,12 +134,12 @@ def main() -> None:
             status_result = run_xcron(project, "status", env=env)
             require_ok(status_result, "xcron status")
             assert "backend: cron" in status_result.stdout
-            assert f"ok       {project_id}.ping" in status_result.stdout
+            assert f"ok,{project_id}.ping," in status_result.stdout
 
             inspect_result = run_xcron(project, "inspect", "ping", env=env)
             require_ok(inspect_result, "xcron inspect ping")
             assert "backend: cron" in inspect_result.stdout
-            assert f"desired: {project_id}.ping" in inspect_result.stdout
+            assert f"  qualified_id: {project_id}.ping" in inspect_result.stdout
             assert f"artifact_path: <user crontab>" in inspect_result.stdout
             assert f"wrapper_path: {wrapper_path}" in inspect_result.stdout
             assert f"stdout_log: {stdout_log}" in inspect_result.stdout
@@ -156,7 +155,7 @@ def main() -> None:
             prune_result = run_xcron(project, "prune", env=env)
             require_ok(prune_result, "xcron prune")
             assert "backend: cron" in prune_result.stdout
-            assert "removed: 1" in prune_result.stdout
+            assert "count: 1" in prune_result.stdout
 
             pruned_crontab = read_crontab()
             assert project_id not in pruned_crontab

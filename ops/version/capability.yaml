@@ -1,0 +1,54 @@
+$schema: ../control/schema/capability.v1.yaml
+schema_version: xcron-ops-capability/v1
+id: version
+provides:
+  - release-versioning
+description: Own the lockstep xcron release version, verified wheel bundle, and tag-release gate.
+status: active
+requires:
+  tools: [uv, git, just]
+  capabilities: [control, distribution, packages]
+owns:
+  - ops/version/**
+reads:
+  - pyproject.toml
+  - packages/**/pyproject.toml
+  - capabilities/**/pyproject.toml
+  - capabilities/**/provider.py
+  - scripts/verify-wheel.sh
+  - uv.lock
+  - .github/workflows/release.yml
+generates:
+  - dist/xcron-*/**
+commands:
+  - name: show
+    summary: Show the authoritative lockstep version and local tag observation.
+    lane: diagnostic
+  - name: value
+    summary: Print only the authoritative version for scripts and automation.
+    lane: discover
+  - name: check
+    summary: Validate the version record and every workspace projection.
+    lane: check
+    aggregate: check
+  - name: next
+    summary: Preview the next stable patch, minor, or major version.
+    lane: diagnostic
+    args: part
+  - name: set
+    summary: Safely update all lockstep projections and refresh uv.lock.
+    lane: workflow
+    args: version
+  - name: sync
+    summary: Fetch release tags from origin for local inspection.
+    lane: workflow
+  - name: verify-release
+    summary: Require a clean annotated, pushed release tag that matches HEAD.
+    lane: workflow
+  - name: package
+    summary: Build every wheel and emit a verified GitHub Release bundle.
+    lane: distribution
+    args: '[out-dir]'
+skills:
+  - name: versioning
+    summary: Safely change, verify, package, and release a lockstep xcron version.

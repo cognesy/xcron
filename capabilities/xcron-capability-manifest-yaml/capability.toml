@@ -1,0 +1,17 @@
+[package]
+kind = "provider"
+capability = "manifest"
+implementation = "yaml"
+namespace = "xcron.capabilities.manifest_yaml"
+kernel_api = ">=1,<2"
+
+[provider]
+entry_point = "xcron.capabilities.manifest_yaml.provider:CAPABILITY"
+ports = ["manifest"]
+requires = []
+cli_paths = []
+assets = ["resources/schemas/schedules.schema.yaml"]
+
+[operations]
+justfile = "justfile"
+required_recipes = ["default", "list", "doctor", "check", "test", "build"]

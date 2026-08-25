@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  github-release:
+    name: Build and attach release wheels
+    runs-on: ubuntu-latest
+    concurrency:
+      group: xcron-release-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - name: Check out the pushed tag and its history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Synchronize the locked development environment
+        run: uv sync --frozen
+
+      - name: Verify the exact pushed annotated release tag
+        run: just version verify-release
+
+      - name: Prove source and clean installed-wheel behavior
+        run: just ops workflow ci
+
+      - name: Read release version
+        id: version
+        run: echo "value=$(just version value)" >> "$GITHUB_OUTPUT"
+
+      - name: Build verified release bundle
+        env:
+          RELEASE_DIRECTORY: ${{ runner.temp }}/xcron-release-${{ steps.version.outputs.value }}
+        run: just version package "$RELEASE_DIRECTORY"
+
+      - name: Retain release bundle as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcron-${{ steps.version.outputs.value }}-wheels
+          path: ${{ runner.temp }}/xcron-release-${{ steps.version.outputs.value }}
+          if-no-files-found: error
+
+      - name: Create or update GitHub Release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.value }}
+          RELEASE_DIRECTORY: ${{ runner.temp }}/xcron-release-${{ steps.version.outputs.value }}
+        run: |
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
+              --title "xcron $VERSION" --generate-notes
+          fi
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber \
+            "$RELEASE_DIRECTORY"/*.whl \
+            "$RELEASE_DIRECTORY"/SHA256SUMS.txt \
+            "$RELEASE_DIRECTORY"/release-manifest.json

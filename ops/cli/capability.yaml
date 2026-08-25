@@ -12,7 +12,7 @@ owns:
   - ops/cli/**
 reads:
   - scripts/capture-cli-golden.sh
-  - src/xcron/channels/cli/**
+  - packages/xcron-cli/src/xcron_cli/**
   - tests/test_typer_cli.py
   - tests/test_help_renderer.py
   - tests/test_cli_contracts.py

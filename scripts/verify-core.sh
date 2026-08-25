@@ -1,10 +1,11 @@
 #!/usr/bin/env sh
-# The deterministic core lane: the dependency graph, then the test suite.
+# The deterministic core lane: package architecture, then behavior.
 #
-# Import Linter runs first because a broken contract explains the test failures
-# that follow it, and reading that explanation is cheaper than deriving it from
-# a stack trace.
+# Providers are independently built namespace-package distributions, so an
+# import-graph tool cannot observe their installed boundaries. The workspace
+# architecture lane reads the source/metadata ownership directly before the
+# complete behavioral suite runs.
 set -eu
 
-uv run lint-imports
+uv run pytest tests/architecture tests/test_packaging.py
 uv run pytest "$@"

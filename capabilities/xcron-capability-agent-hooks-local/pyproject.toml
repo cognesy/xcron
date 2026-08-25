@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xcron-capability-agent-hooks-local"
+version = "0.1.0"
+description = "Repo-local Codex and Claude hook integration provider for xcron"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "LicenseRef-Proprietary"
+dependencies = [
+  "xcron-contracts==0.1.0",
+  "xcron-kernel==0.1.0",
+]
+
+[project.entry-points."xcron.capabilities"]
+agent-hooks-local = "xcron.capabilities.agent_hooks_local.provider:CAPABILITY"
+
+[tool.uv.sources]
+xcron-contracts = { workspace = true }
+xcron-kernel = { workspace = true }
+
+[tool.setuptools]
+packages = ["xcron.capabilities.agent_hooks_local"]
+
+[tool.setuptools.package-dir]
+"" = "src"

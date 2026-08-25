@@ -3,7 +3,7 @@ schema_version: xcron-ops-capability/v1
 id: quality
 provides:
   - deterministic-verification
-description: Run xcron's deterministic import and pytest quality lanes.
+description: Run xcron's deterministic package architecture and pytest quality lanes.
 status: active
 requires:
   tools: [uv]
@@ -17,8 +17,8 @@ reads:
 generates:
   - .pytest_cache/**
 commands:
-  - name: imports
-    summary: Check architectural import contracts.
+  - name: architecture
+    summary: Check package architecture and metadata contracts.
     lane: check
     aggregate: check
   - name: test

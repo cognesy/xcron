@@ -5,6 +5,8 @@ active:
   deterministic-verification: quality
   distribution-verification: distribution
   cli-contract: cli
+  package-workspace: packages
   assurance: assurance
   agent-assets: skills
   local-delivery: workflow
+  release-versioning: version

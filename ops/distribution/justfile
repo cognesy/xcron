@@ -3,3 +3,18 @@ default:
 
 wheel:
     cd ../.. && ./scripts/verify-wheel.sh
+
+packages:
+    cd ../.. && ./scripts/verify-wheel.sh packages
+
+aggregate:
+    cd ../.. && ./scripts/verify-wheel.sh aggregate
+
+lean:
+    cd ../.. && ./scripts/verify-wheel.sh lean
+
+alternate:
+    cd ../.. && ./scripts/verify-wheel.sh alternate
+
+cli:
+    cd ../.. && ./scripts/verify-wheel.sh cli

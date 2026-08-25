@@ -2,6 +2,27 @@
 requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
+[tool.uv.workspace]
+# Every implementation is an independently buildable workspace member. The
+# root is metadata-only: it publishes the default SDK/provider aggregate.
+members = ["packages/*", "capabilities/*"]
+
+[tool.uv.sources]
+xcron-contracts = { workspace = true }
+xcron-capability-workspace-local = { workspace = true }
+xcron-capability-settings-xcfg = { workspace = true }
+xcron-capability-observability-structlog = { workspace = true }
+xcron-capability-manifest-yaml = { workspace = true }
+xcron-capability-scheduler-native = { workspace = true }
+xcron-capability-jobs-manifest = { workspace = true }
+xcron-capability-logs-local = { workspace = true }
+xcron-capability-metrics-local = { workspace = true }
+xcron-capability-agent-hooks-local = { workspace = true }
+xcron-kernel = { workspace = true }
+xcron-testing = { workspace = true }
+xcron-sdk = { workspace = true }
+xcron-cli = { workspace = true }
+
 [project]
 name = "xcron"
 version = "0.1.0"
@@ -12,29 +33,28 @@ license = "LicenseRef-Proprietary"
 authors = [
   { name = "Dariusz Debowczyk" }
 ]
-# The library half of xcron: the SDK, the capabilities, and the domain. A
-# program that embeds `Xcron` pulls in no terminal renderer.
+# The aggregate library distribution: the SDK and one selected default provider
+# for every capability.  The CLI remains an opt-in channel, so an embedder gets
+# the complete programmatic surface without terminal renderers.
 dependencies = [
-  "PyYAML>=6.0,<7.0",
-  "jsonschema>=4.23,<5.0",
-  "pydantic>=2.12.5",
-  "structlog>=24.0,<26.0",
-  # `xcfg` is a portfolio library, not published to any index. A PEP 508 direct
-  # reference is what makes the built wheel installable outside this checkout;
-  # a bare version specifier would resolve against PyPI and fail. The tag is
-  # pinned because the layer order xcfg implements is part of xcron's own
-  # observable configuration contract.
-  "xcfg @ git+https://github.com/cognesy/xcfg@v0.5.0",
+  "xcron-sdk==0.1.0",
+  "xcron-capability-workspace-local==0.1.0",
+  "xcron-capability-settings-xcfg==0.1.0",
+  "xcron-capability-observability-structlog==0.1.0",
+  "xcron-capability-manifest-yaml==0.1.0",
+  "xcron-capability-scheduler-native==0.1.0",
+  "xcron-capability-jobs-manifest==0.1.0",
+  "xcron-capability-logs-local==0.1.0",
+  "xcron-capability-metrics-local==0.1.0",
+  "xcron-capability-agent-hooks-local==0.1.0",
 ]
 
 [project.optional-dependencies]
 # The `xcron` console script is a CLI channel, so it needs the channel's
-# renderers. Nothing below `xcron.channels` may import them; the architecture
+# renderers. No provider or SDK module may import `xcron_cli`; the architecture
 # tests enforce that, which is what makes this split safe rather than cosmetic.
 cli = [
-  "python-toon>=0.1.3",
-  "rich>=14.3.3",
-  "typer>=0.23.2",
+  "xcron-cli==0.1.0",
 ]
 dev = [
   "pytest>=8.0,<9.0",
@@ -45,171 +65,46 @@ dev = [
 # the split from turning every CLI test red.
 [dependency-groups]
 dev = [
-  "import-linter>=2.13",
   "pytest>=8.0,<9.0",
   "xcron[cli]",
+  "xcron-capability-workspace-local==0.1.0",
+  "xcron-capability-settings-xcfg==0.1.0",
+  "xcron-capability-observability-structlog==0.1.0",
+  "xcron-capability-manifest-yaml==0.1.0",
+  "xcron-capability-scheduler-native==0.1.0",
+  "xcron-capability-jobs-manifest==0.1.0",
+  "xcron-capability-logs-local==0.1.0",
+  "xcron-capability-metrics-local==0.1.0",
+  "xcron-capability-agent-hooks-local==0.1.0",
+  "xcron-contracts==0.1.0",
+  "xcron-kernel==0.1.0",
+  "xcron-testing==0.1.0",
+  "xcron-sdk==0.1.0",
+  "xcron-cli==0.1.0",
 ]
-
-[project.scripts]
-xcron = "xcron.channels.cli.typer_app:run"
 
 [tool.setuptools]
-include-package-data = true
-packages = [
-  "xcron",
-  "xcron.capabilities",
-  "xcron.capabilities.agent_hooks",
-  "xcron.capabilities.jobs",
-  "xcron.capabilities.manifest",
-  "xcron.capabilities.manifest.resources",
-  "xcron.capabilities.manifest.resources.schemas",
-  "xcron.capabilities.operations",
-  "xcron.capabilities.reconciliation",
-  "xcron.capabilities.reconciliation.adapters",
-  "xcron.capabilities.workspace",
-  "xcron.channels",
-  "xcron.channels.cli",
-  "xcron.channels.cli.presenters",
-  "xcron.channels.cli.resources",
-  "xcron.channels.cli.resources.help",
-  "xcron.channels.cli.resources.help.jobs",
-  "xcron.configuration",
-  "xcron.configuration.resources",
-  "xcron.configuration.resources.config",
-  "xcron.domain",
-  "xcron.runtime",
-  "xcron.sdk",
-  "xcron.shared",
-  "xcron.shared.resources",
-  "xcron.shared.resources.logging",
-]
-
-# One source root, so a package's import path no longer encodes which
-# directory it happens to live in.
-[tool.setuptools.package-dir]
-"" = "src"
-
-[tool.setuptools.package-data]
-# PEP 561: the marker in the top-level package covers every subpackage, so
-# the channel does not carry its own.
-"xcron" = ["py.typed"]
-"xcron.capabilities.manifest.resources.schemas" = ["*.yaml"]
-"xcron.channels.cli.resources.help" = ["*.md", "jobs/*.md"]
-"xcron.channels.cli.resources.help.jobs" = ["*.md"]
-"xcron.configuration.resources.config" = ["*.yaml"]
-"xcron.shared.resources.logging" = ["*.yaml"]
+# xcron is a dependency-only aggregate. Importable modules live exclusively in
+# the kernel, contracts, SDK, CLI, and selected provider distributions.
+packages = []
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "ops/control/tests"]
-
-# Import Linter states the dependency graph as data. The AST tests in
-# `tests/architecture/` still own what a graph cannot express — which *file*
-# inside a module may be imported, and which files may read the environment —
-# but "who may depend on whom" is said once, here, in a form that is checked
-# rather than described.
-[tool.importlinter]
-# One root, because there is one import root. The retired names are external as
-# far as the graph is concerned, which is what lets the last contract forbid
-# first-party code from naming them.
-root_packages = ["xcron"]
-include_external_packages = true
-
-# Everything under `xcron` except the channel. `forbidden` has no exclusion
-# syntax, so the library half is named by listing its members; a new top-level
-# subpackage has to be added here, which is the intended friction.
-[[tool.importlinter.contracts]]
-name = "The stack has one direction"
-type = "layers"
-layers = [
-  "xcron.channels",
-  "xcron.sdk",
-  "xcron.runtime",
-  "xcron.capabilities",
-  "xcron.configuration | xcron.domain | xcron.shared",
-]
-
-[[tool.importlinter.contracts]]
-# Not `independence`: the capabilities do have edges, and the point is that
-# they form a DAG rather than a mesh. Anything in a layer is independent of
-# its siblings, so a new `jobs -> operations` import fails here.
-name = "Capabilities form a DAG, not a mesh"
-type = "layers"
-containers = ["xcron.capabilities"]
-layers = [
-  "agent_hooks | jobs | operations",
-  "reconciliation",
-  "manifest",
-  "workspace",
-]
-
-[[tool.importlinter.contracts]]
-# Reconciliation reports what it did through the OutcomeRecorder port; the
-# adapter that calls operations lives in the composition root. A direct import
-# would give metrics.json a second writer.
-name = "Reconciliation reaches operations only through its port"
-type = "forbidden"
-source_modules = ["xcron.capabilities.reconciliation"]
-forbidden_modules = ["xcron.capabilities.operations"]
-
-[[tool.importlinter.contracts]]
-# Settings are composed once and passed down as values. A capability importing
-# the loader would resolve configuration a second time, at a different moment.
-name = "Only the composition root loads settings"
-type = "forbidden"
-# Direct imports only. Everything reaches the composition root eventually —
-# that is what a composition root is for — so an indirect chain here says
-# nothing. The claim is that no file outside `runtime` *names* the loader.
-allow_indirect_imports = true
-source_modules = [
-  "xcron.capabilities",
-  "xcron.channels",
-  "xcron.domain",
-  "xcron.sdk",
-  "xcron.shared",
-]
-forbidden_modules = ["xcron.configuration"]
-
-[[tool.importlinter.contracts]]
-# The library half is embeddable. A renderer below the channel boundary decides
-# on the embedder's behalf that it has a terminal.
-name = "No terminal below the channel boundary"
-type = "forbidden"
-source_modules = [
-  "xcron.capabilities",
-  "xcron.configuration",
-  "xcron.domain",
-  "xcron.runtime",
-  "xcron.sdk",
-  "xcron.shared",
-]
-forbidden_modules = ["typer", "rich", "toon", "click"]
-
-[[tool.importlinter.contracts]]
-name = "Nothing below the channel boundary knows a channel exists"
-type = "forbidden"
-source_modules = [
-  "xcron.capabilities",
-  "xcron.configuration",
-  "xcron.domain",
-  "xcron.runtime",
-  "xcron.sdk",
-  "xcron.shared",
-]
-forbidden_modules = ["xcron.channels"]
-
-[[tool.importlinter.contracts]]
-# The deleted packages, and the two import roots Phase 8 retired. None of them
-# exist any more, and Import Linter cannot see a module that does not exist, so
-# this contract is entirely about the day someone recreates one — a vendored
-# copy, a stale build tree, a well-meant compatibility shim.
-name = "The old import roots and the ownerless packages stay unused"
-type = "forbidden"
-source_modules = ["xcron"]
-forbidden_modules = [
-  "xcron.actions",
-  "xcron.services",
-  "xcron.infra",
-  "xcron_cli",
-  "xcron_libs",
-  "xcron_resources",
+testpaths = [
+  "tests",
+  "packages/xcron-contracts/tests",
+  "packages/xcron-kernel/tests",
+  "packages/xcron-testing/tests",
+  "packages/xcron-sdk/tests",
+  "packages/xcron-cli/tests",
+  "capabilities/xcron-capability-workspace-local/tests",
+  "capabilities/xcron-capability-settings-xcfg/tests",
+  "capabilities/xcron-capability-observability-structlog/tests",
+  "capabilities/xcron-capability-manifest-yaml/tests",
+  "capabilities/xcron-capability-scheduler-native/tests",
+  "capabilities/xcron-capability-jobs-manifest/tests",
+  "capabilities/xcron-capability-logs-local/tests",
+  "capabilities/xcron-capability-metrics-local/tests",
+  "capabilities/xcron-capability-agent-hooks-local/tests",
+  "ops/control/tests",
+  "ops/version/tests",
 ]

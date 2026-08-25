@@ -1,0 +1,17 @@
+[package]
+kind = "provider"
+capability = "scheduler"
+implementation = "native"
+namespace = "xcron.capabilities.scheduler_native"
+kernel_api = ">=1,<2"
+
+[provider]
+entry_point = "xcron.capabilities.scheduler_native.provider:CAPABILITY"
+ports = ["scheduler"]
+requires = ["workspace", "manifest"]
+cli_paths = ["validate", "plan", "status", "inspect", "apply", "prune"]
+assets = []
+
+[operations]
+justfile = "justfile"
+required_recipes = ["default", "list", "doctor", "check", "test", "build"]

@@ -1,7 +1,8 @@
 # CLI contract
 
-This capability makes the agent-facing CLI surface easy to verify without
-moving command logic outside `xcron.channels.cli`.
+This capability makes the agent-facing CLI surface easy to verify. The
+terminal package owns its Typer application, renderers, and authored help in
+`packages/xcron-cli/src/xcron_cli/`.
 
 ```sh
 just ops cli

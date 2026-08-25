@@ -1,0 +1,21 @@
+set positional-arguments := true
+
+ROOT := parent_directory(parent_directory(justfile_directory()))
+
+default:
+    @just --list
+
+list:
+    @just --list
+
+doctor:
+    @uv run --project {{ROOT}} python -c "from xcron.capabilities.jobs_manifest.provider import CAPABILITY; assert CAPABILITY.id == 'jobs:manifest'"
+
+check:
+    @uv run --project {{ROOT}} pytest {{ROOT}}/capabilities/xcron-capability-jobs-manifest/tests -q
+
+test:
+    @uv run --project {{ROOT}} pytest {{ROOT}}/capabilities/xcron-capability-jobs-manifest/tests -q
+
+build:
+    @uv build --project {{ROOT}} --package xcron-capability-jobs-manifest --out-dir /tmp/xcron-jobs-manifest-build --clear

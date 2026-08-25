@@ -13,6 +13,6 @@ just ops workflow ci
 ```
 
 `doctor` is non-mutating. `sync` intentionally updates the local dependency
-environment. `ci` runs catalogue validation, deterministic checks, and the
-installed-wheel lane; run it before a release or handoff that needs that level
-of evidence.
+environment. `ci` first proves release-version projections, then runs
+catalogue validation, deterministic checks, and the installed-wheel lane; run
+it before a release or handoff that needs that level of evidence.

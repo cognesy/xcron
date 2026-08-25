@@ -45,19 +45,22 @@ Other boundaries:
 
 ## Repo Layout
 
-One distribution, one import root: `xcron`. The directory a file lives in is
-no longer part of its public name.
+The root `xcron` project is a metadata-only aggregate. Implementations live in
+independently installable distributions that contribute to a native PEP 420
+`xcron` namespace; parent namespace directories intentionally have no
+`__init__.py` forwarding shim.
 
 ```text
-src/xcron/capabilities/     one module per owned decision (see docs/dev/architecture.md)
-src/xcron/channels/cli/     Typer shell, Output class, AXI output boundary
-src/xcron/channels/cli/resources/help/
-                            packaged Markdown command help
-src/xcron/configuration/    strict leaf: layered settings composition (the only xcfg importer)
-src/xcron/domain/           Pydantic domain models and normalization
-src/xcron/runtime/          composition root and cross-capability adapters
-src/xcron/sdk/              the typed Xcron client
-src/xcron/shared/           strict leaf: structlog wiring and logging config
+packages/xcron-kernel/      neutral capability host, discovery, selection
+packages/xcron-contracts/   typed requests, results, domain values, and ports
+packages/xcron-sdk/         public typed `xcron.sdk` client
+packages/xcron-cli/         Typer/AXI terminal channel (`xcron_cli` import root)
+packages/xcron-testing/     reusable structural/conformance test helpers
+capabilities/xcron-capability-*/
+                            one complete provider package per owned decision
+                            (source, descriptor, assets, tests, README, justfile)
+ops/<capability>/            self-service operations micropackages: metadata,
+                            README, justfile, scripts, and focused tests
 resources/templates/        AXI command/test templates
 resources/examples/         example projects (basic, disabled-job)
 resources/skills/           repo-local agent skills (use-xcron, admin-xcron)
@@ -67,7 +70,6 @@ scripts/verify-core.sh      deterministic core verification entrypoint
 scripts/verify-wheel.sh     build + clean-env install check (network; run before a release)
 tests/                      pytest suite (unit + parser + CLI + observability)
 tests/architecture/         AST checks for what an import graph cannot express
-tests/modules/<module>/     module-owned lanes; only these may touch internals
 tests/parity/               the CLI and the SDK must reach the same use case
 tests/degraded/             drills for the degraded-behaviour table
 tests/integration/          explicit-only host launchd and Docker cron harnesses
@@ -79,65 +81,44 @@ SPEC.md                     product specification (also used as package readme)
 Dependency direction:
 
 ```text
-src/xcron/channels/cli
-  -> src/xcron/sdk (Xcron)
-  -> src/xcron/capabilities/<module>/{api,contracts}
-  -> module internals
-  -> src/xcron/domain, src/xcron/shared          (leaves only)
+packages/xcron-cli/src/xcron_cli
+  -> packages/xcron-sdk/src/xcron/sdk
+  -> packages/xcron-kernel + packages/xcron-contracts
+  -> selected external capability providers
 ```
 
-Modules answer *who owns a decision*. Planes — data, control, management —
-answer *what keeps working when something is down*, and cut across the modules.
-The permitted cross-module edges, the module cards, the plane map, and the
-channel exposure matrix all live in
-[docs/dev/architecture.md](docs/dev/architecture.md), which is authoritative.
+Providers may depend on the kernel, contracts, and their own implementation.
+They use only the capability host's declared ports: no provider imports a
+sibling provider or `xcron_cli`. The root aggregate has no implementation
+source. The complete topology and provider inventory live in
+[docs/dev/architecture.md](docs/dev/architecture.md).
 
 Four lanes enforce this, and each one catches what the others structurally
 cannot:
 
-- `pyproject.toml` `[tool.importlinter]` — seven contracts over the import
-  graph: stack direction, the capability DAG, the `OutcomeRecorder` port, the
-  settings boundary, no renderer below the channel, no channel below the
-  channel, and the retired names staying unused. Run by `verify-core.sh`.
-- `tests/architecture/` — what a graph cannot express: *which file inside* a
-  module an import reached for, and which files may name `os.environ`.
+- `tests/architecture/` — package ownership, PEP 420 shape, descriptors,
+  declared assets, provider dependency boundaries, and explicit environment
+  readers.
+- package-local `tests/` — provider behaviour and conformance from the
+  provider that owns it.
 - `tests/parity/` — the CLI and the SDK reach the same use case with the same
   arguments.
 - `tests/degraded/` — the degraded-behaviour table, executed.
 
 Rules:
 
-- `xcron.channels.cli` parses Typer flags, resolves the project path / shared
-  options, calls exactly one action, renders typed responses through the
-  `Output` class in `xcron/channels/cli/output.py`, and sets exit codes.
-- `xcron.channels.cli` must not contain manifest IO, scheduler IO, subprocess
-  logic, hash comparisons, or domain rules.
-- Every user-visible use case belongs to the module that owns its decision and
-  is reached through that module's `api`. There is no flat `src/xcron/actions`
-  namespace: `validate_project`, `plan_project`, `status_project`,
-  `apply_project`, `prune_project`, and `inspect_job` are `reconciliation`;
-  the `jobs` commands are `jobs`; logs and metrics are `operations`; workspace
-  initialization is `workspace`.
-- `src/xcron/capabilities/<module>` owns one decision behind `api.py` plus
-  `contracts.py`. Nothing outside a module may import below those two files.
-  `workspace` owns paths and scoping, `manifest` owns the YAML format,
-  `reconciliation` owns convergence and its scheduler adapters, `jobs` owns
-  job-level use cases, `operations` owns logs and metrics, `agent_hooks` owns
-  the repo-local hook files.
-- `src/xcron/shared` is a strict leaf. It may not import a capability, run a
-  workflow, or persist anything.
-- `src/xcron/domain` contains Pydantic models, normalization, and qualified-id
-  helpers. Domain code must not import a channel or a capability.
-- `xcron.configuration` is a strict leaf that composes `Settings` from packaged
-  defaults, config files, and the environment. It may not import a capability,
-  and only `src/xcron/runtime` may import it.
-- `src/xcron/runtime` composes only, and owns every adapter that joins two
-  capabilities. It resolves the workspace and loads `Settings` once per
-  invocation, then passes both down as values — no capability reads
-  `os.environ` for a tunable.
-- `src/xcron/channels/<channel>` is one package per way into the product. The
-  CLI is currently the only one; nothing below `xcron.channels` may import a
-  channel, in any import form.
+- `xcron-cli` parses flags, calls the typed SDK, renders results through its
+  own `Output` boundary, and assigns exit codes. It contains no provider
+  implementation or scheduling policy.
+- `xcron-sdk` exposes only typed public groups and asks the host for neutral
+  ports. It imports no concrete provider or terminal dependency.
+- `xcron-contracts` contains domain values, requests, results, and ports. It
+  names neither a provider nor a channel.
+- `xcron-kernel` is capability-neutral: discovery, descriptor validation,
+  explicit selection, lifecycle, and resource lookup only.
+- Every `xcron-capability-*` package owns its source, `capability.toml`,
+  declared assets, README, tests, and local `justfile`. A provider never
+  reaches into another provider's implementation.
 - Keep arrays/dicts at the YAML/output boundary; use typed Pydantic models
   internally.
 - Nothing deployed may call back into xcron. A wrapper that shelled out to the
@@ -156,10 +137,10 @@ which the later Go rewrite is expected to preserve.
 - `tmux` is supported for selected commands such as `xcron logs` and
   `xcron inspect` views that benefit from tmux pane formatting.
 - Convert to TOON/JSON/tmux only at the output boundary. Internal logic returns
-  Pydantic response models from `src/xcron/channels/cli/responses.py`.
+  Pydantic response models from `packages/xcron-cli/src/xcron_cli/responses.py`.
 - `--fields` is validated up front against the per-command `CommandContract`
-  in `xcron/channels/cli/contracts.py`. Invalid fields become structured usage
-  errors, not silent no-ops.
+  in `packages/xcron-cli/src/xcron_cli/contracts.py`. Invalid fields become
+  structured usage errors, not silent no-ops.
 - `--full` expands truncated snippet payloads in detail-heavy commands,
   primarily `inspect`.
 - Bare `xcron` returns a content-first home view via `plan_project`. It must
@@ -175,12 +156,12 @@ which the later Go rewrite is expected to preserve.
 
 When changing CLI behavior, inspect and update:
 
-- `xcron/channels/cli/typer_app.py` (Typer commands, bootstrap usage-error path)
-- `xcron/channels/cli/output.py` (`Output`, normalization, field selection)
-- `xcron/channels/cli/common.py` (shared option helpers; reads no environment)
-- `xcron/channels/cli/contracts.py`, `responses.py`, and `mappers.py`
-- `xcron/channels/cli/presenters/` (AXI, TOON, tmux, and Rich help renderers)
-- `xcron/channels/cli/resources/help/*.md` (authored runtime help)
+- `packages/xcron-cli/src/xcron_cli/typer_app.py` (Typer commands and bootstrap)
+- `packages/xcron-cli/src/xcron_cli/output.py` (`Output`, normalization, fields)
+- `packages/xcron-cli/src/xcron_cli/common.py` (shared option helpers)
+- `packages/xcron-cli/src/xcron_cli/contracts.py`, `responses.py`, and `mappers.py`
+- `packages/xcron-cli/src/xcron_cli/presenters/` (AXI, TOON, tmux, Rich help)
+- `packages/xcron-cli/src/xcron_cli/resources/help/*.md` (authored help)
 - `tests/test_cli_*` and `tests/test_typer_cli.py`
 
 See `docs/dev/output.md` for the full output design.
@@ -315,21 +296,20 @@ uv run xcron status -o json --fields backend,statuses
 Default deterministic core lane:
 
 ```bash
-./scripts/verify-core.sh        # runs `uv run lint-imports`, then `uv run pytest`
+./scripts/verify-core.sh        # workspace architecture/metadata checks, then pytest
 ```
 
 Equivalent direct invocation:
 
 ```bash
-uv run lint-imports
+uv run pytest tests/architecture tests/test_packaging.py
 uv run pytest
 ```
 
-The two gates are not redundant. `[tool.importlinter]` in `pyproject.toml`
-declares the dependency graph — layers, the capability DAG, and the forbidden
-edges — and Import Linter checks it. `tests/architecture/` checks what a graph
-cannot express: which *file* inside a module an import reached for, and which
-files may name `os.environ`. Changing either one is an architectural decision.
+The two stages are not redundant. The first validates the package workspace,
+descriptors, assets, PEP 420 namespace shape, and dependency boundaries. The
+second executes unit, package-local, CLI/SDK parity, and degraded-behaviour
+lanes. Changing either is an architectural decision.
 
 Installed-distribution lane (builds a wheel, installs it into an isolated
 environment, and invokes the installed console script outside the source

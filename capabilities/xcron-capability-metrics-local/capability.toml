@@ -1,0 +1,17 @@
+[package]
+kind = "provider"
+capability = "metrics"
+implementation = "local"
+namespace = "xcron.capabilities.metrics_local"
+kernel_api = ">=1,<2"
+
+[provider]
+entry_point = "xcron.capabilities.metrics_local.provider:CAPABILITY"
+ports = ["metrics"]
+requires = ["workspace"]
+cli_paths = ["metrics"]
+assets = []
+
+[operations]
+justfile = "justfile"
+required_recipes = ["default", "list", "doctor", "check", "test", "build"]

@@ -1,0 +1,8 @@
+[package]
+kind = "kernel"
+namespace = "xcron"
+kernel_api = "1.0.0"
+
+[operations]
+justfile = "justfile"
+required_recipes = ["default", "list", "doctor", "check", "test", "build"]

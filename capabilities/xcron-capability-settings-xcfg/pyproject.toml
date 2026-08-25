@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xcron-capability-settings-xcfg"
+version = "0.1.0"
+description = "Strict xcfg-backed settings provider for xcron"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "LicenseRef-Proprietary"
+dependencies = [
+  "xcron-contracts==0.1.0",
+  "xcron-kernel==0.1.0",
+  "xcfg @ git+https://github.com/cognesy/xcfg@v0.5.0",
+]
+
+[project.entry-points."xcron.capabilities"]
+settings-xcfg = "xcron.capabilities.settings_xcfg.provider:CAPABILITY"
+
+[tool.uv.sources]
+xcron-contracts = { workspace = true }
+xcron-kernel = { workspace = true }
+
+[tool.setuptools]
+include-package-data = true
+packages = [
+    "xcron.capabilities.settings_xcfg",
+  "xcron.capabilities.settings_xcfg.resources",
+  "xcron.capabilities.settings_xcfg.resources.config",
+]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.package-data]
+"xcron.capabilities.settings_xcfg.resources.config" = ["*.yaml"]

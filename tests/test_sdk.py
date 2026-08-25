@@ -9,7 +9,7 @@ import sys
 
 import pytest
 
-from xcron import (
+from xcron.sdk import (
     ClientClosedError,
     HookError,
     JobCreateRequest,
@@ -18,12 +18,53 @@ from xcron import (
     ScheduleRequest,
     Xcron,
 )
-from xcron.capabilities.agent_hooks.contracts import ExecutableNotFoundError
-from xcron.capabilities.reconciliation.api import SchedulerRegistry
-from xcron.capabilities.reconciliation.contracts import PlanChange, PlanChangeKind, ProjectState
+from xcron.capabilities.agent_hooks_local.provider import CAPABILITY as AGENT_HOOKS
+from xcron.capabilities.jobs_manifest.provider import CAPABILITY as JOBS
+from xcron.capabilities.logs_local.provider import CAPABILITY as LOGS
+from xcron.capabilities.manifest_yaml.provider import CAPABILITY as MANIFEST
+from xcron.capabilities.metrics_local.provider import CAPABILITY as METRICS
+from xcron.capabilities.observability_structlog.provider import CAPABILITY as OBSERVABILITY
+from xcron.capabilities.scheduler_native.provider import CAPABILITY as SCHEDULER
+from xcron.capabilities.settings_xcfg.provider import CAPABILITY as SETTINGS
+from xcron.capabilities.workspace_local.provider import CAPABILITY as WORKSPACE
+from xcron.contracts import (
+    AgentHooksError,
+    ApplyProjectResult,
+    HookInstallResult,
+    HookRequest,
+    HookStatusResult,
+    InspectJobResult,
+    JobLookupRequest,
+    PlanChange,
+    PlanChangeKind,
+    PlanProjectResult,
+    ProjectRequest,
+    PruneProjectResult,
+    ScheduleControlPort,
+    StatusProjectResult,
+    ValidateProjectResult,
+)
+from xcron.kernel import Capability, CapabilityDescriptor, CapabilityProvides, CapabilityRegistration, CapabilityRequirement, CapabilityRegistry, CapabilitySelection
 
 
-SDK_DIR = Path(__file__).resolve().parents[1] / "src" / "xcron" / "sdk"
+SDK_DIR = Path(__file__).resolve().parents[1] / "packages" / "xcron-sdk" / "src" / "xcron" / "sdk"
+
+
+def _registry(*extra: Capability) -> CapabilityRegistry:
+    return CapabilityRegistry(
+        (
+            WORKSPACE,
+            SETTINGS,
+            OBSERVABILITY,
+            MANIFEST,
+            SCHEDULER,
+            JOBS,
+            LOGS,
+            METRICS,
+            AGENT_HOOKS,
+            *extra,
+        )
+    )
 
 
 def _write_project(root: Path) -> Path:
@@ -67,17 +108,51 @@ def test_sdk_exposes_grouped_typed_apis_and_lifecycle(tmp_path: Path) -> None:
     client.close()
 
 
-def test_sdk_accepts_an_explicit_scheduler_registry(tmp_path: Path) -> None:
+def test_sdk_selects_an_explicit_alternate_schedule_provider(tmp_path: Path) -> None:
     project = _write_project(tmp_path / "project")
 
-    class TestScheduler:
-        name = "test"
+    class TestScheduleController:
+        def validate(self, request: ProjectRequest, context) -> ValidateProjectResult:
+            return ValidateProjectResult(str(context.workspace.root), None, True)
 
-        def schedule_errors(self, jobs):
-            return tuple()
+        def plan(self, request, context) -> PlanProjectResult:
+            validation = self.validate(request, context)
+            return PlanProjectResult(True, validation, "test", None)
 
-    registry = SchedulerRegistry((TestScheduler(),))
-    with Xcron.open(project, backend="test", scheduler_registry=registry) as client:
+        def status(self, request, context) -> StatusProjectResult:
+            validation = self.validate(request, context)
+            return StatusProjectResult(True, "test", validation)
+
+        def apply(self, request, context) -> ApplyProjectResult:
+            plan = self.plan(request, context)
+            return ApplyProjectResult(True, "test", plan)
+
+        def prune(self, request, context) -> PruneProjectResult:
+            return PruneProjectResult(True, "test", "sdk-demo")
+
+        def inspect(self, request: JobLookupRequest, context) -> InspectJobResult:
+            status = self.status(request, context)
+            return InspectJobResult(True, "test", status)
+
+    assert isinstance(TestScheduleController(), ScheduleControlPort)
+    alternate = Capability(
+        CapabilityDescriptor(
+            capability="scheduler",
+            implementation="test",
+            version="0.1.0",
+            kernel_api=">=1,<2",
+            requires=(CapabilityRequirement("workspace"), CapabilityRequirement("manifest")),
+            provides=CapabilityProvides(ports=("scheduler",)),
+        ),
+        lambda _host: CapabilityRegistration(ports={"scheduler": TestScheduleController()}),
+    )
+
+    with Xcron.open(
+        project,
+        backend="test",
+        capability_registry=_registry(alternate),
+        selection=CapabilitySelection(scheduler="test"),
+    ) as client:
         result = client.schedules.plan()
 
     assert result.valid is True
@@ -126,41 +201,60 @@ def test_sdk_job_update_requests_reject_empty_or_ambiguous_mutations() -> None:
         )
 
 
-def test_apply_preserves_injected_backend_name_for_schedule_errors(tmp_path: Path) -> None:
+def test_apply_preserves_selected_backend_name_for_schedule_errors(tmp_path: Path) -> None:
     project = _write_project(tmp_path / "project")
 
-    class ConstrainedScheduler:
-        name = "constrained"
+    class ConstrainedScheduleController:
+        def validate(self, request: ProjectRequest, context) -> ValidateProjectResult:
+            return ValidateProjectResult(str(context.workspace.root), None, True)
 
-        def collect_project_state(self, project_id, *, options):
-            return ProjectState(
-                project_id=project_id,
-                backend=self.name,
-                manifest_hash=None,
-            )
-
-        def inspect_project(self, project_id, *, options, include_native_detail=False):
-            return tuple()
-
-        def schedule_errors(self, jobs):
-            job = jobs[0]
-            return (
+        def plan(self, request, context) -> PlanProjectResult:
+            validation = self.validate(request, context)
+            return PlanProjectResult(
+                True,
+                validation,
+                "constrained",
+                None,
+                changes=(
                 PlanChange(
                     kind=PlanChangeKind.ERROR,
-                    qualified_id=job.qualified_id,
+                    qualified_id="sdk-demo.hello",
                     reason="schedule is unsupported by constrained backend",
-                    desired_job=job,
                 ),
             )
+            )
 
-        def apply(self, deployment, *, options):
-            raise AssertionError("apply must not run when schedule validation fails")
+        def status(self, request, context) -> StatusProjectResult:
+            validation = self.validate(request, context)
+            return StatusProjectResult(True, "constrained", validation)
 
-    registry = SchedulerRegistry((ConstrainedScheduler(),))
+        def apply(self, request, context) -> ApplyProjectResult:
+            return ApplyProjectResult(False, "constrained", self.plan(request, context))
+
+        def prune(self, request, context) -> PruneProjectResult:
+            return PruneProjectResult(True, "constrained", "sdk-demo")
+
+        def inspect(self, request: JobLookupRequest, context) -> InspectJobResult:
+            return InspectJobResult(True, "constrained", self.status(request, context))
+
+    assert isinstance(ConstrainedScheduleController(), ScheduleControlPort)
+    alternate = Capability(
+        CapabilityDescriptor(
+            capability="scheduler",
+            implementation="constrained",
+            version="0.1.0",
+            kernel_api=">=1,<2",
+            requires=(CapabilityRequirement("workspace"), CapabilityRequirement("manifest")),
+            provides=CapabilityProvides(ports=("scheduler",)),
+        ),
+        lambda _host: CapabilityRegistration(ports={"scheduler": ConstrainedScheduleController()}),
+    )
+
     with Xcron.open(
         project,
         backend="constrained",
-        scheduler_registry=registry,
+        capability_registry=_registry(alternate),
+        selection=CapabilitySelection(scheduler="constrained"),
     ) as client:
         result = client.schedules.apply()
 
@@ -171,7 +265,7 @@ def test_apply_preserves_injected_backend_name_for_schedule_errors(tmp_path: Pat
 
 def test_sdk_modules_do_not_import_cli_or_renderers() -> None:
     forbidden = (
-        "xcron.channels.cli",
+        "xcron_cli",
         "typer",
         "rich",
     )
@@ -193,16 +287,36 @@ def test_sdk_modules_do_not_import_cli_or_renderers() -> None:
         assert not any(name.startswith(forbidden) for name in imports), path
 
 
-def test_sdk_translates_agent_hooks_failures(monkeypatch, tmp_path: Path) -> None:
-    import importlib
+def test_sdk_translates_agent_hooks_failures(tmp_path: Path) -> None:
+    class FailingAgentHooks:
+        def install(self, request: HookRequest, context) -> HookInstallResult:
+            raise AgentHooksError("missing xcron")
 
-    hooks_module = importlib.import_module("xcron.sdk.hooks")
+        def status(self, request: HookRequest, context) -> HookStatusResult:
+            raise AgentHooksError("missing xcron")
 
-    def fail(*_args, **_kwargs):
-        raise ExecutableNotFoundError("missing xcron")
+        def repair(self, request: HookRequest, context) -> HookInstallResult:
+            raise AgentHooksError("missing xcron")
 
-    monkeypatch.setattr(hooks_module, "status_agent_hooks", fail)
-    with Xcron.open(tmp_path) as client:
+        def record_session_end(self, request: ProjectRequest, context):
+            raise AgentHooksError("missing xcron")
+
+    alternate = Capability(
+        CapabilityDescriptor(
+            capability="agent-hooks",
+            implementation="failing",
+            version="0.1.0",
+            kernel_api=">=1,<2",
+            provides=CapabilityProvides(ports=("agent-hooks",)),
+        ),
+        lambda _host: CapabilityRegistration(ports={"agent-hooks": FailingAgentHooks()}),
+    )
+
+    with Xcron.open(
+        tmp_path,
+        capability_registry=_registry(alternate),
+        selection=CapabilitySelection(**{"agent-hooks": "failing"}),
+    ) as client:
         with pytest.raises(HookError, match="missing xcron"):
             client.hooks.status()
 
@@ -214,8 +328,8 @@ def test_importing_public_sdk_does_not_load_cli_or_response_modules() -> None:
             "-c",
             (
                 "import sys; import xcron; "
-                "forbidden = {'typer', 'xcron.channels.cli', "
-                "'xcron.channels.cli.responses'}; "
+                "forbidden = {'typer', 'xcron_cli', "
+                "'xcron_cli.responses'}; "
                 "loaded = forbidden.intersection(sys.modules); "
                 "assert not loaded, sorted(loaded)"
             ),

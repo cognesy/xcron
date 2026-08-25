@@ -6,9 +6,9 @@ import textwrap
 import structlog
 from typer.testing import CliRunner
 
-from xcron.channels.cli.typer_app import app
-from xcron.shared.logging_config import LOGGING_PACKAGE, load_logging_config
-import xcron.shared.observability as observability
+from xcron_cli.typer_app import app
+from xcron.capabilities.observability_structlog.logging_config import LOGGING_PACKAGE, load_logging_config
+import xcron.capabilities.observability_structlog.observability as observability
 
 
 runner = CliRunner()
@@ -16,7 +16,7 @@ runner = CliRunner()
 
 def _reset_observability() -> None:
     observability._CONFIGURED = False
-    observability._CONFIGURED_STREAM_ID = None
+    observability._CONFIGURED_STREAM = None
     observability._CONFIGURED_LEVEL_NAME = None
     observability._CONFIGURED_FORMAT = None
     observability._CONFIGURED_CONFIG = None
@@ -52,7 +52,7 @@ def _make_project(tmp_path):
 def test_packaged_logging_config_sets_required_defaults() -> None:
     config = load_logging_config(apply_env=False)
 
-    assert LOGGING_PACKAGE == "xcron.shared.resources.logging"
+    assert LOGGING_PACKAGE == "xcron.capabilities.observability_structlog.resources.logging"
     assert config.logger == "xcron"
     assert config.destination == "stderr"
     assert config.format == "auto"
@@ -69,7 +69,7 @@ def test_logging_env_overrides_default_config(monkeypatch) -> None:
     monkeypatch.setenv("XCRON_LOG_LEVEL", "debug")
     monkeypatch.setenv("XCRON_LOG_FORMAT", "json")
 
-    config = load_logging_config()
+    config = load_logging_config(environ={"XCRON_LOG_LEVEL": "debug", "XCRON_LOG_FORMAT": "json"})
 
     assert config.level == "DEBUG"
     assert config.format == "json"

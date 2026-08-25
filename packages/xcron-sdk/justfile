@@ -1,0 +1,21 @@
+set positional-arguments := true
+
+ROOT := parent_directory(parent_directory(justfile_directory()))
+
+default:
+    @just --list
+
+list:
+    @just --list
+
+doctor:
+    @uv run --project {{ROOT}} python -c "from xcron.sdk import Xcron; assert Xcron.__name__ == 'Xcron'"
+
+check:
+    @uv run --project {{ROOT}} pytest {{ROOT}}/packages/xcron-sdk/tests -q
+
+test:
+    @uv run --project {{ROOT}} pytest {{ROOT}}/packages/xcron-sdk/tests -q
+
+build:
+    @uv build --project {{ROOT}} --package xcron-sdk --out-dir /tmp/xcron-sdk-build --clear

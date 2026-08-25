@@ -1,11 +1,15 @@
 set positional-arguments := true
 
+mod version 'ops/version/justfile'
+
 default:
     @just --list --list-submodules
 
-# Invoke an operation capability. Omitting command opens its safe command menu.
-ops capability command="default" *args:
-    @just --justfile ops/{{ capability }}/justfile {{ command }} {{ args }}
+# Invoke an operation capability through the validated operations router.
+# No arguments and `list` are safe discovery routes. Omitting the command for a
+# valid capability opens its local safe command menu.
+ops *args:
+    @just --justfile ops/justfile route {{ args }}
 
 list:
     @just --justfile ops/control/justfile list

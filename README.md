@@ -98,18 +98,15 @@ python-toon for compact agent-facing output — are a `cli` extra. Install
 `xcron[cli]` for the command; plain `xcron` is the embeddable library half and
 pulls in no terminal.
 
-Everything importable lives under one root, `xcron`, in `src/`. The code is
-organized around a thin CLI shell in `xcron.channels.cli` and one module per
-owned decision in `xcron.capabilities` — `workspace`, `manifest`,
-`reconciliation`, `jobs`, `operations`, and `agent_hooks` — each behind an
-`api.py`/`contracts.py` surface. Value types live in `xcron.domain`, settings
-in `xcron.configuration`, logging in the `xcron.shared` leaf, and composition
-in `xcron.runtime`, which resolves the workspace and the settings once per
-invocation and hands both down as values. Packaged data ships inside the module
-that reads it; examples and skills stay in `resources/`.
+The root `xcron` distribution is a metadata-only aggregate. Importable code
+lives in independently buildable packages: `xcron-kernel` for discovery and
+selection, `xcron-contracts` for typed ports and values, `xcron-sdk` for the
+public client, `xcron-cli` for the terminal channel, and one
+`xcron-capability-*` package for each selected provider. They share the
+`xcron` namespace without a root compatibility bridge.
 
-There used to be two import roots, named after the directories they lived in.
-They shipped for one release as aliases that emitted a `DeprecationWarning` and
-have now been removed. Migrating is a rename and nothing else: the old library
-root becomes `xcron`, the old channel root becomes `xcron.channels.cli`, and
-every dotted path below the root is unchanged.
+Use `from xcron.sdk import Xcron` for programmatic access. The CLI lives in
+`packages/xcron-cli/src/xcron_cli/`; its Typer and renderer dependencies remain
+an explicit `xcron[cli]` extra. Each capability package carries its own
+descriptor, source, assets, tests, README, and Just recipes, and `ops/` exposes
+the same self-service workflows through a validated operation catalogue.

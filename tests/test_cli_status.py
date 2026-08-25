@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 import textwrap
 
-from xcron.channels.cli.main import main
-from xcron.capabilities.reconciliation.api import apply_project
+from xcron_cli.main import main
+from xcron.sdk import Xcron
 from tests.cli_assertions import assert_list_output
 
 
@@ -41,13 +41,14 @@ def test_status_prints_operator_facing_states_for_cron(tmp_path, monkeypatch, ca
     crontab_path = tmp_path / "crontab.txt"
     crontab_path.write_text("", encoding="utf-8")
 
-    result = apply_project(
+    with Xcron.open(
         project,
         backend="cron",
         state_root=state_root,
         crontab_path=crontab_path,
         manage_crontab=True,
-    )
+    ) as client:
+        result = client.schedules.apply()
     assert result.valid is True
 
     monkeypatch.setenv("XCRON_CRONTAB_PATH", str(crontab_path))
@@ -92,13 +93,14 @@ def test_status_supports_json_output_format_for_jq_style_consumers(tmp_path, mon
     crontab_path = tmp_path / "crontab.txt"
     crontab_path.write_text("", encoding="utf-8")
 
-    result = apply_project(
+    with Xcron.open(
         project,
         backend="cron",
         state_root=state_root,
         crontab_path=crontab_path,
         manage_crontab=True,
-    )
+    ) as client:
+        result = client.schedules.apply()
     assert result.valid is True
 
     monkeypatch.setenv("XCRON_CRONTAB_PATH", str(crontab_path))

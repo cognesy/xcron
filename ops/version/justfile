@@ -1,0 +1,26 @@
+default:
+    @just --list
+
+show:
+    @cd ../.. && uv run python ops/version/bin/version.py show
+
+value:
+    @cd ../.. && uv run python ops/version/bin/version.py value
+
+check:
+    @cd ../.. && uv run python ops/version/bin/version.py check
+
+next part:
+    @cd ../.. && uv run python ops/version/bin/version.py next {{part}}
+
+set version:
+    @cd ../.. && uv run python ops/version/bin/version.py set {{version}}
+
+sync:
+    @cd ../.. && uv run python ops/version/bin/version.py sync
+
+verify-release:
+    @cd ../.. && uv run python ops/version/bin/version.py verify-release
+
+package *args:
+    @cd ../.. && uv run python ops/version/bin/version.py package {{args}}

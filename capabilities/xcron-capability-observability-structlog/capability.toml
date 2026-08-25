@@ -1,0 +1,17 @@
+[package]
+kind = "provider"
+capability = "observability"
+implementation = "structlog"
+namespace = "xcron.capabilities.observability_structlog"
+kernel_api = ">=1,<2"
+
+[provider]
+entry_point = "xcron.capabilities.observability_structlog.provider:CAPABILITY"
+ports = ["observability"]
+requires = []
+cli_paths = []
+assets = ["resources/logging/default.yaml"]
+
+[operations]
+justfile = "justfile"
+required_recipes = ["default", "list", "doctor", "check", "test", "build"]

@@ -1,33 +1,24 @@
 # Python SDK
 
-`xcron.Xcron` is the supported in-process composition surface for Python
-callers. The Typer CLI uses the same client, so the SDK and CLI do not maintain
-separate scheduling implementations.
-
-The import root was renamed to `xcron` by the module-first isolation work. The
-previous root shipped for one release as a deprecated alias and has been
-removed; every dotted name below the root is unchanged, so migrating is a
-rename and nothing else.
+`xcron.sdk` is the stable in-process API. It is a typed facade over the same
+capability ports the CLI uses; it does not import the terminal channel or a
+concrete provider.
 
 ## Opening a client
 
 ```python
-from xcron import Xcron
+from xcron.sdk import Xcron
 
 with Xcron.open("/path/to/project", backend="cron") as xcron:
     plan = xcron.schedules.plan()
     if plan.valid:
-        applied = xcron.schedules.apply()
+        xcron.schedules.apply()
 ```
 
-`Xcron.open(...)` resolves path options once and captures the selected project,
-schedule, backend, platform, state root, and isolated scheduler overrides. The
-client is synchronous, is safe to close repeatedly, and raises
-`ClientClosedError` if an API is used after close.
-
-The current runtime owns no persistent scheduler connection. Lifecycle support
-is still explicit so future owned resources can be added without changing the
-public client shape.
+`Xcron.open(...)` resolves workspace identity and settings once, selects the
+installed capability descriptors, and captures immutable invocation options.
+It is synchronous, context-managed, safe to close repeatedly, and raises
+`ClientClosedError` after close.
 
 ## Grouped APIs
 
@@ -36,23 +27,17 @@ public client shape.
 | `schedules` | `validate`, `plan`, `status`, `apply`, `inspect`, `prune` |
 | `jobs` | `list`, `show`, `add`, `update`, `enable`, `disable`, `remove` |
 | `operations` | `list_logs`, `clear_logs`, `show_metrics`, `reset_metrics` |
-| `hooks` | `install`, `status`, `repair`, `session_end` |
+| `hooks` | `install`, `status`, `repair`, `session_start`, `session_end` |
 | `home` | `initialize` |
 
-Every public SDK method has an explicit typed return. Results are capability
-models such as `PlanProjectResult`, `JobActionResult`, and `MetricsResult`, not
-CLI response envelopes. TOON, JSON, tmux projection, field selection, stdout,
-stderr, and exit codes remain owned by `src/xcron/channels/cli`.
+Every method returns a contract model, not a CLI response envelope. TOON, JSON,
+tmux, field selection, stdout, stderr, and exit codes belong to
+`packages/xcron-cli/src/xcron_cli/`.
 
 ## Typed job mutations
 
-Create and update requests are frozen Pydantic models exported from the
-`xcron` root. They make schedule intent, optional fields, and explicit clears
-visible to both type checkers and callers before xcron reads or writes a
-manifest:
-
 ```python
-from xcron import (
+from xcron.sdk import (
     JobCreateRequest,
     JobUpdateField,
     JobUpdateRequest,
@@ -78,39 +63,19 @@ with Xcron.open("/path/to/project", backend="cron") as xcron:
     )
 ```
 
-`JobUpdateRequest` requires at least one change or clear, and rejects trying
-to set and clear the same optional field in one call. The SDK translates these
-models to the manifest's YAML shape only at the manifest boundary.
+`JobsAPI.add` accepts `JobCreateRequest`, and `JobsAPI.update` accepts
+`JobUpdateRequest`; raw mappings are intentionally not a public mutation API.
+`JobUpdateRequest` requires at least one change or explicit clear and rejects a
+field being set and cleared in one request.
 
-Validation and operational failures normally return the same structured
-`valid=False` results used by the CLI. Client lifecycle failures raise
-`ClientClosedError`. Provider registration errors remain deterministic
-`ValueError` failures from `SchedulerRegistry`.
+## Provider selection
 
-## Provider injection
+Normally `Xcron.open` discovers the default installed descriptors. Tests and
+advanced embedders can pass a `CapabilityRegistry` and `CapabilitySelection`
+to choose an installed alternative deterministically. Capability discovery errors
+are typed and explain unavailable, malformed, incompatible, cyclic, ambiguous,
+or colliding providers rather than silently selecting one.
 
-Tests and embedders may supply an explicit `SchedulerRegistry`:
-
-```python
-with Xcron.open(project, backend="test", scheduler_registry=registry) as xcron:
-    result = xcron.schedules.plan()
-```
-
-The registry is a trusted in-process seam for first-party scheduler adapters,
-not a plugin discovery system. The built-in runtime registers `launchd` and
-`cron` explicitly. A future `systemd` adapter should implement the same typed
-reconciliation port and be added at the runtime composition root.
-
-Host-effect overrides (`state_root`, `launch_agents_dir`, `crontab_path`,
-`manage_launchctl`, and `manage_crontab`) are available on `Xcron.open(...)` for
-isolated integration tests. Callers remain responsible for choosing safe paths
-and mutation flags.
-
-## Dependency boundary
-
-The SDK composes capability actions and the runtime registry only. It must not
-import Typer, `xcron.channels.cli`, CLI response models, field contracts, or
-renderers;
-architecture tests enforce that boundary. Capability results likewise remain
-independent of the CLI services facade so importing the SDK does not pull the
-output channel into application code.
+The plain `xcron` aggregate installs the SDK and default providers without
+Typer, Rich, or TOON. Install `xcron[cli]` only when the `xcron` console command
+is required.

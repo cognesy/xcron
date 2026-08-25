@@ -3,7 +3,7 @@ schema_version: xcron-ops-capability/v1
 id: distribution
 provides:
   - distribution-verification
-description: Verify the built xcron wheel in clean library and CLI environments.
+description: Build all workspace wheels and prove aggregate, lean SDK, CLI, and replacement installs.
 status: active
 requires:
   tools: [uv]
@@ -13,12 +13,28 @@ owns:
 reads:
   - pyproject.toml
   - scripts/verify-wheel.sh
-  - src/xcron/**
+  - packages/**
+  - capabilities/**
 generates:
   - build/**
   - dist/**
 commands:
   - name: wheel
-    summary: Build and verify a clean installed distribution.
+    summary: Run the full clean-wheel verification matrix.
+    lane: distribution
+  - name: packages
+    summary: Inspect wheel contents and install each provider with its declared closure.
+    lane: distribution
+  - name: aggregate
+    summary: Install the default SDK and provider aggregate without a terminal channel.
+    lane: distribution
+  - name: lean
+    summary: Install only kernel, contracts, and SDK and exercise typed failure diagnostics.
+    lane: distribution
+  - name: alternate
+    summary: Demonstrate explicit selection of an alternate metrics provider.
+    lane: distribution
+  - name: cli
+    summary: Install xcron[cli] and prove the console script and packaged help assets.
     lane: distribution
 skills: []

@@ -1,0 +1,21 @@
+set positional-arguments := true
+
+ROOT := parent_directory(parent_directory(justfile_directory()))
+
+default:
+    @just --list
+
+list:
+    @just --list
+
+doctor:
+    @uv run --project {{ROOT}} python -c "from xcron.contracts import InvocationContext, JobManagementPort; assert InvocationContext and JobManagementPort"
+
+check:
+    @uv run --project {{ROOT}} pytest {{ROOT}}/packages/xcron-contracts/tests -q
+
+test:
+    @uv run --project {{ROOT}} pytest {{ROOT}}/packages/xcron-contracts/tests -q
+
+build:
+    @uv build --project {{ROOT}} --package xcron-contracts --out-dir /tmp/xcron-contracts-build --clear

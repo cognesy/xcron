@@ -1,0 +1,7 @@
+version: 1
+project:
+  id: my-schedules
+defaults:
+  working_dir: "~"
+  shell: /bin/sh
+jobs: []

@@ -11,6 +11,7 @@ sync:
     cd ../.. && uv sync
 
 ci:
+    cd ../.. && just version check
     cd ../.. && just validate
     cd ../.. && just check
     cd ../.. && just test

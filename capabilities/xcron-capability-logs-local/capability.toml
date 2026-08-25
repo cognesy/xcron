@@ -1,0 +1,17 @@
+[package]
+kind = "provider"
+capability = "logs"
+implementation = "local"
+namespace = "xcron.capabilities.logs_local"
+kernel_api = ">=1,<2"
+
+[provider]
+entry_point = "xcron.capabilities.logs_local.provider:CAPABILITY"
+ports = ["logs"]
+requires = ["workspace", "scheduler"]
+cli_paths = ["logs"]
+assets = []
+
+[operations]
+justfile = "justfile"
+required_recipes = ["default", "list", "doctor", "check", "test", "build"]

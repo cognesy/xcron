@@ -1,0 +1,17 @@
+default:
+    @just --list
+
+list:
+    cd ../.. && uv run python ops/packages/bin/packages.py list
+
+doctor:
+    cd ../.. && uv run python ops/packages/bin/packages.py doctor
+
+check distribution *args:
+    cd ../.. && uv run python ops/packages/bin/packages.py run {{ distribution }} check {{ args }}
+
+test distribution *args:
+    cd ../.. && uv run python ops/packages/bin/packages.py run {{ distribution }} test {{ args }}
+
+build distribution *args:
+    cd ../.. && uv run python ops/packages/bin/packages.py run {{ distribution }} build {{ args }}

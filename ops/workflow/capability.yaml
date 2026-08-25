@@ -7,13 +7,14 @@ description: Compose repository readiness, sync, and release-adjacent verificati
 status: active
 requires:
   tools: [uv, git, just]
-  capabilities: [control, quality, distribution, cli, skills]
+  capabilities: [control, quality, distribution, cli, skills, version]
 owns:
   - ops/workflow/**
 reads:
   - justfile
   - pyproject.toml
   - scripts/verify-wheel.sh
+  - ops/version/current.yaml
 generates:
   - .venv/**
   - build/**
@@ -29,6 +30,6 @@ commands:
     summary: Synchronize the local uv environment.
     lane: workflow
   - name: ci
-    summary: Run the complete deterministic and wheel verification workflow.
+    summary: Run version, deterministic, and clean-wheel verification before delivery.
     lane: workflow
 skills: []

@@ -1,0 +1,7 @@
+[package]
+kind = "application"
+name = "sdk"
+
+[operations]
+justfile = "justfile"
+required_recipes = ["default", "list", "doctor", "check", "test", "build"]

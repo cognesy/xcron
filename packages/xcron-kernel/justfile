@@ -1,0 +1,21 @@
+set positional-arguments := true
+
+ROOT := parent_directory(parent_directory(justfile_directory()))
+
+default:
+    @just --list
+
+list:
+    @just --list
+
+doctor:
+    @uv run --project {{ROOT}} python -c "from xcron.kernel import CapabilityHost, CapabilityRegistry; assert CapabilityHost(CapabilityRegistry(())).snapshot.descriptors == ()"
+
+check:
+    @uv run --project {{ROOT}} pytest {{ROOT}}/packages/xcron-kernel/tests -q
+
+test:
+    @uv run --project {{ROOT}} pytest {{ROOT}}/packages/xcron-kernel/tests -q
+
+build:
+    @uv build --project {{ROOT}} --package xcron-kernel --out-dir /tmp/xcron-kernel-build --clear

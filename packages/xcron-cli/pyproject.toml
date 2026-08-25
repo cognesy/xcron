@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xcron-cli"
+version = "0.1.0"
+description = "Validated terminal channel and console entry point for xcron"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "LicenseRef-Proprietary"
+dependencies = [
+  "click>=8.1",
+  "pydantic>=2.12.5",
+  "python-toon>=0.1.3",
+  "rich>=14.3.3",
+  "typer>=0.23.2",
+  "xcron==0.1.0",
+  "xcron-contracts==0.1.0",
+  "xcron-kernel==0.1.0",
+]
+
+[project.scripts]
+xcron = "xcron_cli.main:run"
+
+[tool.uv.sources]
+xcron = { workspace = true }
+xcron-contracts = { workspace = true }
+xcron-kernel = { workspace = true }
+
+[tool.setuptools]
+include-package-data = true
+packages = [
+  "xcron_cli",
+  "xcron_cli.presenters",
+  "xcron_cli.resources",
+  "xcron_cli.resources.help",
+  "xcron_cli.resources.help.jobs",
+]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.package-data]
+"xcron_cli.resources.help" = ["*.md", "jobs/*.md"]
+"xcron_cli.resources.help.jobs" = ["*.md"]

@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xcron-capability-workspace-local"
+version = "0.1.0"
+description = "Local workspace identity and layout provider for xcron"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "LicenseRef-Proprietary"
+dependencies = [
+  "xcron-contracts==0.1.0",
+  "xcron-kernel==0.1.0",
+]
+
+[project.entry-points."xcron.capabilities"]
+workspace-local = "xcron.capabilities.workspace_local.provider:CAPABILITY"
+
+[tool.uv.sources]
+xcron-contracts = { workspace = true }
+xcron-kernel = { workspace = true }
+
+[tool.setuptools]
+include-package-data = true
+packages = [
+    "xcron.capabilities.workspace_local",
+  "xcron.capabilities.workspace_local.resources",
+]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.package-data]
+"xcron.capabilities.workspace_local" = ["resources/*.yaml"]

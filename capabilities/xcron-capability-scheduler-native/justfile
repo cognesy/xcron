@@ -1,0 +1,21 @@
+set positional-arguments := true
+
+ROOT := parent_directory(parent_directory(justfile_directory()))
+
+default:
+    @just --list
+
+list:
+    @just --list
+
+doctor:
+    @uv run --project {{ROOT}} python -c "from xcron.capabilities.scheduler_native.provider import CAPABILITY; assert CAPABILITY.id == 'scheduler:native'"
+
+check:
+    @uv run --project {{ROOT}} pytest {{ROOT}}/capabilities/xcron-capability-scheduler-native/tests -q
+
+test:
+    @uv run --project {{ROOT}} pytest {{ROOT}}/capabilities/xcron-capability-scheduler-native/tests -q
+
+build:
+    @uv build --project {{ROOT}} --package xcron-capability-scheduler-native --out-dir /tmp/xcron-scheduler-native-build --clear

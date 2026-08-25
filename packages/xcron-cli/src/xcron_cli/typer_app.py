@@ -1,0 +1,812 @@
+"""Typer shell owned by the xcron-cli terminal channel."""
+
+from __future__ import annotations
+
+import json
+from contextlib import contextmanager
+from importlib.metadata import PackageNotFoundError, version as distribution_version
+from pathlib import Path
+from typing import Iterator, List, NoReturn, Optional
+
+import typer
+
+from xcron_cli.common import (
+    validation_details,
+)
+from xcron_cli.output import Output
+from xcron.sdk import (
+    JobCreateRequest,
+    JobUpdateField,
+    JobUpdateRequest,
+    ScheduleRequest,
+    UnknownBackendError,
+    Xcron,
+    XcronError,
+)
+from xcron_cli.presenters.axi_presenter import collapse_home_path
+from xcron_cli.mappers import (
+    map_apply_response,
+    map_home_response,
+    map_inspect_response,
+    map_jobs_list_response,
+    map_jobs_mutation_response,
+    map_jobs_show_response,
+    map_logs_clear_response,
+    map_logs_list_response,
+    map_metrics_reset_response,
+    map_metrics_response,
+    map_plan_response,
+    map_prune_response,
+    map_status_response,
+    map_validation_response,
+)
+from xcron_cli.responses import (
+    ClaudeHookStatusResponse,
+    CodexHookStatusResponse,
+    HookInstallResponse,
+    HookSessionEndResponse,
+    HookStatusResponse,
+    InitResponse,
+)
+from xcron_cli.presenters.help_renderer import load_help_body
+from xcron_cli.presenters.toon_renderer import render_toon
+
+
+app = typer.Typer(
+    invoke_without_command=True,
+    no_args_is_help=False,
+    add_completion=False,
+    help=load_help_body("root"),
+    rich_markup_mode="markdown",
+)
+jobs_app = typer.Typer(
+    help=load_help_body("jobs/index"),
+    short_help="Inspect and edit jobs inside one schedule manifest.",
+    rich_markup_mode="markdown",
+)
+logs_app = typer.Typer(
+    help="Inspect and manage wrapper log files for one project.",
+    short_help="Inspect and manage wrapper log files.",
+    rich_markup_mode="markdown",
+)
+hooks_app = typer.Typer(help="Manage repo-local Codex and Claude hook integration.", rich_markup_mode="markdown")
+metrics_app = typer.Typer(help="Inspect and reset persisted runtime metrics.", rich_markup_mode="markdown")
+
+
+def _version_callback(value: bool) -> None:
+    """Print the installed distribution version without opening a project."""
+    if not value:
+        return
+    try:
+        installed_version = distribution_version("xcron")
+    except PackageNotFoundError:
+        installed_version = "unknown"
+    typer.echo(f"xcron {installed_version}")
+    raise typer.Exit()
+
+
+def _shared_option(ctx: typer.Context, key: str, value):
+    if value is not None:
+        return value
+    cursor = ctx.parent
+    while cursor is not None:
+        if key in cursor.params:
+            return cursor.params.get(key)
+        cursor = cursor.parent
+    return value
+
+
+def _build_output(ctx: typer.Context, contract_name: str, output_format: str | None) -> Output:
+    try:
+        return Output(ctx, contract_name, output_format)
+    except ValueError as exc:
+        effective_output = output_format if output_format is not None else _shared_option(ctx, "output_format", None)
+        effective_lower = str(effective_output).strip().lower()
+        fallback_format = effective_lower if effective_lower in ("json", "tmux") else "toon"
+        _emit_bootstrap_usage_error(str(exc), output_format=fallback_format)
+
+
+def _emit_bootstrap_usage_error(message: str, *, output_format: str) -> NoReturn:
+    from xcron_cli.presenters.tmux_renderer import render_tmux
+
+    payload = {
+        "kind": "error",
+        "code": "usage_error",
+        "message": message,
+    }
+    if output_format == "json":
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=True))
+    elif output_format == "tmux":
+        typer.echo(render_tmux(payload))
+    else:
+        typer.echo(render_toon(payload))
+    raise typer.Exit(code=2)
+
+
+@contextmanager
+def _open_client(
+    project: str | None = None,
+    *,
+    schedule: str | None = None,
+    backend: str | None = None,
+    out: Output | None = None,
+) -> Iterator[Xcron]:
+    """Open one SDK client from the shared CLI options.
+
+    Host settings are not read here. The runtime composes them once from
+    packaged defaults, the user and workspace config files, and the ``XCRON_*``
+    environment — a second reader in the channel could only disagree with it.
+    """
+    try:
+        with Xcron.open(
+            project,
+            schedule_name=schedule,
+            backend=backend,
+        ) as client:
+            yield client
+    except UnknownBackendError as exc:
+        if out is None:
+            raise
+        out.error(str(exc), code="usage_error", exit_code=2)
+    except XcronError as exc:
+        if out is None:
+            raise
+        out.error(str(exc))
+
+
+@app.callback()
+def main_callback(
+    ctx: typer.Context,
+    version: Optional[bool] = typer.Option(
+        None,
+        "--version",
+        callback=_version_callback,
+        is_eager=True,
+        help="Print the installed xcron version and exit without reading project or scheduler state.",
+    ),
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
+    backend: Optional[str] = typer.Option(None, help="Override the backend instead of using the platform default."),
+    fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    full: bool = typer.Option(False, help="Show full response content instead of truncated previews."),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json or toon. Defaults to toon."),
+) -> None:
+    if ctx.invoked_subcommand is not None:
+        return
+
+    out = _build_output(ctx, "home", output_format)
+    with _open_client(project, schedule=schedule, backend=backend, out=out) as client:
+        result = client.schedules.plan()
+        executable = client.hooks.resolve_executable()
+    if not result.valid or result.plan is None or result.validation.normalized_manifest is None:
+        out.error(
+            "project home view unavailable because validation failed",
+            details=validation_details(result.validation.errors + result.validation.warnings),
+            hints=list(out.contract.default_hints),
+        )
+
+    out.print(
+        map_home_response(
+            result,
+            executable=executable,
+            contract=out.contract,
+            include_plan_changes=out.full,
+        )
+    )
+
+
+def _parse_env_assignments(values: List[str]) -> dict[str, str]:
+    env: dict[str, str] = {}
+    for value in values:
+        key, sep, remainder = value.partition("=")
+        if not sep or not key:
+            raise ValueError(f"invalid env assignment, expected KEY=VALUE: {value}")
+        env[key] = remainder
+    return env
+
+
+def init_command(
+    ctx: typer.Context,
+    output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json or toon. Defaults to toon."),
+) -> None:
+    """Initialize ~/.xcron/ with a starter schedule manifest."""
+    out = _build_output(ctx, "init", output_format)
+    with Xcron.open_unscoped() as client:
+        result = client.home.initialize()
+    out.print(InitResponse(
+        kind="init",
+        xcron_home=result.xcron_home,
+        schedules_dir=result.schedules_dir,
+        manifest_path=result.manifest_path,
+        created=result.created,
+        message="xcron home initialized" if result.created else "xcron home already initialized",
+    ))
+
+
+def validate_command(
+    ctx: typer.Context,
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
+    fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json or toon. Defaults to toon."),
+) -> None:
+    project = _shared_option(ctx, "project", project)
+    schedule = _shared_option(ctx, "schedule", schedule)
+    out = _build_output(ctx, "validate", output_format)
+    with _open_client(project, schedule=schedule, out=out) as client:
+        result = client.schedules.validate()
+    if not result.valid or result.hashes is None or result.normalized_manifest is None:
+        out.error(
+            "project validation failed",
+            details=validation_details(result.errors + result.warnings),
+            hints=list(out.contract.default_hints),
+        )
+
+    out.print(map_validation_response(result))
+
+
+validate_command.__doc__ = load_help_body("validate")
+
+
+def plan_command(
+    ctx: typer.Context,
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
+    backend: Optional[str] = typer.Option(None, help="Override the backend instead of using the platform default."),
+    fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json or toon. Defaults to toon."),
+) -> None:
+    project = _shared_option(ctx, "project", project)
+    schedule = _shared_option(ctx, "schedule", schedule)
+    backend = _shared_option(ctx, "backend", backend)
+    out = _build_output(ctx, "plan", output_format)
+    with _open_client(project, schedule=schedule, backend=backend, out=out) as client:
+        result = client.schedules.plan()
+    if not result.valid:
+        out.error(
+            "project planning failed",
+            details=validation_details(result.validation.errors + result.validation.warnings),
+            hints=list(out.contract.default_hints),
+        )
+
+    out.print(map_plan_response(result, contract=out.contract))
+
+
+plan_command.__doc__ = load_help_body("plan")
+
+
+def status_command(
+    ctx: typer.Context,
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
+    backend: Optional[str] = typer.Option(None, help="Override the backend instead of using the platform default."),
+    fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json or toon. Defaults to toon."),
+) -> None:
+    project = _shared_option(ctx, "project", project)
+    schedule = _shared_option(ctx, "schedule", schedule)
+    backend = _shared_option(ctx, "backend", backend)
+    out = _build_output(ctx, "status", output_format)
+    with _open_client(project, schedule=schedule, backend=backend, out=out) as client:
+        result = client.schedules.status()
+    if not result.valid or result.plan is None:
+        out.error(
+            "project status inspection failed",
+            details=validation_details(result.validation.errors + result.validation.warnings),
+            hints=list(out.contract.default_hints),
+        )
+
+    out.print(map_status_response(result, contract=out.contract))
+
+
+status_command.__doc__ = load_help_body("status")
+
+
+def inspect_command(
+    ctx: typer.Context,
+    job_id: str = typer.Argument(..., help="Project-local or qualified job identifier."),
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
+    backend: Optional[str] = typer.Option(None, help="Override the backend instead of using the platform default."),
+    fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    full: bool = typer.Option(False, help="Show full response content instead of truncated previews."),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json or toon. Defaults to toon."),
+) -> None:
+    project = _shared_option(ctx, "project", project)
+    schedule = _shared_option(ctx, "schedule", schedule)
+    backend = _shared_option(ctx, "backend", backend)
+    out = _build_output(ctx, "inspect", output_format)
+    with _open_client(project, schedule=schedule, backend=backend, out=out) as client:
+        result = client.schedules.inspect(job_id)
+    if not result.valid:
+        details = validation_details(result.status.validation.errors + result.status.validation.warnings)
+        if result.error and not details:
+            details = [{"field": "job_id", "issue": result.error}]
+        out.error(result.error or "job inspection failed", details=details, hints=list(out.contract.default_hints))
+
+    out.print(map_inspect_response(result, contract=out.contract, job_id=job_id, full=out.full))
+
+
+inspect_command.__doc__ = load_help_body("inspect")
+
+
+def apply_command(
+    ctx: typer.Context,
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
+    backend: Optional[str] = typer.Option(None, help="Override the backend instead of using the platform default."),
+    fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json or toon. Defaults to toon."),
+) -> None:
+    project = _shared_option(ctx, "project", project)
+    schedule = _shared_option(ctx, "schedule", schedule)
+    backend = _shared_option(ctx, "backend", backend)
+    out = _build_output(ctx, "apply", output_format)
+    with _open_client(project, schedule=schedule, backend=backend, out=out) as client:
+        result = client.schedules.apply()
+    if not result.valid:
+        out.error(
+            "project apply failed",
+            details=validation_details(result.plan_result.validation.errors + result.plan_result.validation.warnings),
+            hints=list(out.contract.default_hints),
+        )
+
+    out.print(map_apply_response(result, contract=out.contract))
+
+
+apply_command.__doc__ = load_help_body("apply")
+
+
+def prune_command(
+    ctx: typer.Context,
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
+    backend: Optional[str] = typer.Option(None, help="Override the backend instead of using the platform default."),
+    fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json or toon. Defaults to toon."),
+) -> None:
+    project = _shared_option(ctx, "project", project)
+    schedule = _shared_option(ctx, "schedule", schedule)
+    backend = _shared_option(ctx, "backend", backend)
+    out = _build_output(ctx, "prune", output_format)
+    with _open_client(project, schedule=schedule, backend=backend, out=out) as client:
+        result = client.schedules.prune()
+    if not result.valid:
+        out.error(result.error or "project prune failed", hints=list(out.contract.default_hints))
+
+    out.print(map_prune_response(result, contract=out.contract))
+
+
+prune_command.__doc__ = load_help_body("prune")
+
+
+@jobs_app.command("list")
+def jobs_list_command(
+    ctx: typer.Context,
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
+    fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json or toon. Defaults to toon."),
+) -> None:
+    project = _shared_option(ctx, "project", project)
+    schedule = _shared_option(ctx, "schedule", schedule)
+    out = _build_output(ctx, "jobs.list", output_format)
+    with _open_client(project, schedule=schedule, out=out) as client:
+        result = client.jobs.list()
+    if not result.valid:
+        details = []
+        if result.validation is not None:
+            details.extend(validation_details(result.validation.errors + result.validation.warnings))
+        if result.warnings:
+            details.extend(validation_details(result.warnings))
+        out.error(result.error or "job action failed", details=details, hints=list(out.contract.default_hints))
+
+    out.print(map_jobs_list_response(result, contract=out.contract))
+
+
+jobs_list_command.__doc__ = load_help_body("jobs/list")
+
+
+@jobs_app.command("show")
+def jobs_show_command(
+    ctx: typer.Context,
+    job_id: str = typer.Argument(..., help="Project-local or qualified job identifier."),
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
+    fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json or toon. Defaults to toon."),
+) -> None:
+    project = _shared_option(ctx, "project", project)
+    schedule = _shared_option(ctx, "schedule", schedule)
+    out = _build_output(ctx, "jobs.show", output_format)
+    with _open_client(project, schedule=schedule, out=out) as client:
+        result = client.jobs.show(job_id)
+    if not result.valid:
+        details = []
+        if result.validation is not None:
+            details.extend(validation_details(result.validation.errors + result.validation.warnings))
+        if result.warnings:
+            details.extend(validation_details(result.warnings))
+        out.error(result.error or "job action failed", details=details, hints=list(out.contract.default_hints))
+    if result.job is None:
+        out.error("job not found in manifest", hints=["Run `xcron jobs list` to inspect available jobs"])
+
+    out.print(map_jobs_show_response(result, contract=out.contract))
+
+
+jobs_show_command.__doc__ = load_help_body("jobs/show")
+
+
+@jobs_app.command("add")
+def jobs_add_command(
+    ctx: typer.Context,
+    job_id: str = typer.Argument(..., help="Project-local job identifier to add."),
+    command: str = typer.Option(..., help="Shell command for the new job."),
+    cron: Optional[str] = typer.Option(None, help="Cron expression for the new job."),
+    every: Optional[str] = typer.Option(None, help="Portable interval string such as 15m or 1h."),
+    description: Optional[str] = typer.Option(None, help="Optional human description."),
+    working_dir: Optional[str] = typer.Option(None, help="Optional job-specific working directory."),
+    shell: Optional[str] = typer.Option(None, help="Optional job-specific shell."),
+    overlap: Optional[str] = typer.Option(None, help="Optional overlap policy override."),
+    env: List[str] = typer.Option([], help="Environment variable assignment. Repeatable."),
+    disabled: bool = typer.Option(False, help="Create the job as disabled in YAML."),
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
+    fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json or toon. Defaults to toon."),
+) -> None:
+    project = _shared_option(ctx, "project", project)
+    schedule = _shared_option(ctx, "schedule", schedule)
+    out = _build_output(ctx, "jobs.add", output_format)
+    if bool(cron) == bool(every):
+        out.error("exactly one of --cron or --every is required", code="usage_error", exit_code=2)
+    try:
+        parsed_env = _parse_env_assignments(env)
+        request = JobCreateRequest(
+            job_id=job_id,
+            command=command,
+            schedule=ScheduleRequest.cron(cron) if cron else ScheduleRequest.every(every or ""),
+            description=description,
+            enabled=not disabled,
+            working_dir=working_dir,
+            shell=shell,
+            overlap=overlap,
+            env=parsed_env,
+        )
+    except ValueError as exc:
+        out.error(str(exc), code="usage_error", exit_code=2)
+    with _open_client(project, schedule=schedule, out=out) as client:
+        result = client.jobs.add(request)
+    if not result.valid:
+        details = []
+        if result.validation is not None:
+            details.extend(validation_details(result.validation.errors + result.validation.warnings))
+        if result.warnings:
+            details.extend(validation_details(result.warnings))
+        out.error(result.error or "job action failed", details=details, hints=list(out.contract.default_hints))
+
+    out.print(map_jobs_mutation_response(result, contract=out.contract, changed_outcome="added"))
+
+
+jobs_add_command.__doc__ = load_help_body("jobs/add")
+
+
+def _run_jobs_mutation(
+    ctx: typer.Context,
+    contract_name: str,
+    changed_outcome: str,
+    operation: str,
+    *,
+    job_id: str,
+    project: Optional[str],
+    schedule: Optional[str],
+    output_format: str | None,
+) -> None:
+    out = _build_output(ctx, contract_name, output_format)
+    with _open_client(project, schedule=schedule, out=out) as client:
+        result = getattr(client.jobs, operation)(job_id)
+    if not result.valid:
+        details = []
+        if result.validation is not None:
+            details.extend(validation_details(result.validation.errors + result.validation.warnings))
+        if result.warnings:
+            details.extend(validation_details(result.warnings))
+        out.error(result.error or "job action failed", details=details, hints=list(out.contract.default_hints))
+
+    out.print(map_jobs_mutation_response(result, contract=out.contract, changed_outcome=changed_outcome))
+
+
+@jobs_app.command("remove")
+def jobs_remove_command(
+    ctx: typer.Context,
+    job_id: str = typer.Argument(...),
+    project: Optional[str] = typer.Option(None),
+    schedule: Optional[str] = typer.Option(None),
+    fields: Optional[str] = typer.Option(None),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o"),
+) -> None:
+    project = _shared_option(ctx, "project", project)
+    schedule = _shared_option(ctx, "schedule", schedule)
+    _run_jobs_mutation(ctx, "jobs.remove", "removed", "remove", job_id=job_id, project=project, schedule=schedule, output_format=output_format)
+
+
+jobs_remove_command.__doc__ = load_help_body("jobs/remove")
+
+
+@jobs_app.command("enable")
+def jobs_enable_command(
+    ctx: typer.Context,
+    job_id: str = typer.Argument(...),
+    project: Optional[str] = typer.Option(None),
+    schedule: Optional[str] = typer.Option(None),
+    fields: Optional[str] = typer.Option(None),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o"),
+) -> None:
+    project = _shared_option(ctx, "project", project)
+    schedule = _shared_option(ctx, "schedule", schedule)
+    _run_jobs_mutation(ctx, "jobs.enable", "enabled", "enable", job_id=job_id, project=project, schedule=schedule, output_format=output_format)
+
+
+jobs_enable_command.__doc__ = load_help_body("jobs/enable")
+
+
+@jobs_app.command("disable")
+def jobs_disable_command(
+    ctx: typer.Context,
+    job_id: str = typer.Argument(...),
+    project: Optional[str] = typer.Option(None),
+    schedule: Optional[str] = typer.Option(None),
+    fields: Optional[str] = typer.Option(None),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o"),
+) -> None:
+    project = _shared_option(ctx, "project", project)
+    schedule = _shared_option(ctx, "schedule", schedule)
+    _run_jobs_mutation(ctx, "jobs.disable", "disabled", "disable", job_id=job_id, project=project, schedule=schedule, output_format=output_format)
+
+
+jobs_disable_command.__doc__ = load_help_body("jobs/disable")
+
+
+@jobs_app.command("update")
+def jobs_update_command(
+    ctx: typer.Context,
+    job_id: str = typer.Argument(...),
+    command: Optional[str] = typer.Option(None),
+    cron: Optional[str] = typer.Option(None),
+    every: Optional[str] = typer.Option(None),
+    description: Optional[str] = typer.Option(None),
+    clear_description: bool = typer.Option(False),
+    working_dir: Optional[str] = typer.Option(None),
+    clear_working_dir: bool = typer.Option(False),
+    shell: Optional[str] = typer.Option(None),
+    clear_shell: bool = typer.Option(False),
+    overlap: Optional[str] = typer.Option(None),
+    env: List[str] = typer.Option([]),
+    clear_env: bool = typer.Option(False),
+    project: Optional[str] = typer.Option(None),
+    schedule: Optional[str] = typer.Option(None),
+    fields: Optional[str] = typer.Option(None),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json or toon. Defaults to toon."),
+) -> None:
+    project = _shared_option(ctx, "project", project)
+    schedule = _shared_option(ctx, "schedule", schedule)
+    out = _build_output(ctx, "jobs.update", output_format)
+    clear_fields: set[JobUpdateField] = set()
+    if cron is not None:
+        schedule_request = ScheduleRequest.cron(cron)
+    elif every is not None:
+        schedule_request = ScheduleRequest.every(every)
+    else:
+        schedule_request = None
+    if clear_description:
+        clear_fields.add(JobUpdateField.DESCRIPTION)
+    if clear_working_dir:
+        clear_fields.add(JobUpdateField.WORKING_DIR)
+    if clear_shell:
+        clear_fields.add(JobUpdateField.SHELL)
+    if clear_env:
+        clear_fields.add(JobUpdateField.ENV)
+    if (
+        command is None
+        and schedule_request is None
+        and description is None
+        and working_dir is None
+        and shell is None
+        and overlap is None
+        and not env
+        and not clear_fields
+    ):
+        out.error("at least one update field or clear flag is required", code="usage_error", exit_code=2)
+
+    try:
+        parsed_env = _parse_env_assignments(env) if env else None
+        request = JobUpdateRequest(
+            command=command,
+            schedule=schedule_request,
+            description=description,
+            working_dir=working_dir,
+            shell=shell,
+            overlap=overlap,
+            env=parsed_env,
+            clear_fields=frozenset(clear_fields),
+        )
+    except ValueError as exc:
+        out.error(str(exc), code="usage_error", exit_code=2)
+
+    with _open_client(project, schedule=schedule, out=out) as client:
+        result = client.jobs.update(job_id, request)
+    if not result.valid:
+        details = []
+        if result.validation is not None:
+            details.extend(validation_details(result.validation.errors + result.validation.warnings))
+        if result.warnings:
+            details.extend(validation_details(result.warnings))
+        out.error(result.error or "job action failed", details=details, hints=list(out.contract.default_hints))
+
+    out.print(map_jobs_mutation_response(result, contract=out.contract, changed_outcome="updated"))
+
+
+jobs_update_command.__doc__ = load_help_body("jobs/update")
+
+
+@logs_app.command("list")
+def logs_list_command(
+    ctx: typer.Context,
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
+    job: Optional[str] = typer.Option(None, help="Filter to one job by project-local or qualified identifier."),
+    fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json, toon, or tmux. Defaults to toon."),
+) -> None:
+    """List wrapper log files for one project."""
+    project = _shared_option(ctx, "project", project)
+    schedule = _shared_option(ctx, "schedule", schedule)
+    out = _build_output(ctx, "logs.list", output_format)
+    with _open_client(project, schedule=schedule, out=out) as client:
+        result = client.operations.list_logs(job_filter=job)
+    if not result.valid:
+        details = []
+        if result.validation is not None:
+            details.extend(validation_details(result.validation.errors + result.validation.warnings))
+        out.error(result.error or "log listing failed", details=details, hints=list(out.contract.default_hints))
+
+    out.print(map_logs_list_response(result, contract=out.contract))
+
+
+@logs_app.command("clear")
+def logs_clear_command(
+    ctx: typer.Context,
+    project: Optional[str] = typer.Option(None, help="Path to the project root containing schedules/. Defaults to ~/.xcron."),
+    schedule: Optional[str] = typer.Option(None, help="Schedule name under schedules/."),
+    job: Optional[str] = typer.Option(None, help="Filter to one job by project-local or qualified identifier."),
+    apply: bool = typer.Option(False, "--apply", help="Actually truncate log files. Without this flag, runs in dry-run mode."),
+    fields: Optional[str] = typer.Option(None, help="Comma-separated list of response fields to include."),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o", help="Render command output as json, toon, or tmux. Defaults to toon."),
+) -> None:
+    """Clear (truncate) wrapper log files for one project. Dry-run by default."""
+    project = _shared_option(ctx, "project", project)
+    schedule = _shared_option(ctx, "schedule", schedule)
+    out = _build_output(ctx, "logs.clear", output_format)
+    with _open_client(project, schedule=schedule, out=out) as client:
+        result = client.operations.clear_logs(job_filter=job, dry_run=not apply)
+    if not result.valid:
+        details = []
+        if result.validation is not None:
+            details.extend(validation_details(result.validation.errors + result.validation.warnings))
+        out.error(result.error or "log clear failed", details=details, hints=list(out.contract.default_hints))
+
+    out.print(map_logs_clear_response(result, contract=out.contract))
+
+
+@hooks_app.command("install")
+def hooks_install_command(ctx: typer.Context, output_format: Optional[str] = typer.Option(None, "--output", "-o")) -> None:
+    project = _shared_option(ctx, "project", None) or Path.cwd()
+    out = _build_output(ctx, "hooks.install", output_format)
+    with _open_client(project, out=out) as client:
+        result = client.hooks.install()
+    out.print(HookInstallResponse(kind="hooks.install", changed=len(result.changed_files), files=result.changed_files))
+
+
+@hooks_app.command("status")
+def hooks_status_command(ctx: typer.Context, output_format: Optional[str] = typer.Option(None, "--output", "-o")) -> None:
+    project = _shared_option(ctx, "project", None) or Path.cwd()
+    out = _build_output(ctx, "hooks.status", output_format)
+    with _open_client(project, out=out) as client:
+        result = client.hooks.status()
+    out.print(
+        HookStatusResponse(
+            kind="hooks.status",
+            executable=result.executable_path,
+            codex=CodexHookStatusResponse(
+                config_path=result.codex.config_path,
+                hooks_path=result.codex.hooks_path,
+                config_exists=result.codex.config_exists,
+                hooks_exists=result.codex.hooks_exists,
+                feature_enabled=result.codex.feature_enabled,
+                session_start_matches=result.codex.session_start_matches,
+                session_end_matches=result.codex.session_end_matches,
+            ),
+            claude=ClaudeHookStatusResponse(
+                settings_path=result.claude.settings_path,
+                settings_exists=result.claude.settings_exists,
+                session_start_matches=result.claude.session_start_matches,
+                stop_matches=result.claude.stop_matches,
+            ),
+        )
+    )
+
+
+@hooks_app.command("repair")
+def hooks_repair_command(ctx: typer.Context, output_format: Optional[str] = typer.Option(None, "--output", "-o")) -> None:
+    project = _shared_option(ctx, "project", None) or Path.cwd()
+    out = _build_output(ctx, "hooks.install", output_format)
+    with _open_client(project, out=out) as client:
+        result = client.hooks.repair()
+    out.print(HookInstallResponse(kind="hooks.install", changed=len(result.changed_files), files=result.changed_files))
+
+
+@hooks_app.command("session-start", hidden=True)
+def hooks_session_start_command(ctx: typer.Context, output_format: Optional[str] = typer.Option(None, "--output", "-o")) -> None:
+    project = _shared_option(ctx, "project", None) or Path.cwd()
+    out = _build_output(ctx, "hooks.session-start", output_format)
+    with _open_client(project, out=out) as client:
+        result = client.schedules.plan()
+        executable = client.hooks.resolve_executable()
+    if not result.valid or result.plan is None or result.validation.normalized_manifest is None:
+        out.error("session-start context unavailable", hints=["Run `xcron validate` in this project"])
+
+    out.print(
+        map_home_response(
+            result,
+            executable=executable,
+            contract=out.contract,
+            include_plan_changes=False,
+        )
+    )
+
+
+@hooks_app.command("session-end", hidden=True)
+def hooks_session_end_command(ctx: typer.Context, output_format: Optional[str] = typer.Option(None, "--output", "-o")) -> None:
+    project = _shared_option(ctx, "project", None) or Path.cwd()
+    out = _build_output(ctx, "hooks.session-end", output_format)
+    with _open_client(project, out=out) as client:
+        log_path = client.hooks.session_end()
+    out.print(HookSessionEndResponse(kind="hooks.session_end", log=str(log_path)))
+
+
+@metrics_app.command("show")
+def metrics_show_command(
+    ctx: typer.Context,
+    fields: Optional[str] = typer.Option(None),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o"),
+) -> None:
+    """Show persisted xcron runtime metrics."""
+    out = _build_output(ctx, "metrics.show", output_format)
+    with Xcron.open_unscoped() as client:
+        result = client.operations.show_metrics()
+    out.print(map_metrics_response(result))
+
+
+@metrics_app.command("reset")
+def metrics_reset_command(
+    ctx: typer.Context,
+    fields: Optional[str] = typer.Option(None),
+    output_format: Optional[str] = typer.Option(None, "--output", "-o"),
+) -> None:
+    """Reset persisted xcron runtime metrics."""
+    out = _build_output(ctx, "metrics.reset", output_format)
+    with Xcron.open_unscoped() as client:
+        result = client.operations.reset_metrics()
+    out.print(map_metrics_reset_response(result))
+
+
+from xcron_cli.contributions import attach_cli_contributions
+
+
+# Each command attachment is validated against the selected provider descriptor
+# before Typer sees it.
+attach_cli_contributions(app, globals())
+
+
+def run() -> None:
+    app()

@@ -1,0 +1,258 @@
+"""Typed response envelopes for the xcron-cli AXI edge."""
+
+from __future__ import annotations
+
+from typing import Any, Optional
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class PayloadConvertible(BaseModel):
+    """Base response model that can be rendered at the CLI edge."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    def to_payload(self) -> dict[str, Any]:
+        return self.model_dump()
+
+
+class ErrorDetail(PayloadConvertible):
+    field: str
+    issue: str
+
+
+class ErrorResponse(PayloadConvertible):
+    kind: str
+    code: str
+    message: str
+    details: tuple[ErrorDetail, ...] = ()
+    help: tuple[str, ...] = ()
+
+
+class SummaryRow(PayloadConvertible):
+    kind: str
+    count: int
+
+
+class PlanChangeRow(PayloadConvertible):
+    kind: str
+    id: str
+    reason: str
+
+
+class StatusRow(PayloadConvertible):
+    kind: str
+    id: str
+    reason: str
+    schedule: Optional[str] = None
+    last_applied_at: Optional[str] = None
+    next_run: Optional[str] = None
+
+
+class JobListRow(PayloadConvertible):
+    job_id: str
+    enabled: bool
+    schedule: str
+    command: str
+
+
+class HomeJobsSummary(PayloadConvertible):
+    total: int
+
+
+class InitResponse(PayloadConvertible):
+    kind: str
+    xcron_home: str
+    schedules_dir: str
+    manifest_path: str
+    created: bool
+    message: str
+
+
+class HomeResponse(PayloadConvertible):
+    bin: str
+    description: str
+    project: str
+    schedule: Optional[str]
+    backend: Optional[str]
+    manifest: Optional[str]
+    jobs: HomeJobsSummary
+    plan_summary: tuple[SummaryRow, ...]
+    plan_changes: tuple[PlanChangeRow, ...] = ()
+    help: tuple[str, ...] = ()
+
+
+class ValidationSummaryResponse(PayloadConvertible):
+    project: str
+    manifest: Optional[str]
+    valid: bool
+    jobs: int
+    manifest_hash: str
+    errors: int
+    warnings: int
+    warning_messages: tuple[str, ...] = ()
+
+
+class PlanResponse(PayloadConvertible):
+    backend: Optional[str]
+    state: Optional[str]
+    count: str
+    changes: tuple[PlanChangeRow, ...]
+    help: tuple[str, ...] = ()
+
+
+class StatusResponse(PayloadConvertible):
+    backend: Optional[str]
+    count: str
+    desired: int
+    deployed: int
+    statuses: tuple[StatusRow, ...]
+    help: tuple[str, ...] = ()
+
+
+class InspectResponse(PayloadConvertible):
+    backend: Optional[str]
+    job: str
+    status: str
+    desired: dict[str, Any]
+    deployed: dict[str, Any]
+    snippets: dict[str, Any]
+    help: tuple[str, ...] = ()
+
+
+class JobsListResponse(PayloadConvertible):
+    manifest: Optional[str]
+    count: str
+    jobs: tuple[JobListRow, ...]
+    help: tuple[str, ...] = ()
+
+
+class JobsShowResponse(PayloadConvertible):
+    manifest: Optional[str]
+    job: str
+    enabled: bool
+    schedule: str
+    command: str
+    working_dir: str
+    shell: str
+    overlap: str
+    description: Optional[str] = None
+    env: tuple[str, ...] = ()
+    help: tuple[str, ...] = ()
+
+    def to_payload(self) -> dict[str, Any]:
+        return self.model_dump(exclude_none=True, exclude={"env"} if not self.env else None)
+
+
+class MutationResponse(PayloadConvertible):
+    kind: str
+    target: Optional[str]
+    outcome: str
+    backend: Optional[str] = None
+    count: Optional[int] = None
+    manifest: Optional[str] = None
+    help: tuple[str, ...] = ()
+
+    def to_payload(self) -> dict[str, Any]:
+        return self.model_dump(exclude_none=True, exclude={"help"} if not self.help else None)
+
+
+class LogFileRow(PayloadConvertible):
+    job: str
+    kind: str
+    path: str
+    size: str
+
+
+class LogsListResponse(PayloadConvertible):
+    project: str
+    logs_dir: Optional[str]
+    count: str
+    files: tuple[LogFileRow, ...]
+    help: tuple[str, ...] = ()
+
+
+class LogsClearResponse(PayloadConvertible):
+    project: str
+    dry_run: bool
+    count: str
+    cleared: int
+    files: tuple[LogFileRow, ...]
+    help: tuple[str, ...] = ()
+
+
+class MetricsResponse(PayloadConvertible):
+    path: str
+    version: int = 1
+    created_at: str
+    updated_at: str
+    counters: dict[str, int] = Field(default_factory=dict)
+
+
+class MetricsResetResponse(MetricsResponse):
+    previous_counters: dict[str, int] = Field(default_factory=dict)
+
+
+class HookInstallResponse(PayloadConvertible):
+    kind: str
+    changed: int
+    files: tuple[str, ...] = ()
+
+
+class CodexHookStatusResponse(PayloadConvertible):
+    config_path: str
+    hooks_path: str
+    config_exists: bool
+    hooks_exists: bool
+    feature_enabled: bool
+    session_start_matches: bool
+    session_end_matches: bool
+
+
+class ClaudeHookStatusResponse(PayloadConvertible):
+    settings_path: str
+    settings_exists: bool
+    session_start_matches: bool
+    stop_matches: bool
+
+
+class HookStatusResponse(PayloadConvertible):
+    kind: str
+    executable: str
+    codex: CodexHookStatusResponse
+    claude: ClaudeHookStatusResponse
+
+
+class HookSessionEndResponse(PayloadConvertible):
+    kind: str
+    log: str
+
+
+__all__ = [
+    "ClaudeHookStatusResponse",
+    "CodexHookStatusResponse",
+    "ErrorDetail",
+    "ErrorResponse",
+    "HomeJobsSummary",
+    "HomeResponse",
+    "HookInstallResponse",
+    "HookSessionEndResponse",
+    "HookStatusResponse",
+    "InspectResponse",
+    "JobListRow",
+    "JobsListResponse",
+    "LogFileRow",
+    "LogsClearResponse",
+    "LogsListResponse",
+    "JobsShowResponse",
+    "MutationResponse",
+    "MetricsResponse",
+    "MetricsResetResponse",
+    "PayloadConvertible",
+    "PlanChangeRow",
+    "PlanResponse",
+    "StatusResponse",
+    "StatusRow",
+    "SummaryRow",
+    "ValidationSummaryResponse",
+]

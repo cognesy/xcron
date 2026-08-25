@@ -8,7 +8,7 @@
 ## Purpose
 
 Describe the output layer that now backs `xcron`'s Typer CLI. The current
-implementation is centered on [`src/xcron/channels/cli/output.py`](/src/xcron/channels/cli/output.py):
+implementation is centered on [`packages/xcron-cli/src/xcron_cli/output.py`](/packages/xcron-cli/src/xcron_cli/output.py):
 one `Output` object per command invocation, contract-driven field selection,
 structured errors, and pure string rendering for tests.
 
@@ -25,7 +25,7 @@ xcron currently supports exactly two stdout formats:
 
 There is no `jsonl` mode and no separate `text` mode in xcron's command output
 path. Runtime help is rendered separately through
-[`src/xcron/channels/cli/presenters/help_renderer.py`](/src/xcron/channels/cli/presenters/help_renderer.py).
+[`packages/xcron-cli/src/xcron_cli/presenters/help_renderer.py`](/packages/xcron-cli/src/xcron_cli/presenters/help_renderer.py).
 
 ## Command DX
 
@@ -99,8 +99,8 @@ Key behavior:
 ## Context Resolution
 
 xcron stores global options in Typer's normal parent parameter chain, not
-`ctx.obj`. Both [`src/xcron/channels/cli/output.py`](/src/xcron/channels/cli/output.py)
-and [`src/xcron/channels/cli/typer_app.py`](/src/xcron/channels/cli/typer_app.py)
+`ctx.obj`. Both [`packages/xcron-cli/src/xcron_cli/output.py`](/packages/xcron-cli/src/xcron_cli/output.py)
+and [`packages/xcron-cli/src/xcron_cli/typer_app.py`](/packages/xcron-cli/src/xcron_cli/typer_app.py)
 walk `ctx.parent` to resolve inherited options.
 
 Implications:
@@ -140,7 +140,7 @@ That is why the output layer is easy to unit test.
 ## Response Model Inventory
 
 All command output now flows through typed Pydantic response models in
-[`src/xcron/channels/cli/responses.py`](/src/xcron/channels/cli/responses.py).
+[`packages/xcron-cli/src/xcron_cli/responses.py`](/packages/xcron-cli/src/xcron_cli/responses.py).
 
 Current top-level response types:
 
@@ -172,7 +172,7 @@ Representative row/nested types:
 ## Command Contracts
 
 Contracts live in
-[`src/xcron/channels/cli/contracts.py`](/src/xcron/channels/cli/contracts.py).
+[`packages/xcron-cli/src/xcron_cli/contracts.py`](/packages/xcron-cli/src/xcron_cli/contracts.py).
 They define:
 
 - `default_fields`
@@ -252,7 +252,7 @@ Exit codes:
 - `2` - usage or validation failure at the CLI boundary
 
 There is also a small bootstrap error path in
-[`src/xcron/channels/cli/typer_app.py`](/src/xcron/channels/cli/typer_app.py)
+[`packages/xcron-cli/src/xcron_cli/typer_app.py`](/packages/xcron-cli/src/xcron_cli/typer_app.py)
 for failures that occur before an `Output` object can be constructed, such as
 an invalid `--output` value.
 
@@ -260,7 +260,7 @@ an invalid `--output` value.
 
 Help rendering is no longer part of the output renderer module. The only Rich
 Markdown rendering path now lives in
-[`src/xcron/channels/cli/presenters/help_renderer.py`](/src/xcron/channels/cli/presenters/help_renderer.py).
+[`packages/xcron-cli/src/xcron_cli/presenters/help_renderer.py`](/packages/xcron-cli/src/xcron_cli/presenters/help_renderer.py).
 
 That separation is deliberate:
 
@@ -270,7 +270,7 @@ That separation is deliberate:
 ## Module Layout
 
 ```text
-src/xcron/channels/cli/
+packages/xcron-cli/src/xcron_cli/
   output.py       - Output class + normalize_for_output
   typer_app.py    - Typer commands and bootstrap usage-error path
   common.py       - shared CLI option helpers
@@ -285,9 +285,9 @@ src/xcron/channels/cli/
   resources/help/ - authored Markdown command help (packaged data)
 ```
 
-Removed in the refactor:
+Removed with the monolith:
 
-- `src/xcron/services/output_renderer.py`
+- the old root-level output renderer
 - `_emit_output`
 - `_emit_error`
 - `_resolve_output_format`
@@ -314,8 +314,8 @@ Important cases covered by tests:
 
 ## Practical Rules For Future Changes
 
-- Add or change response shape in `src/xcron/channels/cli/responses.py`
-- Update the matching contract in `src/xcron/channels/cli/contracts.py`
-- Keep action-to-response translation in `src/xcron/channels/cli/mappers.py`
+- Add or change response shape in `packages/xcron-cli/src/xcron_cli/responses.py`
+- Update the matching contract in `packages/xcron-cli/src/xcron_cli/contracts.py`
+- Keep action-to-response translation in `packages/xcron-cli/src/xcron_cli/mappers.py`
 - Keep stdout writes inside `Output.print()` / `Output.error()`
 - Extend `help_renderer.py` only for authored help, not normal command output

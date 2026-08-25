@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 from dataclasses import dataclass
 from fnmatch import fnmatchcase
 from pathlib import Path
@@ -20,6 +21,7 @@ OPS = ROOT / "ops"
 SCHEMA = OPS / "control" / "schema"
 CAPABILITY_NAME = "capability.yaml"
 RECIPE = re.compile(r"^([a-z][a-z0-9-]*)(?:\s+[^:]+)?:\s*$")
+PEER_PRIVATE_PATH = re.compile(r"(?:^|[\s\"'])ops/([a-z][a-z0-9-]*)/(?:bin|tests)/")
 
 
 @dataclass(frozen=True)
@@ -148,6 +150,68 @@ def _cycles(graph: Mapping[str, Iterable[str]]) -> list[str]:
     return cycles
 
 
+def _declaration_diagnostics(capability: Capability) -> list[Diagnostic]:
+    diagnostics: list[Diagnostic] = []
+    declarations = {
+        "owns": set(capability.manifest["owns"]),
+        "reads": set(capability.manifest["reads"]),
+        "generates": set(capability.manifest["generates"]),
+    }
+    for left, right in (("owns", "reads"), ("owns", "generates"), ("reads", "generates")):
+        for overlap in sorted(declarations[left] & declarations[right]):
+            diagnostics.append(
+                Diagnostic(
+                    "ownership",
+                    f"{overlap!r} is declared as both {left} and {right}",
+                    capability.manifest_path,
+                )
+            )
+    return diagnostics
+
+
+def _product_boundary_diagnostics(project_root: Path) -> list[Diagnostic]:
+    source_root = project_root / "src" / "xcron"
+    diagnostics: list[Diagnostic] = []
+    if not source_root.is_dir():
+        return diagnostics
+    for source in source_root.rglob("*.py"):
+        try:
+            tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+        except (OSError, SyntaxError) as error:
+            diagnostics.append(Diagnostic("product-boundary", str(error), source))
+            continue
+        imported = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported.extend(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module is not None:
+                imported.append(node.module)
+        for name in imported:
+            if name == "ops" or name.startswith("ops.") or name.startswith("xcron.ops"):
+                diagnostics.append(
+                    Diagnostic("product-boundary", f"product code imports operations module {name!r}", source)
+                )
+    return diagnostics
+
+
+def _peer_private_path_diagnostics(capabilities: Iterable[Capability]) -> list[Diagnostic]:
+    diagnostics: list[Diagnostic] = []
+    for capability in capabilities:
+        for path in capability.root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".py", ".sh", ".js", ".mjs"}:
+                continue
+            for peer in PEER_PRIVATE_PATH.findall(path.read_text(encoding="utf-8")):
+                if peer != capability.identifier:
+                    diagnostics.append(
+                        Diagnostic(
+                            "peer-boundary",
+                            f"operation reaches into {peer!r} private bin/tests path",
+                            path,
+                        )
+                    )
+    return diagnostics
+
+
 def validate(ops_root: Path = OPS) -> list[Diagnostic]:
     project_root = ops_root.parent
     diagnostics: list[Diagnostic] = []
@@ -177,6 +241,7 @@ def validate(ops_root: Path = OPS) -> list[Diagnostic]:
                 "schema",
             )
         )
+        diagnostics.extend(_declaration_diagnostics(capability))
 
     identifiers = [capability.identifier for capability in capabilities]
     by_id = {capability.identifier: capability for capability in capabilities}
@@ -280,6 +345,8 @@ def validate(ops_root: Path = OPS) -> list[Diagnostic]:
                     path,
                 )
             )
+    diagnostics.extend(_product_boundary_diagnostics(project_root))
+    diagnostics.extend(_peer_private_path_diagnostics(capabilities))
     return diagnostics
 
 
@@ -288,6 +355,53 @@ def render_list(ops_root: Path = OPS) -> str:
     for capability in discover(ops_root):
         rows.append(f"{capability.identifier:<14} {capability.manifest['description']}")
     return "\n".join(rows)
+
+
+def route(arguments: list[str], ops_root: Path = OPS) -> int:
+    """Run a declared operation route without deriving a path from user input."""
+    diagnostics = validate(ops_root)
+    if diagnostics:
+        for diagnostic in diagnostics:
+            print(diagnostic.render(ops_root.parent), file=sys.stderr)
+        return 1
+
+    if not arguments or arguments == ["list"]:
+        print(render_list(ops_root))
+        return 0
+    if arguments[0] == "list":
+        print("route: 'list' does not accept additional arguments", file=sys.stderr)
+        return 2
+
+    capability_id, *remaining = arguments
+    capabilities = {capability.identifier: capability for capability in discover(ops_root)}
+    capability = capabilities.get(capability_id)
+    if capability is None:
+        print(f"route: unknown operations capability {capability_id!r}", file=sys.stderr)
+        return 2
+
+    command = remaining[0] if remaining else "default"
+    command_arguments = remaining[1:]
+    declared = {str(item["name"]) for item in capability.commands}
+    if command != "default" and command not in declared:
+        available = ", ".join(["default", *sorted(declared)])
+        print(
+            f"route: {capability_id!r} does not declare command {command!r}; "
+            f"available: {available}",
+            file=sys.stderr,
+        )
+        return 2
+
+    completed = subprocess.run(
+        [
+            "just",
+            "--justfile",
+            str(capability.root / "justfile"),
+            command,
+            *command_arguments,
+        ],
+        check=False,
+    )
+    return completed.returncode
 
 
 def _steps(ops_root: Path, lane: str) -> list[tuple[str, str]]:
@@ -323,6 +437,8 @@ def main(argv: list[str] | None = None) -> int:
     subcommands.add_parser("list")
     aggregate = subcommands.add_parser("aggregate")
     aggregate.add_argument("lane", choices=("check", "test"))
+    routed = subcommands.add_parser("route")
+    routed.add_argument("arguments", nargs=argparse.REMAINDER)
     arguments = parser.parse_args(argv)
 
     if arguments.command == "validate":
@@ -336,6 +452,8 @@ def main(argv: list[str] | None = None) -> int:
     if arguments.command == "list":
         print(render_list())
         return 0
+    if arguments.command == "route":
+        return route(arguments.arguments)
     return run_lane(OPS, arguments.lane)
 
 

@@ -1,0 +1,39 @@
+$schema: ../control/schema/capability.v1.yaml
+schema_version: xcron-ops-capability/v1
+id: packages
+provides:
+  - package-workspace
+description: Discover and delegate self-contained workspace package verification.
+status: active
+requires:
+  tools: [uv, just]
+  capabilities: [control, quality]
+owns:
+  - ops/packages/**
+reads:
+  - packages/**
+  - capabilities/**
+  - pyproject.toml
+generates:
+  - build/**
+  - dist/**
+commands:
+  - name: list
+    summary: List independently installable workspace distributions and their local lanes.
+    lane: discover
+  - name: doctor
+    summary: Report package metadata and local Justfile contract problems.
+    lane: diagnostic
+  - name: check
+    summary: Delegate the fast check lane to one workspace distribution.
+    lane: check
+    args: distribution [args...]
+  - name: test
+    summary: Delegate the test lane to one workspace distribution.
+    lane: test
+    args: distribution [args...]
+  - name: build
+    summary: Delegate the isolated build lane to one workspace distribution.
+    lane: distribution
+    args: distribution [args...]
+skills: []

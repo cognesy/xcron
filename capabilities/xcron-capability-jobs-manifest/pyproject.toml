@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xcron-capability-jobs-manifest"
+version = "0.1.0"
+description = "Typed YAML-only job-management provider for xcron"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "LicenseRef-Proprietary"
+dependencies = [
+  "xcron-contracts==0.1.0",
+  "xcron-kernel==0.1.0",
+]
+
+[project.entry-points."xcron.capabilities"]
+jobs-manifest = "xcron.capabilities.jobs_manifest.provider:CAPABILITY"
+
+[tool.uv.sources]
+xcron-contracts = { workspace = true }
+xcron-kernel = { workspace = true }
+
+[tool.setuptools]
+packages = ["xcron.capabilities.jobs_manifest"]
+
+[tool.setuptools.package-dir]
+"" = "src"

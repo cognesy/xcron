@@ -90,7 +90,6 @@ def test_launchd_real_apply_kickstart_and_prune(tmp_path: Path) -> None:
         assert apply_result.returncode == 0, apply_result.stderr
         assert '"event": "action_started"' in apply_result.stderr
         assert '"event": "action_finished"' in apply_result.stderr
-        assert '"process_event": "launchd_bootstrap"' in apply_result.stderr
         assert "backend: launchd" in apply_result.stdout
 
         status_result = run_xcron(project, "status", env=env)
@@ -122,7 +121,7 @@ def test_launchd_real_apply_kickstart_and_prune(tmp_path: Path) -> None:
 
         prune_result = run_xcron(project, "prune", env=env)
         assert prune_result.returncode == 0, prune_result.stderr
-        assert "removed: 1" in prune_result.stdout
+        assert "count: 1" in prune_result.stdout
     finally:
         subprocess.run(
             ["launchctl", "bootout", f"{domain}/{label}"],

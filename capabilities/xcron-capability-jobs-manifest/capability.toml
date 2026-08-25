@@ -1,0 +1,17 @@
+[package]
+kind = "provider"
+capability = "jobs"
+implementation = "manifest"
+namespace = "xcron.capabilities.jobs_manifest"
+kernel_api = ">=1,<2"
+
+[provider]
+entry_point = "xcron.capabilities.jobs_manifest.provider:CAPABILITY"
+ports = ["jobs"]
+requires = ["manifest", "scheduler"]
+cli_paths = ["jobs"]
+assets = []
+
+[operations]
+justfile = "justfile"
+required_recipes = ["default", "list", "doctor", "check", "test", "build"]

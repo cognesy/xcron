@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import textwrap
 
-from xcron.channels.cli.main import main
-from xcron.capabilities.reconciliation.api import apply_project
+from xcron_cli.main import main
+from xcron.sdk import Xcron
 
 
 def test_inspect_prints_artifact_wrapper_and_log_paths_for_cron(tmp_path, monkeypatch, capsys) -> None:
@@ -34,13 +34,14 @@ def test_inspect_prints_artifact_wrapper_and_log_paths_for_cron(tmp_path, monkey
     crontab_path = tmp_path / "crontab.txt"
     crontab_path.write_text("", encoding="utf-8")
 
-    result = apply_project(
+    with Xcron.open(
         project,
         backend="cron",
         state_root=state_root,
         crontab_path=crontab_path,
         manage_crontab=True,
-    )
+    ) as client:
+        result = client.schedules.apply()
     assert result.valid is True
 
     monkeypatch.setenv("XCRON_CRONTAB_PATH", str(crontab_path))

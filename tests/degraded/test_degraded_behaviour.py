@@ -252,7 +252,13 @@ def test_the_marker_drills_are_owned_by_the_workspace_module() -> None:
     `workspace` owns the marker, so the drills for it belong to that module's
     lane rather than here. This test fails if that file is renamed away.
     """
-    lane = Path(__file__).resolve().parents[1] / "modules" / "workspace" / "test_marker.py"
+    lane = (
+        Path(__file__).resolve().parents[2]
+        / "capabilities"
+        / "xcron-capability-workspace-local"
+        / "tests"
+        / "test_workspace_marker_degraded.py"
+    )
     source = lane.read_text(encoding="utf-8")
 
     assert "def test_an_unmarked_workspace_warns_and_proceeds" in source

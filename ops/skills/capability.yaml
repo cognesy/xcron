@@ -12,7 +12,7 @@ owns:
   - ops/skills/**
 reads:
   - resources/skills/**
-  - src/xcron/channels/cli/resources/help/**
+  - packages/xcron-cli/src/xcron_cli/resources/help/**
   - tests/test_help_renderer.py
   - tests/test_typer_cli.py
 generates: []

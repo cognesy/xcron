@@ -58,25 +58,25 @@ breaking change process.
 
 ## Architectural Contract
 
-- thin shells stay in `src/xcron/channels/<channel>/`, one package per way
-  into the product
-- use-case actions are capability-owned under `src/xcron/capabilities/` and
-  reached only through each module's `api`. There is no flat action namespace,
-  and no shared services drawer
+- thin shells stay in their own channel distribution (`xcron-cli` today), one
+  package per way into the product
+- use-case actions are provider-owned under independently buildable capability
+  distributions and reached through typed neutral ports. There is no flat action
+  namespace and no shared services drawer
 - every file belongs to one module or to a declared leaf; native scheduler
   adapters live inside the module that defines the port they implement
 - scheduler adapters consume a backend-neutral contract and never import a
   coordinating action result
 - scheduler adapters return a normalized inspection contract rather than
   leaking provider-specific result types into capability orchestration
-- runtime composition stays explicit and channel-independent; it owns resolved
-  invocation options and the provider registry, not product policy
+- SDK composition stays explicit and channel-independent; it owns resolved
+  invocation options and capability selection, not product policy
 - a public SDK may compose the same capability actions, but it must not import
   CLI/output code or duplicate business policy; capability results remain
   independent of output envelopes and renderers
-- packaged resources ship inside the module that reads them — the manifest
-  schema under `manifest`, the logging defaults under `shared` — rather than in
-  a shared resource package
+- packaged resources ship inside the distribution that reads them — for example
+  the manifest schema and logging defaults — rather than in a shared resource
+  package
 - examples, templates, and agent skills stay in `resources/`
 - docs stay in `docs/`
 

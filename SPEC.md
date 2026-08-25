@@ -123,18 +123,20 @@ state for the managed jobs it owns.
 
 ## Repository Structure
 
-The project should use a consistent top-level structure:
+The project uses a capability-package workspace:
 
-- `./src/xcron/channels/`
-  - runnable and deployable thin shells, one package per channel
-  - for `xcron`, this primarily means the CLI
-  - in other systems, this could include REST API servers, web apps, queue
-    workers, or other executable entrypoints
-- `./src/xcron/`
-  - the library half: capabilities, domain logic, configuration, runtime
-    composition, and the SDK
-  - a capability owns its own services, planners, and backend adapters; there
-    is no shared bucket for them
+- `./packages/xcron-kernel/`, `./packages/xcron-contracts/`, and
+  `./packages/xcron-sdk/`
+  - generic discovery/selection, the neutral typed vocabulary, and the public
+    in-process client
+- `./packages/xcron-cli/`
+  - the runnable Typer/output channel, including packaged help and renderers
+- `./capabilities/xcron-capability-*/`
+  - one independently buildable provider micropackage per owned decision,
+    including descriptor, source, resources, tests, README, and `justfile`
+- `./ops/`
+  - metadata-rich self-service operational micropackages and their aggregate
+    Just dispatcher
 - `./resources/`
   - static and semi-static assets required by the system
   - includes data files, configs, schemas, templates, migrations, and similar
@@ -209,8 +211,8 @@ Service responsibilities:
 Thin shells translate external inputs into action parameters and invoke actions
 with the required context.
 
-For `xcron`, thin shells are primarily CLI commands in
-`./src/xcron/channels/cli/`.
+For `xcron`, the thin shell is the CLI distribution under
+`./packages/xcron-cli/src/xcron_cli/`.
 
 In broader systems, thin shells could also include:
 
@@ -232,14 +234,14 @@ backend reconciliation logic, or domain rules.
 
 ## Architectural Expectations
 
-- CLI commands live under `./src/xcron/channels/cli/` and should be minimal
-  shells around a capability's public surface
-- Core use cases live inside the capability that owns the decision, under
-  `./src/xcron/capabilities/<module>/`, reached only through its `api`
+- CLI commands live in `./packages/xcron-cli/src/xcron_cli/` and should be
+  minimal shells around the typed SDK
+- Core use cases live inside the provider that owns the decision, under
+  `./capabilities/xcron-capability-*/`, reached through a neutral contract port
 - Backend integrations live inside the capability that defines the port they
   implement, not in a shared services directory
-- Config schemas, templates, example YAML files, and similar assets live under
-  `./resources/`
+- Runtime schemas, templates, and defaults ship inside the provider package
+  that reads them; examples and agent assets remain under `./resources/`
 - Human documentation lives under `./docs/`
 - The Python prototype should follow this structure instead of growing as a set
   of scripts

@@ -1,0 +1,21 @@
+set positional-arguments := true
+
+ROOT := parent_directory(parent_directory(justfile_directory()))
+
+default:
+    @just --list
+
+list:
+    @just --list
+
+doctor:
+    @uv run --project {{ROOT}} python -c "from xcron_cli.contributions import attach_cli_contributions; assert attach_cli_contributions"
+
+check:
+    @uv run --project {{ROOT}} pytest {{ROOT}}/packages/xcron-cli/tests -q
+
+test:
+    @uv run --project {{ROOT}} pytest {{ROOT}}/packages/xcron-cli/tests -q
+
+build:
+    @uv build --project {{ROOT}} --package xcron-cli --out-dir /tmp/xcron-cli-build --clear

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import textwrap
 
-from xcron.channels.cli.main import main
-from xcron.capabilities.reconciliation.api import apply_project
+from xcron_cli.main import main
+from xcron.sdk import Xcron
 
 
 def test_status_tmux_output_is_compact(tmp_path, monkeypatch, capsys) -> None:
@@ -41,13 +41,14 @@ def test_status_tmux_output_is_compact(tmp_path, monkeypatch, capsys) -> None:
     crontab_path = tmp_path / "crontab.txt"
     crontab_path.write_text("", encoding="utf-8")
 
-    result = apply_project(
+    with Xcron.open(
         project,
         backend="cron",
         state_root=state_root,
         crontab_path=crontab_path,
         manage_crontab=True,
-    )
+    ) as client:
+        result = client.schedules.apply()
     assert result.valid is True
 
     monkeypatch.setenv("XCRON_CRONTAB_PATH", str(crontab_path))
