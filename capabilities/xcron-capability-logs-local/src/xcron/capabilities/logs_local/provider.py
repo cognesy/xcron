@@ -132,7 +132,7 @@ def _artifact_id(path: Path) -> str:
 DESCRIPTOR = CapabilityDescriptor(
     capability="logs",
     implementation="local",
-    version="0.1.0",
+    version="0.1.1",
     kernel_api=">=1,<2",
     requires=(CapabilityRequirement("workspace"), CapabilityRequirement("scheduler")),
     provides=CapabilityProvides(ports=("logs",), cli_paths=("logs",)),

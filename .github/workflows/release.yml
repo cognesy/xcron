@@ -31,6 +31,11 @@ jobs:
         with:
           enable-cache: true
 
+      - name: Install Just
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just
+
       - name: Synchronize the locked development environment
         run: uv sync --frozen
 

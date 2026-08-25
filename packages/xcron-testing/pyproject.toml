@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xcron-testing"
-version = "0.1.0"
+version = "0.1.1"
 description = "Conformance and package-layout checks for xcron providers"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "LicenseRef-Proprietary"
 dependencies = [
-  "xcron-contracts==0.1.0",
-  "xcron-kernel==0.1.0",
+  "xcron-contracts==0.1.1",
+  "xcron-kernel==0.1.1",
 ]
 
 [tool.uv.sources]

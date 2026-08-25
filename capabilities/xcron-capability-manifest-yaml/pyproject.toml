@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xcron-capability-manifest-yaml"
-version = "0.1.0"
+version = "0.1.1"
 description = "YAML manifest validation, hashing, and editing provider for xcron"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -12,8 +12,8 @@ license = "LicenseRef-Proprietary"
 dependencies = [
   "PyYAML>=6.0,<7.0",
   "jsonschema>=4.23,<5.0",
-  "xcron-contracts==0.1.0",
-  "xcron-kernel==0.1.0",
+  "xcron-contracts==0.1.1",
+  "xcron-kernel==0.1.1",
 ]
 
 [project.entry-points."xcron.capabilities"]
